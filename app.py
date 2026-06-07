@@ -609,9 +609,8 @@ if gerar_laudo:
         p_assinatura = doc.add_paragraph()
         p_assinatura.alignment = WD_ALIGN_PARAGRAPH.CENTER
         
-        if nome_medico:
-            run_n = p_assinatura.add_run(f"{nome_medico}\n")
-            run_n.bold = True
+if nome_medico:
+    p_assinatura.add_run(f"Dr. {nome_medico}\n").bold = True
         if crm_medico:
             p_assinatura.add_run(crm_medico)
 
