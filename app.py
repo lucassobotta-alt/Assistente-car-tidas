@@ -19,11 +19,28 @@ if 'calcificacoes_isoladas' not in st.session_state:
 if 'lesoes_nao_ateromatosas' not in st.session_state:
     st.session_state.lesoes_nao_ateromatosas = []
 
-# 🔹 SEU QUADRO ORIGINAL DE CONDIÇÕES TÉCNICAS (RESTAURADO INTEGRALMENTE)
+# 🔹 QUADRO DE CONDIÇÕES TÉCNICAS RESTRUTURADO EXATAMENTE IGUAL À IMAGE_54.PNG
 opcoes_tecnicas = {
-    "Padrão": "Exame realizado sob ótimas condições técnicas.",
-    "Janela Limitada": "Exame realizado sob limitações técnicas parciais devido a...",
-    "Artefatos de Calcificação": "Exame prejudicado pela presença de artefatos de calcificação grosseira."
+    "1. Exame sem limitações técnicas": (
+        "Exame realizado em decúbito dorsal, utilizando transdutor linear de alta frequência, "
+        "com avaliação bidimensional, mapeamento de fluxo a cores e Doppler pulsado, sem limitações técnicas."
+    ),
+    "2. Exame com limitação por condições anatômicas desfavoráveis": (
+        "Exame realizado em decúbito dorsal, utilizando transdutor linear de alta frequência, "
+        "com avaliação bidimensional, mapeamento de fluxo a cores e Doppler pulsado. Devido a condições "
+        "anatômicas desfavoráveis para insonação dos vasos cervicais, foi necessária avaliação complementar "
+        "com transdutor convexo, o que pode reduzir a sensibilidade para identificação de placas "
+        "ateroscleróticas de pequenas dimensões."
+    ),
+    "3. Exame realizado à beira do leito (UTI)": (
+        "Exame realizado à beira do leito em unidade de terapia intensiva, utilizando transdutor linear de "
+        "alta frequência, com limitações técnicas inerentes às condições do exame."
+    ),
+    "4. Exame à beira do leito (UTI) com curativos cervicais": (
+        "Exame realizado à beira do leito em unidade de terapia intensiva, utilizando transdutor linear de "
+        "alta frequência, com limitações técnicas inerentes às condições do exame e à presença de curativos "
+        "cervicais sobre acessos jugulares."
+    )
 }
 
 # --- FUNÇÕES AUXILIARES ---
@@ -120,17 +137,17 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # 🔄 BOTÃO DE RESET REFEITO DO ZERO (Limpa a tela e recarrega na hora de forma nativa)
     if st.button("🔄 Resetar Todos os Parâmetros", use_container_width=True, type="secondary"):
         st.session_state.reset_trigger = True
         st.toast("🔄 Todos os dados foram limpos com sucesso!")
         st.rerun()
 
-# --- DADOS DO PACIENTE (USANDO O QUADRO RESTAURADO) ---
+# --- DADOS DO PACIENTE ---
 col_id1, col_id2 = st.columns([2, 2])
 with col_id1:
     nome = st.text_input("Nome do Paciente", "Paciente Exemplo")
 with col_id2:
+    # Renderiza exatamente os títulos do print fornecido
     opcao_selecionada = st.selectbox("Condições Técnicas do Exame:", list(opcoes_tecnicas.keys()))
     texto_tecnica_final = opcoes_tecnicas[opcao_selecionada]
 
@@ -160,7 +177,6 @@ with col_hemo_esq:
 
 st.markdown("---")
 
-# 🔹 SEÇÃO DE LESÕES NÃO ATEROMATOSAS (Totalmente sem campo de espessura/mm)
 with st.expander("🔄 2. Lesões Não Ateromatosas (Tortuosidades e Vasculite)"):
     col_na1, col_na2 = st.columns(2)
     with col_na1:
@@ -598,7 +614,7 @@ if gerar_laudo:
     if maior_que_plaque_rads_2 or any(p['plaque_rads'] is not None for p in st.session_state.lista_placas):
         obs_ativas.append(
             "\"A classificação Plaque-RADS padroniza a caracterização ultrassonográfica das placas carotídeas, "
-            "incorporando aspectos morfológicos relacionados à vulnerabilidade da placa e fornecendo informação "
+            "incorporando aspects morfológicos relacionados à vulnerabilidade da placa e fornecendo informação "
             "complementar ao grau de estenose na estratificação do risco de eventos cerebrovasculares.\" Referências: "
             "Plaque-RADS™ Consensus Statement (2023); recomendações da Society of Radiologists in Ultrasound para "
             "avaliação ultrassonográfica da doença carotídea."
@@ -611,7 +627,7 @@ if gerar_laudo:
         for i, texto_obs in enumerate(obs_ativas):
             adicionar_texto_esquerda(texto_obs, bold_prefix=f"– Observação {i+1}: ")
 
-    # --- CARIMBO DE ASSINATURA INDEPENDENTE (CRM e RQE SEPARADOS) ---
+    # --- CARIMBO DE ASSINATURA ---
     if nome_medico or crm_medico or rqe_medico:
         doc.add_paragraph().paragraph_format.space_before = Pt(36)
         p_assinatura = doc.add_paragraph()
