@@ -14,7 +14,7 @@ if 'calcificacoes_isoladas' not in st.session_state:
 if 'lesoes_nao_ateromatosas' not in st.session_state:
     st.session_state.lesoes_nao_ateromatosas = []
 
-# Dicionário estático de Condições Técnicas
+# 🔹 SUAS FRASES ORIGINAIS (Mantidas exatamente como no seu projeto)
 opcoes_tecnicas = {
     "Padrão (Ótima janela)": "Exame realizado sob condições técnicas ideais, com excelente visibilidade acústica de todas as estruturas vasculares cervicais avaliadas.",
     "Janela Limitada (Cervical Curto/Adiposo)": "Exame realizado sob limitações técnicas parciais devido à anatomia cervical desfavorável e atenuação acústica acentuada, contudo permitindo análise hemodinâmica satisfatória.",
@@ -125,7 +125,7 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # 🔄 LÓGICA DE RESET CORRIGIDA (Limpa o session_state das listas e força a deleção das chaves dos inputs)
+    # 🔄 LÓGICA DE RESET GLOBAL REVISADA (Deleta absolutamente todas as chaves mapeadas da UI)
     if st.button("🔄 Resetar Todos os Parâmetros", use_container_width=True, type="secondary"):
         st.session_state.lista_placas = []
         st.session_state.lesoes_incipientes = []
@@ -136,7 +136,9 @@ with st.sidebar:
             "dinamica_diretriz", "dinamica_ano_dislip", "dinamica_fonte", 
             "dinamica_tamanho_fonte", "dinamica_espacamento", "dinamica_quebra_pag",
             "dinamica_clinica", "dinamica_medico", "dinamica_crm", "dinamica_rqe",
-            "nome_paciente", "condicoes_tecnicas"
+            "nome_paciente", "condicoes_tecnicas",
+            "cmi_d", "est_aci_d", "vps_aci_d", "vcc_d", "ace_d", "esp_v_d", "vps_v_d",
+            "cmi_e", "est_aci_e", "vps_aci_e", "vcc_e", "ace_e", "esp_v_e", "vps_v_e"
         ]
         for chave in chaves_para_resetar:
             if chave in st.session_state:
@@ -157,29 +159,29 @@ st.markdown("---")
 st.markdown("### 📊 Parâmetros Hemodinâmicos")
 col_hemo_dir, col_hemo_esq = st.columns(2)
 
+# 🔄 ADICIONADAS KEYS EM TODOS OS INPUTS PARA QUE O RESET LIMPE O PREENCHIMENTO NA TELA
 with col_hemo_dir:
     st.header("LADO DIREITO")
-    cmi_dir = st.number_input("CMI Artéria Carótida Comum Direita (mm)", min_value=0.0, max_value=5.0, value=0.4, step=0.1)
-    estado_aci_dir = st.selectbox("Estado da Artéria Carótida Interna Direita", ["Pérvia (Calcular por Velocidade)", "Suboclusão", "Oclusão"])
-    vps_aci_dir = st.number_input("VPS Artéria Carótida Interna Direita (cm/s)", min_value=0.0, value=90.0, step=5.0)
-    vcc_dir = st.number_input("VPS Artéria Carótida Comum Direita (cm/s)", min_value=1.0, value=60.0, step=5.0)
-    ace_dir = st.selectbox("Artéria Carótida Externa Direita", ["Com padrão espectral de alta resistência, compatível com perfusão de leitos musculares extracranianos.", "Alterada / Estenose hemodinâmica"])
-    espectro_vert_dir = st.selectbox("Espectro Artéria Vertebral Direita", ["Normal (Fluxo Anterógrado)", "Hipoplasia", "Roubo Latente", "Roubo Parcial (Fluxo Alternante)", "Roubo Total (Fluxo Retrógrado)"])
-    vps_vert_dir = st.number_input("VPS Artéria Vertebral Direita (cm/s)", min_value=0.0, value=30.0, step=5.0)
+    cmi_dir = st.number_input("CMI Artéria Carótida Comum Direita (mm)", min_value=0.0, max_value=5.0, value=0.4, step=0.1, key="cmi_d")
+    estado_aci_dir = st.selectbox("Estado da Artéria Carótida Interna Direita", ["Pérvia (Calcular por Velocidade)", "Suboclusão", "Oclusão"], key="est_aci_d")
+    vps_aci_dir = st.number_input("VPS Artéria Carótida Interna Direita (cm/s)", min_value=0.0, value=90.0, step=5.0, key="vps_aci_d")
+    vcc_dir = st.number_input("VPS Artéria Carótida Comum Direita (cm/s)", min_value=1.0, value=60.0, step=5.0, key="vcc_d")
+    ace_dir = st.selectbox("Artéria Carótida Externa Direita", ["Com padrão espectral de alta resistência, compatível com perfusão de leitos musculares extracranianos.", "Alterada / Estenose hemodinâmica"], key="ace_d")
+    espectro_vert_dir = st.selectbox("Espectro Artéria Vertebral Direita", ["Normal (Fluxo Anterógrado)", "Hipoplasia", "Roubo Latente", "Roubo Parcial (Fluxo Alternante)", "Roubo Total (Fluxo Retrógrado)"], key="esp_v_d")
+    vps_vert_dir = st.number_input("VPS Artéria Vertebral Direita (cm/s)", min_value=0.0, value=30.0, step=5.0, key="vps_v_d")
 
 with col_hemo_esq:
     st.header("LADO ESQUERDO")
-    cmi_esq = st.number_input("CMI Artéria Carótida Comum Esquerda (mm)", min_value=0.0, max_value=5.0, value=0.4, step=0.1)
-    estado_aci_esq = st.selectbox("Estado da Artéria Carótida Interna Esquerda", ["Pérvia (Calcular por Velocidade)", "Suboclusão", "Oclusão"])
-    vps_aci_esq = st.number_input("VPS Artéria Carótida Interna Esquerda (cm/s)", min_value=0.0, value=100.0, step=5.0)
-    vcc_esq = st.number_input("VPS Artéria Carótida Comum Esquerda (cm/s)", min_value=1.0, value=60.0, step=5.0)
-    ace_esq = st.selectbox("Artéria Carótida Externa Esquerda", ["Com padrão espectral de alta resistência, compatível com perfusão de leitos musculares extracranianos.", "Alterada / Estenose hemodinâmica"])
-    espectro_vert_esq = st.selectbox("Espectro Artéria Vertebral Esquerda", ["Normal (Fluxo Anterógrado)", "Hipoplasia", "Roubo Latente", "Roubo Parcial (Fluxo Alternante)", "Roubo Total (Fluxo Retrógrado)"])
-    vps_vert_esq = st.number_input("VPS Artéria Vertebral Esquerda (cm/s)", min_value=0.0, value=30.0, step=5.0)
+    cmi_esq = st.number_input("CMI Artéria Carótida Comum Esquerda (mm)", min_value=0.0, max_value=5.0, value=0.4, step=0.1, key="cmi_e")
+    estado_aci_esq = st.selectbox("Estado da Artéria Carótida Interna Esquerda", ["Pérvia (Calcular por Velocidade)", "Suboclusão", "Oclusão"], key="est_aci_e")
+    vps_aci_esq = st.number_input("VPS Artéria Carótida Interna Esquerda (cm/s)", min_value=0.0, value=100.0, step=5.0, key="vps_aci_e")
+    vcc_esq = st.number_input("VPS Artéria Carótida Comum Esquerda (cm/s)", min_value=1.0, value=60.0, step=5.0, key="vcc_e")
+    ace_esq = st.selectbox("Artéria Carótida Externa Esquerda", ["Com padrão espectral de alta resistência, compatível com perfusão de leitos musculares extracranianos.", "Alterada / Estenose hemodinâmica"], key="ace_e")
+    espectro_vert_esq = st.selectbox("Espectro Artéria Vertebral Esquerda", ["Normal (Fluxo Anterógrado)", "Hipoplasia", "Roubo Latente", "Roubo Parcial (Fluxo Alternante)", "Roubo Total (Fluxo Retrógrado)"], key="esp_v_e")
+    vps_vert_esq = st.number_input("VPS Artéria Vertebral Esquerda (cm/s)", min_value=0.0, value=30.0, step=5.0, key="vps_v_e")
 
 st.markdown("---")
 
-# 🔄 CORREÇÃO: REMOVIDA INDICAÇÃO OU INPUT DE ESPESSURA EM LESÕES NÃO ATEROMATOSAS
 with st.expander("🔄 2. Lesões Não Ateromatosas (Tortuosidades e Vasculite)"):
     col_na1, col_na2 = st.columns(2)
     with col_na1:
@@ -331,7 +333,7 @@ st.markdown("---")
 gerar_laudo = st.button("🚀 Gerar Laudo Clínico Completo", use_container_width=True)
 
 # ==========================================
-#      MOTOR DE GERAÇÃO TEXTUAL REVISADO
+#         MOTOR DE GERAÇÃO TEXTUAL 
 # ==========================================
 if gerar_laudo:
     tem_placa_aci_dir = any("interna direita" in p['vaso'].lower() for p in st.session_state.lista_placas)
@@ -410,7 +412,7 @@ if gerar_laudo:
         txt_comum_dir += f" Identifica-se alteração estrutural incipiente precoce (espessamento focal igual ou inferior a 1.5 mm) no {inc['localizacao']}, medindo {inc['espessura']} mm de espessura."
     for p in [x for x in st.session_state.lista_placas if "carótida comum direita" in x['vaso'].lower()]:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
-        txt_comum_dir += f" Identifica-se na parede uma placa de ateroma {p['composicao_texto'].lower()}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
+        txt_comum_dir += f" Identifica-se na parede uma placa de ateroma {p['composicao_texto'].lower()}, medindo {p['espessura']} mm de espessura máxima, com superficie {p['superficie_texto'].lower()}{suffix_pr}."
     for c in st.session_state.calcificacoes_isoladas:
         if c['lado'] == "Direito" and "comum" in c['topografia']:
             txt_comum_dir += " Identificam-se calcificações parietais isoladas sem repercussão hemodinâmica."
@@ -596,7 +598,7 @@ if gerar_laudo:
             tem_achado = True
 
     if not tem_achado:
-        adicionar_texto_esquerda("– Artéries carótidas e vertebrais pérvias, com trajetos e padrões de fluxo normais, dentro dos limites da normalidade.")
+        adicionar_texto_esquerda("– Artérias carótidas e vertebrais pérvias, com trajetos e padrões de fluxo normais, dentro dos limites da normalidade.")
 
     # --- OBSERVAÇÕES DIRETIVAS DE RISCO ---
     obs_ativas = []
@@ -617,10 +619,50 @@ if gerar_laudo:
     if maior_que_plaque_rads_2 or any(p['plaque_rads'] is not None for p in st.session_state.lista_placas):
         obs_ativas.append(
             "\"A classificação Plaque-RADS padroniza a caracterização ultrassonográfica das placas carotídeas, "
-            "incorporando aspectos morfológicos relacionados à vulnerabilidade da placa e fornecendo informação "
+            "incorporando aspects morfológicos relacionados à vulnerabilidade da placa e fornecendo informação "
             "complementar ao grau de estenose na estratificação do risco de eventos cerebrovasculares.\" Referências: "
             "Plaque-RADS™ Consensus Statement (2023); recomendações da Society of Radiologists in Ultrasound para "
             "avaliação ultrassonográfica da doença carotídea."
+        )
+
+    total_obs = len(obs_ativas)
+    if total_obs == 1:
+        adicionar_texto_esquerda(obs_ativas[0], bold_prefix="– Observação: ")
+    elif total_obs > 1:
+        for i, texto_obs in enumerate(obs_ativas):
+            adicionar_texto_esquerda(texto_obs, bold_prefix=f"– Observação {i+1}: ")
+
+    # --- CARIMBO DE ASSINATURA INDEPENDENTE (CRM e RQE SEPARADOS) ---
+    if nome_medico or crm_medico or rqe_medico:
+        doc.add_paragraph().paragraph_format.space_before = Pt(36)
+        p_assinatura = doc.add_paragraph()
+        p_assinatura.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+        if nome_medico:
+            p_assinatura.add_run(f"{nome_medico}\n").bold = True
+            
+        linhas_carimbo = []
+        if crm_medico:
+            prefixo_crm = "" if "CRM" in crm_medico.upper() else "CRM "
+            linhas_carimbo.append(f"{prefixo_crm}{crm_medico}")
+        if rqe_medico:
+            prefixo_rqe = "" if "RQE" in rqe_medico.upper() else "RQE "
+            linhas_carimbo.append(f"{prefixo_rqe}{rqe_medico}")
+            
+        if layout_carimbo := " / ".join(linhas_carimbo):
+            p_assinatura.add_run(layout_carimbo)
+
+    buffer = BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+
+    st.success("Laudo integrado e atualizado gerado com sucesso!")
+    st.download_button(
+        label="📥 Baixar Laudo Formatado (.docx)", 
+        data=buffer, 
+        file_name="Laudo_Vascular_Completo.docx", 
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
         )
 
     total_obs = len(obs_ativas)
