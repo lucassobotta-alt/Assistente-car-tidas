@@ -4,7 +4,12 @@ from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
 
-# --- INICIALIZAÇÃO SEGURA DO ESTADO DA SESSÃO ---
+# --- FORÇA O RESET DE TODOS OS COMPONENTES VIA SESSION STATE ---
+if "reset_trigger" in st.session_state and st.session_state.reset_trigger:
+    st.session_state.clear()
+    st.session_state.reset_trigger = False
+
+# --- INICIALIZAÇÃO SEGURA DAS LISTAS ---
 if 'lista_placas' not in st.session_state:
     st.session_state.lista_placas = []
 if 'lesoes_incipientes' not in st.session_state:
@@ -14,32 +19,26 @@ if 'calcificacoes_isoladas' not in st.session_state:
 if 'lesoes_nao_ateromatosas' not in st.session_state:
     st.session_state.lesoes_nao_ateromatosas = []
 
-# 🔹 SUAS FRASES ORIGINAIS (Mantidas exatamente como no seu projeto)
+# 🔹 SEU QUADRO ORIGINAL DE CONDIÇÕES TÉCNICAS (RESTAURADO INTEGRALMENTE)
 opcoes_tecnicas = {
-    "Padrão (Ótima janela)": "Exame realizado sob condições técnicas ideais, com excelente visibilidade acústica de todas as estruturas vasculares cervicais avaliadas.",
-    "Janela Limitada (Cervical Curto/Adiposo)": "Exame realizado sob limitações técnicas parciais devido à anatomia cervical desfavorável e atenuação acústica acentuada, contudo permitindo análise hemodinâmica satisfatória.",
-    "Artefatos de Calcificação Coante": "Exame com visibilidade local prejudicada por sombra acústica posterior secundária a calcificações parietais grosseiras."
+    "Padrão": "Exame realizado sob ótimas condições técnicas.",
+    "Janela Limitada": "Exame realizado sob limitações técnicas parciais devido a...",
+    "Artefatos de Calcificação": "Exame prejudicado pela presença de artefatos de calcificação grosseira."
 }
 
-# --- FUNÇÕES AUXILIARES DE SUPORTE ---
+# --- FUNÇÕES AUXILIARES ---
 def retirar_prefixo_numerico(opcao_texto):
     if ". " in opcao_texto:
         return opcao_texto.split(". ", 1)[1]
     return opcao_texto
 
-def estimar_plaque_rads(opcao_texto):
-    if opcao_texto.startswith("1."):
-        return "Plaque-RADS 1 (Placa puramente calcificada)"
-    elif opcao_texto.startswith("2."):
-        return "Plaque-RADS 2 (Placa fibrocalcificada ou fibrosa estável)"
-    elif opcao_texto.startswith("3."):
-        return "Plaque-RADS 3 (Placa predominantemente fibrosa)"
-    elif opcao_texto.startswith("4."):
-        return "Plaque-RADS 4 (Placa com núcleo lipídico/necrótico delimitado)"
-    elif opcao_texto.startswith("5."):
-        return "Plaque-RADS 5 (Placa predominantemente anecogênica/vulnerável)"
-    elif opcao_texto.startswith("6."):
-        return "Plaque-RADS 5 (Placa uniformemente anecogênica de alta vulnerabilidade)"
+def estimate_plaque_rads(opcao_texto):
+    if opcao_texto.startswith("1."): return "Plaque-RADS 1"
+    elif opcao_texto.startswith("2."): return "Plaque-RADS 2"
+    elif opcao_texto.startswith("3."): return "Plaque-RADS 3"
+    elif opcao_texto.startswith("4."): return "Plaque-RADS 4"
+    elif opcao_texto.startswith("5."): return "Plaque-RADS 5"
+    elif opcao_texto.startswith("6."): return "Plaque-RADS 6"
     return None
 
 # --- CLASSIFICADORES HEMODINÂMICOS ---
@@ -67,7 +66,7 @@ def obter_texto_hemo_continuo(estado, vps_aci, vcc, tem_placa=False, diretriz="D
         else:
             return "Estenose de 50-59%", f"determinando estenose moderada (50-59% pelos critérios da Diretriz SBC 2023), caracterizada por VPS na artéria carótida interna de {vps_aci} cm/s e relação artéria carótida interna / artéria carótida comum de {relacao}."
             
-    else:  # Critérios Clássicos do NASCET
+    else:  # Critérios NASCET
         if vps_aci < 125:
             if tem_placa:
                 return "Estenose < 50%", f"determinando estenose leve (<50% pelos critérios do Consenso NASCET), com VPS na artéria carótida interna de {vps_aci} cm/s."
@@ -95,93 +94,73 @@ def avaliar_vertebral(espectro, vps_vert):
         return "Sinal de Roubo Total da Subclávia", "Artéria vertebral apresentando inversão completa e contínua do seu vetor de fluxo, confirmando o fenômeno de roubo de subclávia secundário a oclusão da artéria subclávia proximal ipsilateral."
     return "Alterada", f"Artéria vertebral com alterações inespecíficas do padrão de fluxo. VPS: {vps_vert} cm/s."
 
-# --- CONFIGURAÇÃO DA INTERFACE STREAMLIT ---
+# --- INTERFACE STREAMLIT ---
 st.set_page_config(page_title="Laudo Neurovascular Avançado", layout="wide")
 st.title("⚕️ Assistente de Laudos Vascular Completo")
 
-# --- PAINEL DE CONTROLE LATERAL (COM SUPORTE A REFRESH DINÂMICO) ---
+# --- PAINEL LATERAL DE CONTROLE ---
 with st.sidebar:
     st.markdown("## ⚙️ Painel de Controle Avançado")
     st.markdown("### 📚 Critérios Científicos")
-    diretriz_selecionada = st.radio(
-        "Diretriz Hemodinâmica de Referência:",
-        ["Diretriz SBC 2023", "Consenso Clássico NASCET"],
-        key="dinamica_diretriz"
-    )
-    ano_dislipidemia = st.selectbox("Ano da Diretriz de Dislipidemia:", ["2025", "2023"], index=0, key="dinamica_ano_dislip")
+    diretriz_selecionada = st.radio("Diretriz Hemodinâmica de Referência:", ["Diretriz SBC 2023", "Consenso Clássico NASCET"])
+    ano_dislipidemia = st.selectbox("Ano da Diretriz de Dislipidemia:", ["2025", "2023"], index=0)
     st.markdown("---")
     st.markdown("### 📝 Formatação Externa (.docx)")
-    fonte_doc = st.selectbox("Família da Fonte:", ["Arial", "Calibri", "Times New Roman"], index=0, key="dinamica_fonte")
-    tamanho_fonte = st.slider("Tamanho do Texto (pt):", 10, 14, 11, step=1, key="dinamica_tamanho_fonte")
-    espacamento_linhas = st.slider("Espaçamento entre Linhas:", 1.0, 1.5, 1.15, step=0.05, key="dinamica_espacamento")
-    quebrar_pagina_diag = st.toggle("Separar Impressão Diagnóstica em Nova Página", value=False, key="dinamica_quebra_pag")
+    fonte_doc = st.selectbox("Família da Fonte:", ["Arial", "Calibri", "Times New Roman"], index=0)
+    tamanho_fonte = st.slider("Tamanho do Texto (pt):", 10, 14, 11, step=1)
+    espacamento_linhas = st.slider("Espaçamento entre Linhas:", 1.0, 1.5, 1.15, step=0.05)
+    quebrar_pagina_diag = st.toggle("Separar Impressão Diagnóstica em Nova Página", value=False)
     st.markdown("---")
     
     st.markdown("### ✍️ Identidade & Assinatura")
-    nome_clinica = st.text_input("Cabeçalho / Nome da Clínica:", placeholder="Ex: Instituto de Diagnóstico por Imagem", key="dinamica_clinica")
-    nome_medico = st.text_input("Nome do Médico:", "Lucas Santos Guimarães", key="dinamica_medico")
-    crm_medico = st.text_input("CRM / UF:", placeholder="Ex: 4061/SE", key="dinamica_crm")
-    rqe_medico = st.text_input("RQE (Opcional):", placeholder="Ex: 1234", key="dinamica_rqe")
+    nome_clinica = st.text_input("Cabeçalho / Nome da Clínica:", placeholder="Ex: Instituto de Diagnóstico por Imagem")
+    nome_medico = st.text_input("Nome do Médico:", "Lucas Santos Guimarães")
+    crm_medico = st.text_input("CRM / UF:", placeholder="Ex: 4061/SE")
+    rqe_medico = st.text_input("RQE (Opcional):", placeholder="Ex: 1234")
     
     st.markdown("---")
     
-    # 🔄 LÓGICA DE RESET GLOBAL REVISADA (Deleta absolutamente todas as chaves mapeadas da UI)
+    # 🔄 BOTÃO DE RESET REFEITO DO ZERO (Limpa a tela e recarrega na hora de forma nativa)
     if st.button("🔄 Resetar Todos os Parâmetros", use_container_width=True, type="secondary"):
-        st.session_state.lista_placas = []
-        st.session_state.lesoes_incipientes = []
-        st.session_state.calcificacoes_isoladas = []
-        st.session_state.lesoes_nao_ateromatosas = []
-        
-        chaves_para_resetar = [
-            "dinamica_diretriz", "dinamica_ano_dislip", "dinamica_fonte", 
-            "dinamica_tamanho_fonte", "dinamica_espacamento", "dinamica_quebra_pag",
-            "dinamica_clinica", "dinamica_medico", "dinamica_crm", "dinamica_rqe",
-            "nome_paciente", "condicoes_tecnicas",
-            "cmi_d", "est_aci_d", "vps_aci_d", "vcc_d", "ace_d", "esp_v_d", "vps_v_d",
-            "cmi_e", "est_aci_e", "vps_aci_e", "vcc_e", "ace_e", "esp_v_e", "vps_v_e"
-        ]
-        for chave in chaves_para_resetar:
-            if chave in st.session_state:
-                del st.session_state[chave]
-                
-        st.toast("🔄 Todos os dados e painéis foram reiniciados com sucesso!")
+        st.session_state.reset_trigger = True
+        st.toast("🔄 Todos os dados foram limpos com sucesso!")
         st.rerun()
 
-# --- BLOCO PRINCIPAL: DADOS DO PACIENTE ---
+# --- DADOS DO PACIENTE (USANDO O QUADRO RESTAURADO) ---
 col_id1, col_id2 = st.columns([2, 2])
 with col_id1:
-    nome = st.text_input("Nome do Paciente", "Paciente Exemplo", key="nome_paciente")
+    nome = st.text_input("Nome do Paciente", "Paciente Exemplo")
 with col_id2:
-    opcao_selecionada = st.selectbox("Condições Técnicas do Exame:", list(opcoes_tecnicas.keys()), key="condicoes_tecnicas")
+    opcao_selecionada = st.selectbox("Condições Técnicas do Exame:", list(opcoes_tecnicas.keys()))
     texto_tecnica_final = opcoes_tecnicas[opcao_selecionada]
 
 st.markdown("---")
 st.markdown("### 📊 Parâmetros Hemodinâmicos")
 col_hemo_dir, col_hemo_esq = st.columns(2)
 
-# 🔄 ADICIONADAS KEYS EM TODOS OS INPUTS PARA QUE O RESET LIMPE O PREENCHIMENTO NA TELA
 with col_hemo_dir:
     st.header("LADO DIREITO")
-    cmi_dir = st.number_input("CMI Artéria Carótida Comum Direita (mm)", min_value=0.0, max_value=5.0, value=0.4, step=0.1, key="cmi_d")
-    estado_aci_dir = st.selectbox("Estado da Artéria Carótida Interna Direita", ["Pérvia (Calcular por Velocidade)", "Suboclusão", "Oclusão"], key="est_aci_d")
-    vps_aci_dir = st.number_input("VPS Artéria Carótida Interna Direita (cm/s)", min_value=0.0, value=90.0, step=5.0, key="vps_aci_d")
-    vcc_dir = st.number_input("VPS Artéria Carótida Comum Direita (cm/s)", min_value=1.0, value=60.0, step=5.0, key="vcc_d")
-    ace_dir = st.selectbox("Artéria Carótida Externa Direita", ["Com padrão espectral de alta resistência, compatível com perfusão de leitos musculares extracranianos.", "Alterada / Estenose hemodinâmica"], key="ace_d")
-    espectro_vert_dir = st.selectbox("Espectro Artéria Vertebral Direita", ["Normal (Fluxo Anterógrado)", "Hipoplasia", "Roubo Latente", "Roubo Parcial (Fluxo Alternante)", "Roubo Total (Fluxo Retrógrado)"], key="esp_v_d")
-    vps_vert_dir = st.number_input("VPS Artéria Vertebral Direita (cm/s)", min_value=0.0, value=30.0, step=5.0, key="vps_v_d")
+    cmi_dir = st.number_input("CMI Artéria Carótida Comum Direita (mm)", min_value=0.0, max_value=5.0, value=0.4, step=0.1)
+    estado_aci_dir = st.selectbox("Estado da Artéria Carótida Interna Direita", ["Pérvia (Calcular por Velocidade)", "Suboclusão", "Oclusão"])
+    vps_aci_dir = st.number_input("VPS Artéria Carótida Interna Direita (cm/s)", min_value=0.0, value=90.0, step=5.0)
+    vcc_dir = st.number_input("VPS Artéria Carótida Comum Direita (cm/s)", min_value=1.0, value=60.0, step=5.0)
+    ace_dir = st.selectbox("Artéria Carótida Externa Direita", ["Com padrão espectral de alta resistência, compatível com perfusão de leitos musculares extracranianos.", "Alterada / Estenose hemodinâmica"])
+    espectro_vert_dir = st.selectbox("Espectro Artéria Vertebral Direita", ["Normal (Fluxo Anterógrado)", "Hipoplasia", "Roubo Latente", "Roubo Parcial (Fluxo Alternante)", "Roubo Total (Fluxo Retrógrado)"])
+    vps_vert_dir = st.number_input("VPS Artéria Vertebral Direita (cm/s)", min_value=0.0, value=30.0, step=5.0)
 
 with col_hemo_esq:
     st.header("LADO ESQUERDO")
-    cmi_esq = st.number_input("CMI Artéria Carótida Comum Esquerda (mm)", min_value=0.0, max_value=5.0, value=0.4, step=0.1, key="cmi_e")
-    estado_aci_esq = st.selectbox("Estado da Artéria Carótida Interna Esquerda", ["Pérvia (Calcular por Velocidade)", "Suboclusão", "Oclusão"], key="est_aci_e")
-    vps_aci_esq = st.number_input("VPS Artéria Carótida Interna Esquerda (cm/s)", min_value=0.0, value=100.0, step=5.0, key="vps_aci_e")
-    vcc_esq = st.number_input("VPS Artéria Carótida Comum Esquerda (cm/s)", min_value=1.0, value=60.0, step=5.0, key="vcc_e")
-    ace_esq = st.selectbox("Artéria Carótida Externa Esquerda", ["Com padrão espectral de alta resistência, compatível com perfusão de leitos musculares extracranianos.", "Alterada / Estenose hemodinâmica"], key="ace_e")
-    espectro_vert_esq = st.selectbox("Espectro Artéria Vertebral Esquerda", ["Normal (Fluxo Anterógrado)", "Hipoplasia", "Roubo Latente", "Roubo Parcial (Fluxo Alternante)", "Roubo Total (Fluxo Retrógrado)"], key="esp_v_e")
-    vps_vert_esq = st.number_input("VPS Artéria Vertebral Esquerda (cm/s)", min_value=0.0, value=30.0, step=5.0, key="vps_v_e")
+    cmi_esq = st.number_input("CMI Artéria Carótida Comum Esquerda (mm)", min_value=0.0, max_value=5.0, value=0.4, step=0.1)
+    estado_aci_esq = st.selectbox("Estado da Artéria Carótida Interna Esquerda", ["Pérvia (Calcular por Velocidade)", "Suboclusão", "Oclusão"])
+    vps_aci_esq = st.number_input("VPS Artéria Carótida Interna Esquerda (cm/s)", min_value=0.0, value=100.0, step=5.0)
+    vcc_esq = st.number_input("VPS Artéria Carótida Comum Esquerda (cm/s)", min_value=1.0, value=60.0, step=5.0)
+    ace_esq = st.selectbox("Artéria Carótida Externa Esquerda", ["Com padrão espectral de alta resistência, compatível com perfusão de leitos musculares extracranianos.", "Alterada / Estenose hemodinâmica"])
+    espectro_vert_esq = st.selectbox("Espectro Artéria Vertebral Esquerda", ["Normal (Fluxo Anterógrado)", "Hipoplasia", "Roubo Latente", "Roubo Parcial (Fluxo Alternante)", "Roubo Total (Fluxo Retrógrado)"])
+    vps_vert_esq = st.number_input("VPS Artéria Vertebral Esquerda (cm/s)", min_value=0.0, value=30.0, step=5.0)
 
 st.markdown("---")
 
+# 🔹 SEÇÃO DE LESÕES NÃO ATEROMATOSAS (Totalmente sem campo de espessura/mm)
 with st.expander("🔄 2. Lesões Não Ateromatosas (Tortuosidades e Vasculite)"):
     col_na1, col_na2 = st.columns(2)
     with col_na1:
@@ -195,7 +174,7 @@ with st.expander("🔄 2. Lesões Não Ateromatosas (Tortuosidades e Vasculite)"
             "Vasculite / Arterite (Espessamento parietal concêntrico e homogêneo - Sinal do Halo)",
             "Vasculite / Arterite (Espessamento difuso irregular de padrão inflamatório)"
         ])
-        hemo_na = st.toggle("Gera alteração hemodinâmica ou aceleração focal?", value=False, key="hemo_na")
+        hemo_na = st.toggle("Gera alteração hemodinâmica ou aceleração focal?", value=False)
 
     if st.button("💾 Registrar Lesão Não Ateromatosa"):
         lados_add = ["Direito", "Esquerdo"] if lado_na == "Bilateral" else [lado_na]
@@ -222,9 +201,9 @@ with st.expander("🌱 3. Lesões Estruturais Incipientes (Alterações Precoces
             vaso_inc = st.selectbox("Vaso (Incipiente):", [
                 "Artéria carótida comum direita", "Bulbo carotídeo direito", "Artéria carótida interna direita", 
                 "Artéria carótida comum esquerda", "Bulbo carotídeo esquerdo", "Artéria carótida interna esquerda"
-            ], key="vaso_inc")
+            ])
         with col_inc2:
-            local_inc = st.selectbox("Localização / Segmento (Incipiente):", ["terço proximal", "terço médio", "terço distal", "segmento total"], key="local_inc")
+            local_inc = st.selectbox("Localização / Segmento (Incipiente):", ["terço proximal", "terço médio", "terço distal", "segmento total"])
         with col_inc3:
             espessura_inc = st.number_input("Espessura Máxima (mm) [Max: 1.5mm]:", min_value=0.5, max_value=1.5, value=1.2, step=0.1)
 
@@ -250,11 +229,11 @@ with st.expander("🔎 4. Mapeamento de Placas Ateroscleróticas (Consolidadas �
             vaso_selecionado = st.selectbox("Selecione a Artéria:", [
                 "Artéria carótida comum direita", "Bulbo carotídeo direito", "Artéria carótida interna direita", 
                 "Artéria carótida comum esquerda", "Bulbo carotídeo esquerdo", "Artéria carótida interna esquerda"
-            ], key="vaso_placa")
+            ])
         with c_loc:
-            localizacao_selecionada = st.selectbox("Localização / Segmento:", ["terço proximal", "terço médio", "terço distal", "segmento total/bifurcação"], key="local_placa")
+            localizacao_selecionada = st.selectbox("Localização / Segmento:", ["terço proximal", "terço médio", "terço distal", "segmento total/bifurcação"])
             
-        culpada_hemo = st.toggle("Esta lesão determina estenose significativa?", value=False, key="culpada_placa")
+        culpada_hemo = st.toggle("Esta lesão determina estenose significativa?", value=False)
             
         c1, c2, c3 = st.columns(3)
         with c1:
@@ -283,7 +262,7 @@ with st.expander("🔎 4. Mapeamento de Placas Ateroscleróticas (Consolidadas �
             if tem_fluxo: achados_texto_lista.append("fluxo intraplaca")
             if tem_calc_intra: achados_texto_lista.append("calcificação intraplaca")
             
-            pr_estimado = estimar_plaque_rads(composicao) if usar_plaque_rads else None
+            pr_estimado = estimate_plaque_rads(composicao) if usar_plaque_rads else None
             composicao_limpa = retirar_prefixo_numerico(composicao)
                 
             nova_placa = {
@@ -412,7 +391,7 @@ if gerar_laudo:
         txt_comum_dir += f" Identifica-se alteração estrutural incipiente precoce (espessamento focal igual ou inferior a 1.5 mm) no {inc['localizacao']}, medindo {inc['espessura']} mm de espessura."
     for p in [x for x in st.session_state.lista_placas if "carótida comum direita" in x['vaso'].lower()]:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
-        txt_comum_dir += f" Identifica-se na parede uma placa de ateroma {p['composicao_texto'].lower()}, medindo {p['espessura']} mm de espessura máxima, com superficie {p['superficie_texto'].lower()}{suffix_pr}."
+        txt_comum_dir += f" Identifica-se na parede uma placa de ateroma {p['composicao_texto'].lower()}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
     for c in st.session_state.calcificacoes_isoladas:
         if c['lado'] == "Direito" and "comum" in c['topografia']:
             txt_comum_dir += " Identificam-se calcificações parietais isoladas sem repercussão hemodinâmica."
@@ -619,7 +598,7 @@ if gerar_laudo:
     if maior_que_plaque_rads_2 or any(p['plaque_rads'] is not None for p in st.session_state.lista_placas):
         obs_ativas.append(
             "\"A classificação Plaque-RADS padroniza a caracterização ultrassonográfica das placas carotídeas, "
-            "incorporando aspects morfológicos relacionados à vulnerabilidade da placa e fornecendo informação "
+            "incorporando aspectos morfológicos relacionados à vulnerabilidade da placa e fornecendo informação "
             "complementar ao grau de estenose na estratificação do risco de eventos cerebrovasculares.\" Referências: "
             "Plaque-RADS™ Consensus Statement (2023); recomendações da Society of Radiologists in Ultrasound para "
             "avaliação ultrassonográfica da doença carotídea."
@@ -656,7 +635,7 @@ if gerar_laudo:
     doc.save(buffer)
     buffer.seek(0)
 
-    st.success("Laudo integrado e atualizado gerado com sucesso!")
+    st.success("Laudo gerado com sucesso!")
     st.download_button(
         label="📥 Baixar Laudo Formatado (.docx)", 
         data=buffer, 
