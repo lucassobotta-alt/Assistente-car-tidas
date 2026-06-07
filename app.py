@@ -1,89 +1,205 @@
-# utils.py
+# app.py
+import streamlit as st
 from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from io import BytesIO
 
-# QUADRO DE CONDIÇÕES TÉCNICAS
+# --- DICIONÁRIOS DE CONFIGURAÇÃO ---
 opcoes_tecnicas = {
-    "1. Exame sem limitações técnicas": (
-        "Exame realizado em decúbito dorsal, utilizando transdutor linear de alta frequência, "
-        "com avaliação bidimensional, mapeamento de fluxo a cores e Doppler pulsado, sem limitações técnicas."
-    ),
-    "2. Exame com limitação por condições anatômicas desfavoráveis": (
-        "Exame realizado em decúbito dorsal, utilizando transdutor linear de alta frequência, "
-        "com avaliação bidimensional, mapeamento de fluxo a cores e Doppler pulsado. Devido a condições "
-        "anatômicas desfavoráveis para insonação dos vasos cervicais, foi necessária avaliação complementar "
-        "com transdutor convexo, o que pode reduzir a sensibilidade para identificação de placas "
-        "ateroscleróticas de pequenas dimensões."
-    ),
-    "3. Exame realizado à beira do leito (UTI)": (
-        "Exame realizado à beira do leito em unidade de terapia intensiva, utilizando transdutor linear de "
-        "alta frequência, com limitações técnicas inerentes às condições do exame."
-    ),
-    "4. Exame à beira do leito (UTI) com curativos cervicais": (
-        "Exame realizado à beira do leito em unidade de terapia intensiva, utilizando transdutor linear de "
-        "alta frequência, com limitações técnicas inerentes às condições do exame e à presença de curativos "
-        "cervicais sobre acessos jugulares."
-    )
+    "1. Exame sem limitações técnicas": "Exame realizado em decúbito dorsal, utilizando transdutor linear de alta frequência, com avaliação bidimensional, mapeamento de fluxo a cores e Doppler pulsado, sem limitações técnicas.",
+    "2. Exame com limitação por condições anatômicas desfavoráveis": "Exame realizado em decúbito dorsal, utilizando transdutor linear de alta frequência, com avaliação bidimensional, mapeamento de fluxo a cores e Doppler pulsado. Devido a condições anatômicas desfavoráveis para insonação dos vasos cervicais, foi necessária avaliação complementar com transdutor convexo, o que pode reduzir a sensibilidade para identificação de placas ateroscleróticas de pequenas dimensões.",
+    "3. Exame realizado à beira do leito (UTI)": "Exame realizado à beira do leito em unidade de terapia intensiva, utilizando transdutor linear de alta frequência, com limitações técnicas inerentes às condições do exame.",
+    "4. Exame à beira do leito (UTI) com curativos cervicais": "Exame realizado à beira do leito em unidade de terapia intensiva, utilizando transdutor linear de alta frequência, com limitações técnicas inerentes às condições do exame e à presença de curativos cervicais sobre acessos jugulares."
 }
-
-def retirar_prefixo_numerico(opcao_texto):
-    if ". " in opcao_texto:
-        return opcao_texto.split(". ", 1)[1]
-    return opcao_texto
-
-def estimate_plaque_rads(opcao_texto):
-    for i in range(1, 7):
-        if opcao_texto.startswith(f"{i}."):
-            return f"Plaque-RADS {i}"
-    return None
 
 def obter_texto_hemo_continuo(estado, vps_aci, vcc, tem_placa=False, diretriz="Diretriz SBC 2023"):
     if estado == "Oclusão":
-        return "Oclusão", "determinando oclusão completa do vaso, caracterizada por ausência total de fluxo ao estudo Doppler pulsado e mapeamento a cores."
-    elif estado == "Suboclusão":
-        return "Suboclusão", "determinando suboclusão do vaso, caracterizada por estreitamento luminal severo com padrão de fluxo filiforme ('trickle flow') ao estudo Doppler."
+        return "ocludida, determinando ausência total de fluxo ao estudo Doppler pulsado e mapeamento a cores."
+    if estado == "Suboclusão":
+        return "subocludida, caracterizada por estreitamento luminal severo com padrão de fluxo filiforme ('trickle flow') ao estudo Doppler."
     
     relacao = round(vps_aci / vcc, 2)
+    limite_vps = 140 if diretriz == "Diretriz SBC 2023" else 125
     
-    # 🔹 SE NÃO HÁ ALTERAÇÃO (EXAME NORMAL/HABITUAL)
-    # Retorna exatamente o modelo padrão limpo, sem o termo duplicado na concatenação
-    if not tem_placa and ((diretriz == "Diretriz SBC 2023" and vps_aci < 140) or (diretriz != "Diretriz SBC 2023" and vps_aci < 125)):
-        return "Normal", "pérvia, com fluxo bifásico anterógrado de baixa resistência, caracterizado por diástole sustentada e velocidades dentro da normalidade, compatível com irrigação de leito encefálico de baixa impedância. Não há sinais de estenose ou turbulência."
+    if not tem_placa and vps_aci < limite_vps:
+        return "pérvia, com fluxo bifásico anterógrado de baixa resistência, caracterizado por diástole sustentada e velocidades dentro da normalidade, compatível com irrigação de leito encefálico de baixa impedância. Não há sinais de estenose ou turbulência."
 
-    # 🔹 SE HOUVER ALTERAÇÃO OU PLACA, SEGUE A DIRETRIZ SELECIONADA:
     if diretriz == "Diretriz SBC 2023":
         if vps_aci < 140:
-            return "Estenose < 50%", f"pérvia, apresentando na parede uma placa de ateroma, determinando estenose leve (<50% pelos critérios da Diretriz SBC 2023), caracterizada por velocidade de pico sistólico na artéria carótida interna de {vps_aci} cm/s."
+            return f"pérvia, apresentando na parede uma placa de ateroma, determinando estenose leve (<50% pelos critérios da Diretriz SBC 2023), caracterizada por velocidade de pico sistólico de {vps_aci} cm/s."
         if vps_aci > 400 or relacao > 5.0:
-            return "Estenose > 90%", f"pérvia, determinando estenose acentuada (>90% pelos critérios da Diretriz SBC 2023), caracterizada por acentuada elevação das velocidades de fluxo com VPS na artéria carótida interna de {vps_aci} cm/s e relação artéria carótida interna / artéria carótida comum de {relacao}."
-        elif 230 < vps_aci <= 400 or relacao > 4.0:
-            return "Estenose de 70-89%", f"pérvia, determinando estenose hemodinamicamente significativa (70-89% pelos critérios da Diretriz SBC 2023). Ao estudo Doppler, observa-se VPS da artéria carótida interna de {vps_aci} cm/s e relação artéria carótida interna / artéria carótida comum de {relacao}."
-        elif 3.2 <= relacao <= 4.0:
-            return "Estenose de 60-69%", f"pérvia, determinando estenose moderada (60-69% pelos critérios da Diretriz SBC 2023), caracterizada por relação artéria carótida interna / artéria carótida comum de {relacao} e VPS na artéria carótida interna de {vps_aci} cm/s."
-        else:
-            return "Estenose de 50-59%", f"pérvia, determinando estenose moderada (50-59% pelos critérios da Diretriz SBC 2023), caracterizada por VPS na artéria carótida interna de {vps_aci} cm/s e relação artéria carótida interna / artéria carótida comum de {relacao}."
-            
-    else:  # Critérios NASCET
+            return f"pérvia, determinando estenose acentuada (>90% pelos critérios da Diretriz SBC 2023), caracterizada por acentuada elevação das velocidades de fluxo com VPS de {vps_aci} cm/s e relação ACI/ACC de {relacao}."
+        if 230 < vps_aci <= 400 or relacao > 4.0:
+            return f"pérvia, determinando estenose hemodinamicamente significativa (70-89% pelos critérios da Diretriz SBC 2023). Ao estudo Doppler, observa-se VPS de {vps_aci} cm/s e relação ACI/ACC de {relacao}."
+        if 3.2 <= relacao <= 4.0:
+            return f"pérvia, determinando estenose moderada (60-69% pelos critérios da Diretriz SBC 2023), caracterizada por relação ACI/ACC de {relacao} e VPS de {vps_aci} cm/s."
+        return f"pérvia, determinando estenose moderada (50-59% pelos critérios da Diretriz SBC 2023), caracterizada por VPS de {vps_aci} cm/s e relação ACI/ACC de {relacao}."
+    else:
         if vps_aci < 125:
-            return "Estenose < 50%", f"pérvia, apresentando na parede uma placa de ateroma, determinando estenose leve (<50% pelos critérios do Consenso NASCET), com VPS na artéria carótida interna de {vps_aci} cm/s."
+            return f"pérvia, apresentando na parede uma placa de ateroma, determinando estenose leve (<50% pelos critérios do Consenso NASCET), com VPS de {vps_aci} cm/s."
         if vps_aci >= 230 or relacao >= 4.0:
-            return "Estenose ≥ 70%", f"pérvia, determinando estenose severa (≥70% pelos critérios do Consenso NASCET), caracterizada por VPS na artéria carótida interna de {vps_aci} cm/s e relação ACI/ACC de {relacao}."
-        else:
-            return "Estenose de 50-69%", f"pérvia, determinando estenose moderada (50-69% pelos critérios do Consenso NASCET), caracterizada por VPS na artéria carótida interna de {vps_aci} cm/s e relação ACI/ACC de {relacao}."
+            return f"pérvia, determinando estenose severa (≥70% pelos critérios do Consenso NASCET), caracterizada por VPS de {vps_aci} cm/s e relação ACI/ACC de {relacao}."
+        return f"pérvia, determinando estenose moderada (50-69% pelos critérios do Consenso NASCET), caracterizada por VPS de {vps_aci} cm/s e relação ACI/ACC de {relacao}."
 
 def avaliar_vertebral(espectro, vps_vert):
     if espectro == "Normal (Fluxo Anterógrado)":
         if vps_vert >= 100:
-            return "Estenose de Vertebral (>50%)", f"Artéria vertebral apresentando fluxo anterógrado com acentuada elevação focal de velocidades (VPS de {vps_vert} cm/s) e turbulência local, compatível com estenose segmentar superior a 50%."
-        else:
-            return "Normal", "Artéria vertebral pérvia, com fluxo bifásico anterógrado de baixa resistência, com diástole contínua, compatível com adequada perfusão vertebrobasilar."
-    elif espectro == "Hipoplasia": 
-        return "Hipoplasia de Vertebral", f"Artéria vertebral apresentando fluxo anterógrado de baixa resistência, porém exibindo calibre reduzido e velocidades proporcionalmente baixas (VPS de {vps_vert} cm/s), compatível com variante anatomofuncional (hipoplasia)."
-    elif espectro == "Roubo Latente": 
-        return "Sinal de Roubo Latente da Subclávia", "Artéria vertebral apresentando fluxo anterógrado, porém com morfologia de onda alterada devido a uma desaceleração mesosistólica abrupta, sugerindo alteração hemodinâmica inicial por estenose da artéria subclávia proximal ipsilateral."
-    elif espectro == "Roubo Parcial (Fluxo Alternante)": 
-        return "Sinal de Roubo Parcial da Subclávia", "Artéria vertebral apresentando padrão de fluxo alternante, caracterizado por vetor sistólico retrógrado e vetor diastólico anterógrado, indicando inversão parcial do fluxo por estenose acentuada da artéria subclávia proximal ipsilateral."
-    elif espectro == "Roubo Total (Fluxo Retrógrado)": 
-        return "Sinal de Roubo Total da Subclávia", "Artéria vertebral apresentando inversão completa e contínua do seu vetor de fluxo, confirmando o fenômeno de roubo de subclávia secundário a oclusão da artéria subclávia proximal ipsilateral."
-    return "Alterada", f"Artéria vertebral com alterações inespecíficas do padrão de fluxo. VPS: {vps_vert} cm/s."
+            return f"Artéria vertebral apresentando fluxo anterógrado com acentuada elevação focal de velocidades (VPS de {vps_vert} cm/s) e turbulência local, compatível com estenose segmentar superior a 50%."
+        return "Artéria vertebral pérvia, com fluxo bifásico anterógrado de baixa resistência, com diástole contínua, compatível com adequada perfusão vertebrobasilar."
+    if espectro == "Hipoplasia": 
+        return f"Artéria vertebral apresentando fluxo anterógrado de baixa resistência, porém exibindo calibre reduzido e velocidades proporcionalmente baixas (VPS de {vps_vert} cm/s), compatível com variante anatomofuncional (hipoplasia)."
+    if espectro == "Roubo Latente": 
+        return "Artéria vertebral apresentando fluxo anterógrado, porém com morfologia de onda alterada devido a uma desaceleração mesosistólica abrupta, sugerindo alteração hemodinâmica inicial por estenose da artéria subclávia proximal ipsilateral."
+    if espectro == "Roubo Parcial (Fluxo Alternante)": 
+        return "Artéria vertebral apresentando padrão de fluxo alternante, caracterizado por vetor sistólico retrógrado e vetor diastólico anterógrado, indicando inversão parcial do fluxo por estenose acentuada da artéria subclávia proximal ipsilateral."
+    if espectro == "Roubo Total (Fluxo Retrógrado)": 
+        return "Artéria vertebral apresentando inversão completa e contínua do seu vetor de fluxo, confirmando o fenômeno de roubo de subclávia secundário a oclusão da artéria subclávia proximal ipsilateral."
+    return f"Artéria vertebral com alterações inespecíficas do padrão de fluxo. VPS: {vps_vert} cm/s."
+
+# --- INTERFACE CONFIG ---
+if "reset_trigger" in st.session_state and st.session_state.reset_trigger:
+    st.session_state.clear()
+    st.session_state.reset_trigger = False
+
+for k in ['lista_placas', 'lesoes_incipientes', 'calcificacoes_isoladas', 'lesoes_nao_ateromatosas']:
+    if k not in st.session_state: st.session_state[k] = []
+
+st.set_page_config(page_title="Laudo Neurovascular Avançado", layout="wide")
+st.title("⚕️ Assistente de Laudos Vascular Completo")
+
+with st.sidebar:
+    st.markdown("## ⚙️ Painel de Controle")
+    diretriz_selecionada = st.radio("Diretriz de Referência:", ["Diretriz SBC 2023", "Consenso Clássico NASCET"])
+    fonte_doc = st.selectbox("Fonte:", ["Arial", "Calibri", "Times New Roman"])
+    tamanho_fonte = st.slider("Tamanho Texto (pt):", 10, 14, 11)
+    espacamento_linhas = st.slider("Espaçamento:", 1.0, 1.5, 1.15)
+    quebrar_pagina_diag = st.toggle("Separar Diagnóstico em Nova Página", value=False)
+    nome_clinica = st.text_input("Nome da Clínica:")
+    nome_medico = st.text_input("Médico:", "Lucas Santos Guimarães")
+    crm_medico = st.text_input("CRM / RQE:", "4061")
+    if st.button("🔄 Resetar Parâmetros", use_container_width=True):
+        st.session_state.reset_trigger = True
+        st.rerun()
+
+col_id1, col_id2 = st.columns(2)
+with col_id1: nome = st.text_input("Nome do Paciente", "Paciente Exemplo")
+with col_id2: texto_tecnica_final = opcoes_tecnicas[st.selectbox("Condições Técnicas:", list(opcoes_tecnicas.keys()))]
+
+st.markdown("### 📊 Parâmetros Hemodinâmicos")
+col_dir, col_esq = st.columns(2)
+
+with col_dir:
+    st.subheader("LADO DIREITO")
+    cmi_dir = st.number_input("CMI ACC Direita (mm)", 0.0, 5.0, 0.4, 0.1)
+    estado_aci_dir = st.selectbox("Estado ACI Direita", ["Pérvia (Calcular por Velocidade)", "Suboclusão", "Oclusão"])
+    vps_aci_dir = st.number_input("VPS ACI Direita (cm/s)", 0.0, value=90.0, step=5.0)
+    vcc_dir = st.number_input("VPS ACC Direita (cm/s)", 1.0, value=60.0, step=5.0)
+    ace_dir = st.selectbox("ACE Direita", ["Com padrão espectral de alta resistência, compatível com perfusão de leitos musculares extracranianos.", "Alterada / Estenose hemodinâmica"])
+    espectro_vert_dir = st.selectbox("Espectro AV Direita", ["Normal (Fluxo Anterógrado)", "Hipoplasia", "Roubo Latente", "Roubo Parcial (Fluxo Alternante)", "Roubo Total (Fluxo Retrógrado)"])
+    vps_vert_dir = st.number_input("VPS AV Direita (cm/s)", 0.0, value=30.0, step=5.0)
+
+with col_esq:
+    st.subheader("LADO ESQUERDO")
+    cmi_esq = st.number_input("CMI ACC Esquerda (mm)", 0.0, 5.0, 0.4, 0.1)
+    estado_aci_esq = st.selectbox("Estado ACI Esquerda", ["Pérvia (Calcular por Velocidade)", "Suboclusão", "Oclusão"])
+    vps_aci_esq = st.number_input("VPS ACI Esquerda (cm/s)", 0.0, value=100.0, step=5.0)
+    vcc_esq = st.number_input("VPS ACC Esquerda (cm/s)", 1.0, value=60.0, step=5.0)
+    ace_esq = st.selectbox("ACE Esquerda", ["Com padrão espectral de alta resistência, compatível com perfusão de leitos musculares extracranianos.", "Alterada / Estenose hemodinâmica"])
+    espectro_vert_esq = st.selectbox("Espectro AV Esquerda", ["Normal (Fluxo Anterógrado)", "Hipoplasia", "Roubo Latente", "Roubo Parcial (Fluxo Alternante)", "Roubo Total (Fluxo Retrógrado)"])
+    vps_vert_esq = st.number_input("VPS AV Esquerda (cm/s)", 0.0, value=30.0, step=5.0)
+
+# --- INSERÇÃO DE ACHADOS ---
+with st.expander("🔎 Mapeamento de Placas Ateroscleróticas (≥ 2.0 mm)"):
+    if st.checkbox("Adicionar Placa Ateromatosa"):
+        vaso_sel = st.selectbox("Artéria:", ["Artéria carótida comum direita", "Bulbo carotídeo direito", "Artéria carótida interna direita", "Artéria carótida comum esquerda", "Bulbo carotídeo esquerdo", "Artéria carótida interna esquerda"])
+        local_sel = st.selectbox("Segmento:", ["terço proximal", "terço médio", "terço distal", "segmento total/bifurcação"])
+        composicao = st.selectbox("Composição:", ["Placa calcificada", "Placa uniformemente ecogênica", "Placa predominantemente ecogênica", "Placa com componente anecogênico", "Placa predominantemente anecogênica", "Placa uniformemente anecogênica"])
+        espessura = st.number_input("Espessura (mm):", 2.0, 20.0, 2.5, 0.1)
+        if st.button("💾 Gravar Placa"):
+            st.session_state.lista_placas.append({"vaso": vaso_sel, "localizacao": local_sel, "composicao_texto": composicao.lower(), "espessura": espessura})
+            st.rerun()
+    for idx, p in enumerate(st.session_state.lista_placas):
+        st.write(f"• Placa na `{p['vaso']}` ({p['espessura']} mm)")
+
+# --- PROCESSADOR DO DOCUMENTO ---
+if st.button("🚀 Gerar Laudo Clínico Completo", use_container_width=True):
+    p_aci_dir = any("interna direita" in x['vaso'].lower() for x in st.session_state.lista_placas)
+    p_aci_esq = any("interna esquerda" in x['vaso'].lower() for x in st.session_state.lista_placas)
+    
+    suf_dir = obter_texto_hemo_continuo(estado_aci_dir, vps_aci_dir, vcc_dir, p_aci_dir, diretriz_selecionada)
+    suf_esq = obter_texto_hemo_continuo(estado_aci_esq, vps_aci_esq, vcc_esq, p_aci_esq, diretriz_selecionada)
+    
+    txt_v_dir = avaliar_vertebral(espectro_vert_dir, vps_vert_dir)
+    txt_v_esq = avaliar_vertebral(espectro_vert_esq, vps_vert_esq)
+
+    doc = Document()
+    doc.styles['Normal'].font.name = fonte_doc
+    doc.styles['Normal'].font.size = Pt(tamanho_fonte)
+    
+    def add_p(text, bold_pre=None, align=WD_ALIGN_PARAGRAPH.LEFT, size_add=0):
+        p = doc.add_paragraph()
+        p.alignment = align
+        p.paragraph_format.line_spacing = espacamento_linhas
+        p.paragraph_format.space_after = Pt(4)
+        if bold_pre:
+            r_p = p.add_run(bold_pre)
+            r_p.bold = True
+            r_p.font.size = Pt(tamanho_fonte + size_add)
+        r = p.add_run(text)
+        r.font.size = Pt(tamanho_fonte + size_add)
+
+    if nome_clinica: add_p("", bold_pre=nome_clinica.upper(), align=WD_ALIGN_PARAGRAPH.CENTER, size_add=2)
+    add_p("", bold_pre='DUPLEX SCAN DAS ARTÉRIAS CARÓTIDAS E VERTEBRAIS', align=WD_ALIGN_PARAGRAPH.CENTER, size_add=1)
+    add_p(f" {nome}", bold_pre="Paciente:")
+    add_p(f" {texto_tecnica_final}", bold_pre="Técnica:")
+    add_p("", bold_pre='RELATÓRIO', size_add=1)
+    
+    # LADO DIREITO
+    add_p("", bold_pre='LADO DIREITO')
+    add_p(f"Artéria carótida comum direita pérvia, com diâmetro e trajeto conservados, apresentando fluxo bifásico anterógrado de baixa resistência. Espessura do complexo médio-intimal: {cmi_dir} mm.")
+    
+    txt_b_dir = "Bulbo carotídeo direito pérvio, com diâmetro e trajeto conservados."
+    if any("bulbo carotídeo direito" in x['vaso'].lower() for x in st.session_state.lista_placas):
+        p_b = [x for x in st.session_state.lista_placas if "bulbo carotídeo direito" in x['vaso'].lower()][0]
+        txt_b_dir += f" Apresentando na parede uma {p_b['composicao_texto']}, medindo {p_b['espessura']} mm de espessura máxima."
+    else: txt_b_dir += " Sem evidências de placas ou alterações estruturais."
+    add_p(txt_b_dir)
+    
+    add_p(f"Artéria carótida interna direita {suf_dir}")
+    add_p(f"Artéria carótida externa direita {ace_dir.lower()}")
+    add_p(txt_v_dir)
+    
+    # LADO ESQUERDO
+    add_p("", bold_pre='LADO ESQUERDO')
+    add_p(f"Artéria carótida comum esquerda pérvia, com diâmetro e trajeto conservados, apresentando fluxo bifásico anterógrado de baixa resistência. Espessura do complexo médio-intimal: {cmi_esq} mm.")
+    
+    txt_b_esq = "Bulbo carotídeo esquerdo pérvio, com diâmetro e trajeto conservados."
+    if any("bulbo carotídeo esquerdo" in x['vaso'].lower() for x in st.session_state.lista_placas):
+        p_e = [x for x in st.session_state.lista_placas if "bulbo carotídeo esquerdo" in x['vaso'].lower()][0]
+        txt_b_esq += f" Apresentando na parede uma {p_e['composicao_texto']}, medindo {p_e['espessura']} mm de espessura máxima."
+    else: txt_b_esq += " Sem evidências de placas ou alterações estruturais."
+    add_p(txt_b_esq)
+    
+    add_p(f"Artéria carótida interna esquerda {suf_esq}")
+    add_p(f"Artéria carótida externa esquerda {ace_esq.lower()}")
+    add_p(txt_v_esq)
+    
+    # CONCLUSÃO
+    if quebrar_pagina_diag: doc.add_page_break()
+    add_p("", bold_pre='IMPRESSÃO DIAGNÓSTICA', size_add=1)
+    
+    if not st.session_state.lista_placas:
+        add_p("– Artérias carótidas e vertebrais dentro dos limites da normalidade.")
+    else:
+        for p in st.session_state.lista_placas:
+            add_p(f"– Placa de ateroma na {p['vaso'].lower()} ({p['espessura']} mm).")
+
+    doc.add_paragraph().paragraph_format.space_before = Pt(25)
+    add_p(f"{nome_medico}\nCRM {crm_medico}", align=WD_ALIGN_PARAGRAPH.CENTER)
+    
+    buf = BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    st.success("Laudo gerado com sucesso!")
+    st.download_button("📥 Baixar Laudo Formatado (.docx)", buf, "Laudo_Vascular.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
