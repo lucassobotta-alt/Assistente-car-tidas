@@ -100,8 +100,11 @@ with st.sidebar:
     
     # 1. Parâmetros Científicos / Diretrizes
     st.markdown("### 📚 Critérios Científicos")
-    diretriz_selecionada = "Diretriz SBC 2023"
-    st.caption("Diretriz Hemodinâmica de Referência: SBC 2023")
+    diretriz_selecionada = st.radio(
+        "Diretriz Hemodinâmica de Referência:",
+        ["Diretriz SBC 2023", "Consenso Clássico NASCET"],
+        help="Altera os pontos de corte de velocidade e a redação descritiva das estenoses."
+    )
     ano_dislipidemia = st.selectbox("Ano da Diretriz de Dislipidemia:", ["2025", "2023"], index=0)
     
     st.markdown("---")
@@ -118,14 +121,8 @@ with st.sidebar:
     # 3. Identidade Visual e Assinatura Automatizada
     st.markdown("### ✍️ Identidade & Assinatura")
     nome_clinica = st.text_input("Cabeçalho / Nome da Clínica:", placeholder="Ex: Instituto de Diagnóstico por Imagem")
-    nome_medico = st.text_input("Nome do Médico:", "")
-    colcrm1, colcrm2 = st.columns([2,1])
-    with colcrm1:
-        crm_medico = st.text_input("CRM:")
-    with colcrm2:
-        crm_uf = st.selectbox("UF CRM", ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"], index=25)
-    rqe_medico = st.text_input("RQE:")
-    incluir_observacoes = st.toggle("Incluir observações complementares", value=True)
+    nome_medico = st.text_input("Nome do Médico:", "Dr. Ekhator")
+    crm_medico = st.text_input("CRM / RQE:")
     
     st.markdown("---")
     
@@ -578,22 +575,21 @@ if gerar_laudo:
 
     # --- OBSERVAÇÕES DINÂMICAS COM PARÂMETROS ---
     obs_ativas = []
-    if incluir_observacoes:
-        if cmi_alterado:
+    if cmi_alterado:
         obs_ativas.append(
             "\"O espessamento do complexo médio-intimal carotídeo é considerado marcador de aterosclerose subclínica "
             "e associa-se a aumento do risco de eventos cardiovasculares, devendo sua interpretação ser integrada ao "
             "contexto clínico e aos demais fatores de risco do paciente.\" Referências: Mannheim Carotid Intima-Media "
             "Thickness Consensus (2004–2006); ESC/EAS Guidelines for the Management of Dyslipidaemias (2021)."
         )
-        if tem_placa:
+    if tem_placa:
         obs_ativas.append(
             f"\"A presença de placa aterosclerótica carotídea, independentemente do grau de estenose, caracteriza "
             f"aterosclerose subclínica e constitui fator agravante de risco cardiovascular, devendo ser considerada "
             f"na estratificação global do risco cardiovascular, conforme a Diretriz Brasileira de Dislipidemias e "
             f"Prevenção da Aterosclerose – {ano_dislipidemia}.\""
         )
-        if maior_que_plaque_rads_2 or any(p['plaque_rads'] is not None for p in st.session_state.lista_placas):
+    if maior_que_plaque_rads_2 or any(p['plaque_rads'] is not None for p in st.session_state.lista_placas):
         obs_ativas.append(
             "\"A classificação Plaque-RADS padroniza a caracterização ultrassonográfica das placas carotídeas, "
             "incorporando aspectos morfológicos relacionados à vulnerabilidade da placa e fornecendo informação "
@@ -619,9 +615,7 @@ if gerar_laudo:
             run_n = p_assinatura.add_run(f"{nome_medico}\n")
             run_n.bold = True
         if crm_medico:
-            p_assinatura.add_run(f"CRM-{crm_uf} {crm_medico}\n")
-        if rqe_medico:
-            p_assinatura.add_run(f"RQE {rqe_medico}")
+            p_assinatura.add_run(crm_medico)
 
     buffer = BytesIO()
     doc.save(buffer)
