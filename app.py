@@ -1,6 +1,6 @@
 import streamlit as st
 from docx import Document
-from docx.shared import Pt, Inches
+from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
 
@@ -42,7 +42,7 @@ def obter_texto_hemo_continuo(estado, vps_aci, vcc, tem_placa=False, diretriz="D
     elif estado == "Suboclusão":
         return "Suboclusão", "determinando suboclusão do vaso, caracterizada por estreitamento luminal severo com padrão de fluxo filiforme ('trickle flow') ao estudo Doppler."
     
-    relacao = round(vps_aci / vcc, 2)
+    relacao = round(vps_aci / max(vcc, 1), 2)
     
     if diretriz == "Diretriz SBC 2023":
         if vps_aci < 140:
@@ -77,7 +77,7 @@ def avaliar_vertebral(espectro, vps_vert):
         if vps_vert >= 100:
             return "Estenose de Vertebral (>50%)", f"Artéria vertebral apresentando fluxo anterógrado com acentuada elevação focal de velocidades (VPS de {vps_vert} cm/s) e turbulência local, compatível com estenose segmentar superior a 50%."
         else:
-            return "Normal", "Artéria vertebral pérvia, com fluxo bifásico anterógrado de baixa resistência, com diástole contínua, compatível com adequada perfusão vertebrobasilar."
+            return "Normal", "Artéria vertebral pérvia, com fluxo anterógrado de baixa resistência e diástole sustentada, compatível com adequada perfusão vertebrobasilar."
     elif espectro == "Hipoplasia": 
         return "Hipoplasia de Vertebral", f"Artéria vertebral apresentando fluxo anterógrado de baixa resistência, porém exibindo calibre reduzido e velocidades proporcionalmente baixas (VPS de {vps_vert} cm/s), compatível com variante anatomofuncional (hipoplasia)."
     elif espectro == "Roubo Latente": 
@@ -225,7 +225,8 @@ with st.expander("🌱 3. Lesões Estruturais Incipientes (Alterações Precoces
 
         if st.button("💾 Registrar Lesão Incipiente"):
             nova_incipiente = {"vaso": vaso_inc, "localizacao": local_inc, "espessura": espessura_inc}
-            st.session_state.lesoes_incipientes.append(nova_incipiente)
+            if nova_incipiente not in st.session_state.lesoes_incipientes:
+                st.session_state.lesoes_incipientes.append(nova_incipiente)
             st.toast("✅ Lesão estrutural incipiente registrada!")
 
         if st.session_state.lesoes_incipientes:
@@ -287,7 +288,8 @@ with st.expander("🔎 4. Mapeamento de Placas Ateroscleróticas (Consolidadas �
                 "espessura": espessura, "achados_adicionais": achados_texto_lista,
                 "plaque_rads": pr_estimado  
             }
-            st.session_state.lista_placas.append(nova_placa)
+            if nova_placa not in st.session_state.lista_placas:
+                st.session_state.lista_placas.append(nova_placa)
             st.toast("✅ Placa registrada!")
 
         if st.session_state.lista_placas:
