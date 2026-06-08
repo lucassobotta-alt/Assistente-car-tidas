@@ -112,6 +112,12 @@ with st.sidebar:
     tamanho_fonte = st.slider("Tamanho do Texto (pt):", 10, 14, 11, step=1)
     espacamento_linhas = st.slider("Espaçamento entre Linhas:", 1.0, 1.5, 1.15, step=0.05)
     quebrar_pagina_diag = st.toggle("Separar Impressão Diagnóstica em Nova Página", value=False)
+
+    modo_saida = st.radio(
+        "Modo de saída do laudo:",
+        ["Somente DOCX", "Somente Visualização", "Visualização + DOCX"],
+        index=2
+    )
     
     st.markdown("---")
     
