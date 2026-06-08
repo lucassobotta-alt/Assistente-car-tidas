@@ -640,9 +640,22 @@ if gerar_laudo:
     buffer.seek(0)
 
     st.success("Laudo integrado gerado com sucesso!")
-    st.download_button(
-        label="📥 Baixar Laudo Formatado (.docx)", 
-        data=buffer, 
-        file_name="Laudo_Vascular_Completo.docx", 
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    )
+
+    # Visualização do laudo na própria página
+    if modo_saida in ["Somente Visualização", "Visualização + DOCX"]:
+        texto_visualizacao = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
+        st.markdown("## 👁️ Visualização do Laudo")
+        st.text_area(
+            "Laudo Gerado",
+            value=texto_visualizacao,
+            height=700
+        )
+
+    # Download DOCX
+    if modo_saida in ["Somente DOCX", "Visualização + DOCX"]:
+        st.download_button(
+            label="📥 Baixar Laudo Formatado (.docx)",
+            data=buffer,
+            file_name="Laudo_Vascular_Completo.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
