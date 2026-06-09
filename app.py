@@ -153,7 +153,7 @@ opcoes_tecnicas = {
 
 col_id1, col_id2 = st.columns([2, 2])
 with col_id1:
-    nome = st.text_input("Nome do Paciente", "Paciente Exemplo")
+    nome = st.text_input("Nome do Paciente", "")
 with col_id2:
     opcao_selecionada = st.selectbox("Condições Técnicas do Exame:", list(opcoes_tecnicas.keys()))
     texto_tecnica_final = opcoes_tecnicas[opcao_selecionada]
@@ -406,7 +406,8 @@ if gerar_laudo:
         doc.add_paragraph().paragraph_format.space_after = Pt(12)
 
     adicionar_titulo('DUPLEX SCAN DAS ARTÉRIAS CARÓTIDAS E VERTEBRAIS')
-    adicionar_texto_esquerda(f"Paciente: {nome}")
+    if nome.strip():
+        adicionar_texto_esquerda(f"Paciente: {nome}")
     adicionar_texto_esquerda(texto_tecnica_final, bold_prefix="Técnica: ")
     adicionar_subtitulo('RELATÓRIO')
     
