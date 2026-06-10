@@ -112,7 +112,16 @@ with st.sidebar:
     # 1. Parâmetros Científicos / Diretrizes
     st.markdown("### 📚 Critérios Científicos")
     diretriz_selecionada = "Diretriz SBC 2023"
-    st.caption("Diretriz Hemodinâmica de Referência: SBC 2023")
+    st.markdown(
+        "**Diretrizes de referência:**<br>"
+        "📄 <a href='https://abccardiol.org/article/atualizacao-da-recomendacao-para-avaliacao-da-doenca-das-arterias-carotidas-e-vertebrais-pela-ultrassonografia-vascular-dic-cbr-sbacv-2023/' target='_blank'>"
+        "Ultrassonografia Carotídea e Vertebral – DIC/CBR/SBACV 2023</a><br>"
+        "📄 <a href='https://abccardiol.org/wp-content/uploads/articles_xml/0066-782X-abc-122-09-e20250640/0066-782X-abc-122-09-e20250640.x66747.pdf' target='_blank'>"
+        "Diretriz Brasileira de Dislipidemias e Prevenção da Aterosclerose 2025</a><br>"
+        "📄 <a href='https://www.jacc.org/doi/10.1016/j.jcmg.2023.09.005' target='_blank'>"
+        "Carotid Plaque-RADS – JACC 2023</a>",
+        unsafe_allow_html=True
+    )
     ano_dislipidemia = st.selectbox("Ano da Diretriz de Dislipidemia:", ["2025", "2023"], index=0)
     
     st.markdown("---")
