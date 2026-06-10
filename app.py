@@ -480,7 +480,13 @@ if gerar_laudo:
     incs_aci_dir = [x for x in st.session_state.lesoes_incipientes if "interna direita" in x['vaso'].lower()]
 
     if estado_aci_dir in ["Oclusão", "Suboclusão"]:
-        txt_aci_dir = f"Artéria carótida interna direita {sufixo_hemo_aci_dir}"
+        if placas_aci_dir:
+            p = placas_aci_dir[0]
+            suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
+            comp_aci_dir = p['composicao_texto'].lower().removeprefix("placa ")
+            txt_aci_dir = f"Artéria carótida interna direita apresentando na parede uma placa de ateroma {comp_aci_dir}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_dir}"
+        else:
+            txt_aci_dir = f"Artéria carótida interna direita {sufixo_hemo_aci_dir}"
     elif placas_aci_dir:
         p = placas_aci_dir[0]
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
@@ -547,7 +553,13 @@ if gerar_laudo:
     incs_aci_esq = [x for x in st.session_state.lesoes_incipientes if "interna esquerda" in x['vaso'].lower()]
 
     if estado_aci_esq in ["Oclusão", "Suboclusão"]:
-        txt_aci_esq = f"Artéria carótida interna esquerda {sufixo_hemo_aci_esq}"
+        if placas_aci_esq:
+            p = placas_aci_esq[0]
+            suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
+            comp_aci_esq = p['composicao_texto'].lower().removeprefix("placa ")
+            txt_aci_esq = f"Artéria carótida interna esquerda apresentando na parede uma placa de ateroma {comp_aci_esq}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_esq}"
+        else:
+            txt_aci_esq = f"Artéria carótida interna esquerda {sufixo_hemo_aci_esq}"
     elif placas_aci_esq:
         p = placas_aci_esq[0]
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
