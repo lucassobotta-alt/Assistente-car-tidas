@@ -22,17 +22,17 @@ def retirar_prefixo_numerico(opcao_texto):
 
 def estimar_plaque_rads(opcao_texto):
     if opcao_texto.startswith("1."):
-        return "Plaque-RADS 1 (Placa puramente calcificada)"
+        return "Classificação: Plaque-RADS 1"
     elif opcao_texto.startswith("2."):
-        return "Plaque-RADS 2 (Placa fibrocalcificada ou fibrosa estável)"
+        return "Classificação: Plaque-RADS 2"
     elif opcao_texto.startswith("3."):
-        return "Plaque-RADS 3 (Placa predominantemente fibrosa)"
+        return "Classificação: Plaque-RADS 3"
     elif opcao_texto.startswith("4."):
-        return "Plaque-RADS 4 (Placa com núcleo lipídico/necrótico delimitado)"
+        return "Classificação: Plaque-RADS 4"
     elif opcao_texto.startswith("5."):
-        return "Plaque-RADS 5 (Placa predominantemente anecogênica/vulnerável)"
+        return "Classificação: Plaque-RADS 5"
     elif opcao_texto.startswith("6."):
-        return "Plaque-RADS 5 (Placa uniformemente anecogênica de alta vulnerabilidade)"
+        return "Classificação: Plaque-RADS 5"
     return None
 
 # --- CLASSIFICADORES HEMODINÂMICOS ADAPTATIVOS (SBC 2023 vs NASCET) ---
@@ -378,23 +378,26 @@ if gerar_laudo:
         run.font.name = fonte_doc
         run.font.size = Pt(tamanho_fonte)
 
-    def adicionar_texto_esquerda(texto, bold_prefix=None, force_page_break=False):
+    def adicionar_texto_esquerda(texto, bold_prefix=None, force_page_break=False, italico=False, fonte_menor=False):
         p = doc.add_paragraph()
         if force_page_break:
             p.insert_paragraph_before().add_run().add_break()
         p.alignment = WD_ALIGN_PARAGRAPH.LEFT
         p.paragraph_format.space_after = Pt(4)
         p.paragraph_format.line_spacing = espacamento_linhas
-        
+        tamanho_atual = Pt(tamanho_fonte - 2) if fonte_menor else Pt(tamanho_fonte)
+
         if bold_prefix:
             run_pre = p.add_run(bold_prefix)
             run_pre.bold = True
+            run_pre.italic = italico
             run_pre.font.name = fonte_doc
-            run_pre.font.size = Pt(tamanho_fonte)
-            
+            run_pre.font.size = tamanho_atual
+
         run = p.add_run(texto)
+        run.italic = italico
         run.font.name = fonte_doc
-        run.font.size = Pt(tamanho_fonte)
+        run.font.size = tamanho_atual
 
     # Injeção Opcional do Cabeçalho da Clínica
     if nome_clinica:
@@ -406,7 +409,8 @@ if gerar_laudo:
         doc.add_paragraph().paragraph_format.space_after = Pt(12)
 
     adicionar_titulo('DUPLEX SCAN DAS ARTÉRIAS CARÓTIDAS E VERTEBRAIS')
-    adicionar_texto_esquerda(f"Paciente: {nome.strip() if nome.strip() else 'Não informado'}")
+    if nome.strip():
+        adicionar_texto_esquerda(f"Paciente: {nome.strip()}")
     adicionar_texto_esquerda(texto_tecnica_final, bold_prefix="Técnica: ")
     adicionar_subtitulo('RELATÓRIO')
     
@@ -655,10 +659,10 @@ if gerar_laudo:
 
     total_obs = len(obs_ativas)
     if total_obs == 1:
-        adicionar_texto_esquerda(obs_ativas[0], bold_prefix="– Observação: ")
+        adicionar_texto_esquerda(obs_ativas[0], bold_prefix="– Observação: ", italico=True, fonte_menor=True)
     elif total_obs > 1:
         for i, texto_obs in enumerate(obs_ativas):
-            adicionar_texto_esquerda(texto_obs, bold_prefix=f"– Observação {i+1}: ")
+            adicionar_texto_esquerda(texto_obs, bold_prefix=f"– Observação {i+1}: ", italico=True, fonte_menor=True)
 
     # Bloco Dinâmico de Assinatura
     if nome_medico or crm_medico:
