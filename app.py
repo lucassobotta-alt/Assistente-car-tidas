@@ -434,7 +434,7 @@ if gerar_laudo:
         suf_h = "com alteração hemodinâmica local" if na['hemo'] else "sem repercussão hemodinâmica"
         txt_comum_dir += f" Identifica-se {na['tipo'].lower()} medindo {na['medida']} mm, {suf_h}."
     for inc in [x for x in st.session_state.lesoes_incipientes if "carótida comum direita" in x['vaso'].lower()]:
-        txt_comum_dir += f" Identifica-se alteração estrutural incipiente precoce (espessamento focal igual ou inferior a 1.5 mm) no {inc['localizacao']}, medindo {inc['espessura']} mm de espessura."
+        txt_comum_dir += f" Identifica-se espessamento focal da camada médio-intimal no {inc['localizacao']}, medindo {inc['espessura']} mm."
     for p in [x for x in st.session_state.lista_placas if "carótida comum direita" in x['vaso'].lower()]:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
         comp_dir = p['composicao_texto'].lower().removeprefix("placa ")
@@ -451,7 +451,7 @@ if gerar_laudo:
         txt_bulbo_dir += f" Identifica-se alteração não ateromatosa do tipo {na['tipo'].lower()} medindo {na['medida']} mm, {suf_h}."
         tem_achado_bulbo_dir = True
     for inc in [x for x in st.session_state.lesoes_incipientes if "bulbo carotídeo direito" in x['vaso'].lower()]:
-        txt_bulbo_dir += f" Identifica-se lesão incipiente no {inc['localizacao']}, medindo {inc['espessura']} mm de espessura."
+        txt_bulbo_dir += f" Identifica-se espessamento focal da camada médio-intimal no {inc['localizacao']}, medindo {inc['espessura']} mm."
         tem_achado_bulbo_dir = True
     for p in [x for x in st.session_state.lista_placas if "bulbo carotídeo direito" in x['vaso'].lower()]:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
@@ -481,7 +481,7 @@ if gerar_laudo:
     else:
         txt_aci_dir = f"Artéria carótida interna direita pérvia, {sufixo_hemo_aci_dir}"
     for inc in incs_aci_dir:
-        txt_aci_dir += f" Identifica-se lesão estrutural incipiente no {inc['localizacao']}, medindo {inc['espessura']} mm de espessura."
+        txt_aci_dir += f" Identifica-se espessamento focal da camada médio-intimal no {inc['localizacao']}, medindo {inc['espessura']} mm."
     for na in nas_aci_dir:
         suf_h = "com alteração hemodinâmica local" if na['hemo'] else "sem repercussão hemodinâmica"
         txt_aci_dir += f" Identifica-se {na['tipo'].lower()} medindo {na['medida']} mm, {suf_h}."
@@ -501,7 +501,7 @@ if gerar_laudo:
         suf_h = "com alteração hemodinâmica local" if na['hemo'] else "sem repercussão hemodinâmica"
         txt_comum_esq += f" Identifica-se {na['tipo'].lower()} medindo {na['medida']} mm, {suf_h}."
     for inc in [x for x in st.session_state.lesoes_incipientes if "carótida comum esquerda" in x['vaso'].lower()]:
-        txt_comum_esq += f" Identifica-se alteração estrutural incipiente precoce (espessamento focal igual ou inferior a 1.5 mm) no {inc['localizacao']}, medindo {inc['espessura']} mm de espessura."
+        txt_comum_esq += f" Identifica-se espessamento focal da camada médio-intimal no {inc['localizacao']}, medindo {inc['espessura']} mm."
     for p in [x for x in st.session_state.lista_placas if "carótida comum esquerda" in x['vaso'].lower()]:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
         comp = p['composicao_texto'].lower().removeprefix("placa ")
@@ -518,7 +518,7 @@ if gerar_laudo:
         txt_bulbo_esq += f" Identifica-se alteração não ateromatosa do tipo {na['tipo'].lower()} medindo {na['medida']} mm, {suf_h}."
         tem_achado_bulbo_esq = True
     for inc in [x for x in st.session_state.lesoes_incipientes if "bulbo carotídeo esquerdo" in x['vaso'].lower()]:
-        txt_bulbo_esq += f" Identifica-se lesão incipiente no {inc['localizacao']}, medindo {inc['espessura']} mm de espessura."
+        txt_bulbo_esq += f" Identifica-se espessamento focal da camada médio-intimal no {inc['localizacao']}, medindo {inc['espessura']} mm."
         tem_achado_bulbo_esq = True
     for p in [x for x in st.session_state.lista_placas if "bulbo carotídeo esquerdo" in x['vaso'].lower()]:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
@@ -548,7 +548,7 @@ if gerar_laudo:
     else:
         txt_aci_esq = f"Artéria carótida interna esquerda pérvia, {sufixo_hemo_aci_esq}"
     for inc in incs_aci_esq:
-        txt_aci_esq += f" Identifica-se lesão estrutural incipiente no {inc['localizacao']}, medindo {inc['espessura']} mm de espessura."
+        txt_aci_esq += f" Identifica-se espessamento focal da camada médio-intimal no {inc['localizacao']}, medindo {inc['espessura']} mm."
     for na in nas_aci_esq:
         suf_h = "com alteração hemodinâmica local" if na['hemo'] else "sem repercussão hemodinâmica"
         txt_aci_esq += f" Identifica-se {na['tipo'].lower()} medindo {na['medida']} mm, {suf_h}."
@@ -591,7 +591,7 @@ if gerar_laudo:
             adicionar_texto_esquerda(f"– Alterações sugestivas de processo inflamatório (vasculite) na {na['vaso'].lower()} {na['lado'].lower()}.")
 
     for inc in st.session_state.lesoes_incipientes:
-        adicionar_texto_esquerda(f"– Alteração estrutural inicial precoce (lesão incipiente) na {inc['vaso'].lower()}.")
+        adicionar_texto_esquerda(f"– Alteração ateromatosa incipiente na {inc['vaso'].lower()} ({inc['localizacao']}), medindo {inc['espessura']} mm.")
         tem_achado = True
 
     for p in st.session_state.lista_placas:
@@ -658,6 +658,14 @@ if gerar_laudo:
                 "e associa-se a aumento do risco de eventos cardiovasculares, devendo sua interpretação ser integrada ao "
                 "contexto clínico e aos demais fatores de risco do paciente.\" Referências: Mannheim Carotid Intima-Media "
                 "Thickness Consensus (2004–2006); ESC/EAS Guidelines for the Management of Dyslipidaemias (2021)."
+            )
+
+        if st.session_state.lesoes_incipientes:
+            obs_ativas.append(
+                "\"A presença de lesão ateromatosa incipiente, embora sem repercussão hemodinâmica significativa, "
+                "constitui marcador de aterosclerose subclínica e possui relevância na estratificação do risco "
+                "cardiovascular global, devendo ser considerada em conjunto com os demais fatores de risco e "
+                "achados clínicos do paciente.\""
             )
 
         if tem_placa:
