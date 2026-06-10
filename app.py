@@ -161,14 +161,23 @@ with st.sidebar:
         st.session_state.lesoes_incipientes = []
         st.session_state.calcificacoes_isoladas = []
         st.session_state.lesoes_nao_ateromatosas = []
-        for k in [
-            "w_nome", "w_tecnica",
-            "w_cmi_dir", "w_estado_aci_dir", "w_vps_aci_dir", "w_vcc_dir",
-            "w_ace_dir", "w_espectro_vert_dir", "w_vps_vert_dir",
-            "w_cmi_esq", "w_estado_aci_esq", "w_vps_aci_esq", "w_vcc_esq",
-            "w_ace_esq", "w_espectro_vert_esq", "w_vps_vert_esq",
-        ]:
-            st.session_state.pop(k, None)
+        # Redefine todos os widgets hemodinâmicos para seus valores padrão
+        st.session_state.w_nome = ""
+        st.session_state.w_tecnica = "1. Exame sem limitações técnicas"
+        st.session_state.w_cmi_dir = 0.4
+        st.session_state.w_estado_aci_dir = "Pérvia (Calcular por Velocidade)"
+        st.session_state.w_vps_aci_dir = 90.0
+        st.session_state.w_vcc_dir = 60.0
+        st.session_state.w_ace_dir = "Com padrão espectral de alta resistência, compatível com perfusão de leitos musculares extracranianos."
+        st.session_state.w_espectro_vert_dir = "Normal (Fluxo Anterógrado)"
+        st.session_state.w_vps_vert_dir = 30.0
+        st.session_state.w_cmi_esq = 0.4
+        st.session_state.w_estado_aci_esq = "Pérvia (Calcular por Velocidade)"
+        st.session_state.w_vps_aci_esq = 100.0
+        st.session_state.w_vcc_esq = 60.0
+        st.session_state.w_ace_esq = "Com padrão espectral de alta resistência, compatível com perfusão de leitos musculares extracranianos."
+        st.session_state.w_espectro_vert_esq = "Normal (Fluxo Anterógrado)"
+        st.session_state.w_vps_vert_esq = 30.0
         st.toast("🔄 Todos os dados clínicos foram limpos!")
         st.rerun()
 
