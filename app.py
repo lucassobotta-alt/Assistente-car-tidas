@@ -36,41 +36,52 @@ def estimar_plaque_rads(opcao_texto):
     return None
 
 # --- CLASSIFICADORES HEMODINÂMICOS ADAPTATIVOS (SBC 2023 vs NASCET) ---
-def obter_texto_hemo_continuo(estado, vps_aci, vcc, tem_placa=False, diretriz="Diretriz SBC 2023"):
+def obter_texto_hemo_continuo(estado, vps_aci, vcc, tem_placa=False, diretriz="Diretriz SBC 2023", incluir_vel=True):
     if estado == "Oclusão":
         return "Oclusão", "determinando oclusão completa do vaso, caracterizada por ausência total de fluxo ao estudo Doppler pulsado e mapeamento a cores."
     elif estado == "Suboclusão":
         return "Suboclusão", "determinando suboclusão do vaso, caracterizada por estreitamento luminal severo com padrão de fluxo filiforme ('trickle flow') ao estudo Doppler."
-    
+
     relacao = round(vps_aci / max(vcc, 1), 2)
-    
+    vel_aci  = f" de {vps_aci} cm/s" if incluir_vel else ""
+    vel_rel  = f" e relação artéria carótida interna / artéria carótida comum de {relacao}" if incluir_vel else ""
+    vel_rel2 = f" e relação ACI/ACC de {relacao}" if incluir_vel else ""
+
     if diretriz == "Diretriz SBC 2023":
         if vps_aci < 140:
             if tem_placa:
-                return "Estenose < 50%", f"determinando estenose leve (<50% pelos critérios da Diretriz SBC 2023), caracterizada por velocidade de pico sistólico na artéria carótida interna de {vps_aci} cm/s."
+                det = f", caracterizada por velocidade de pico sistólico na artéria carótida interna{vel_aci}" if incluir_vel else ""
+                return "Estenose < 50%", f"determinando estenose leve (<50% pelos critérios da Diretriz SBC 2023){det}."
             else:
                 return "Normal", "com fluxo bifásico anterógrado de baixa resistência, caracterizado por diástole sustentada e velocidades dentro da normalidade, compatível com irrigação de leito encefálico de baixa impedância. Não há sinais de estenose ou turbulência."
-        
+
         if vps_aci > 400 or relacao > 5.0:
-            return "Estenose > 90%", f"determinando estenose acentuada (>90% pelos critérios da Diretriz SBC 2023), caracterizada por acentuada elevação das velocidades de fluxo com VPS na artéria carótida interna de {vps_aci} cm/s e relação artéria carótida interna / artéria carótida comum de {relacao}."
+            det = f", caracterizada por acentuada elevação das velocidades de fluxo com VPS na artéria carótida interna{vel_aci}{vel_rel}" if incluir_vel else ""
+            return "Estenose > 90%", f"determinando estenose acentuada (>90% pelos critérios da Diretriz SBC 2023){det}."
         elif 230 < vps_aci <= 400 or relacao > 4.0:
-            return "Estenose de 70-89%", f"determinando estenose hemodinamicamente significativa (70-89% pelos critérios da Diretriz SBC 2023), caracterizada por VPS na artéria carótida interna de {vps_aci} cm/s e relação artéria carótida interna / artéria carótida comum de {relacao}."
+            det = f", caracterizada por VPS na artéria carótida interna{vel_aci}{vel_rel}" if incluir_vel else ""
+            return "Estenose de 70-89%", f"determinando estenose hemodinamicamente significativa (70-89% pelos critérios da Diretriz SBC 2023){det}."
         elif 3.2 <= relacao <= 4.0:
-            return "Estenose de 60-69%", f"determinando estenose moderada (60-69% pelos critérios da Diretriz SBC 2023), caracterizada por relação artéria carótida interna / artéria carótida comum de {relacao} e VPS na artéria carótida interna de {vps_aci} cm/s."
+            det = f", caracterizada por relação artéria carótida interna / artéria carótida comum de {relacao}{' e VPS na artéria carótida interna' + vel_aci if incluir_vel else ''}" if incluir_vel else ""
+            return "Estenose de 60-69%", f"determinando estenose moderada (60-69% pelos critérios da Diretriz SBC 2023){det}."
         else:
-            return "Estenose de 50-59%", f"determinando estenose moderada (50-59% pelos critérios da Diretriz SBC 2023), caracterizada por VPS na artéria carótida interna de {vps_aci} cm/s e relação artéria carótida interna / artéria carótida comum de {relacao}."
-            
+            det = f", caracterizada por VPS na artéria carótida interna{vel_aci}{vel_rel}" if incluir_vel else ""
+            return "Estenose de 50-59%", f"determinando estenose moderada (50-59% pelos critérios da Diretriz SBC 2023){det}."
+
     else:  # Critérios Clássicos do NASCET
         if vps_aci < 125:
             if tem_placa:
-                return "Estenose < 50%", f"determinando estenose leve (<50% pelos critérios do Consenso NASCET), com VPS na artéria carótida interna de {vps_aci} cm/s."
+                det = f", com VPS na artéria carótida interna{vel_aci}" if incluir_vel else ""
+                return "Estenose < 50%", f"determinando estenose leve (<50% pelos critérios do Consenso NASCET){det}."
             else:
                 return "Normal", "apresentando padrão de velocidades normais ao estudo Doppler, sem critérios para estenose hemodinâmica pelo Consenso NASCET."
-        
+
         if vps_aci >= 230 or relacao >= 4.0:
-            return "Estenose ≥ 70%", f"determinando estenose severa (≥70% pelos critérios do Consenso NASCET), caracterizada por VPS na artéria carótida interna de {vps_aci} cm/s e relação ACI/ACC de {relacao}."
+            det = f", caracterizada por VPS na artéria carótida interna{vel_aci}{vel_rel2}" if incluir_vel else ""
+            return "Estenose ≥ 70%", f"determinando estenose severa (≥70% pelos critérios do Consenso NASCET){det}."
         else:
-            return "Estenose de 50-69%", f"determinando estenose moderada (50-69% pelos critérios do Consenso NASCET), caracterizada por VPS na artéria carótida interna de {vps_aci} cm/s e relação ACI/ACC de {relacao}."
+            det = f", caracterizada por VPS na artéria carótida interna{vel_aci}{vel_rel2}" if incluir_vel else ""
+            return "Estenose de 50-69%", f"determinando estenose moderada (50-69% pelos critérios do Consenso NASCET){det}."
 
 def avaliar_vertebral(espectro, vps_vert):
     if espectro == "Normal (Fluxo Anterógrado)":
@@ -132,7 +143,8 @@ with st.sidebar:
         crm_uf = st.selectbox("UF CRM", ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"], index=25)
     rqe_medico = st.text_input("RQE:")
     incluir_observacoes = st.toggle("Incluir observações complementares", value=True)
-    
+    incluir_velocidades = st.toggle("Incluir velocidades (VPS / relação ACI-ACC) no laudo", value=True)
+
     st.markdown("---")
     
     if st.button("🔄 Resetar Todos os Parâmetros", use_container_width=True, type="secondary"):
@@ -343,8 +355,8 @@ if gerar_laudo:
     tem_placa_aci_dir = any("interna direita" in p['vaso'].lower() for p in st.session_state.lista_placas)
     tem_placa_aci_esq = any("interna esquerda" in p['vaso'].lower() for p in st.session_state.lista_placas)
 
-    status_aci_dir_limpo, sufixo_hemo_aci_dir = obter_texto_hemo_continuo(estado_aci_dir, vps_aci_dir, vcc_dir, tem_placa_aci_dir, diretriz_selecionada)
-    status_aci_esq_limpo, sufixo_hemo_aci_esq = obter_texto_hemo_continuo(estado_aci_esq, vps_aci_esq, vcc_esq, tem_placa_aci_esq, diretriz_selecionada)
+    status_aci_dir_limpo, sufixo_hemo_aci_dir = obter_texto_hemo_continuo(estado_aci_dir, vps_aci_dir, vcc_dir, tem_placa_aci_dir, diretriz_selecionada, incluir_velocidades)
+    status_aci_esq_limpo, sufixo_hemo_aci_esq = obter_texto_hemo_continuo(estado_aci_esq, vps_aci_esq, vcc_esq, tem_placa_aci_esq, diretriz_selecionada, incluir_velocidades)
     
     _, texto_vert_dir = avaliar_vertebral(espectro_vert_dir, vps_vert_dir)
     _, texto_vert_esq = avaliar_vertebral(espectro_vert_esq, vps_vert_esq)
@@ -425,7 +437,8 @@ if gerar_laudo:
         txt_comum_dir += f" Identifica-se alteração estrutural incipiente precoce (espessamento focal igual ou inferior a 1.5 mm) no {inc['localizacao']}, medindo {inc['espessura']} mm de espessura."
     for p in [x for x in st.session_state.lista_placas if "carótida comum direita" in x['vaso'].lower()]:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
-        txt_comum_dir += f" Identifica-se na parede uma placa de ateroma {p['composicao_texto'].lower()}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
+        comp_dir = p['composicao_texto'].lower().removeprefix("placa ")
+        txt_comum_dir += f" Identifica-se na parede uma placa de ateroma {comp_dir}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
     for c in st.session_state.calcificacoes_isoladas:
         if c['lado'] == "Direito" and "comum" in c['topografia']:
             txt_comum_dir += " Identificam-se calcificações parietais isoladas sem repercussão hemodinâmica."
@@ -442,7 +455,8 @@ if gerar_laudo:
         tem_achado_bulbo_dir = True
     for p in [x for x in st.session_state.lista_placas if "bulbo carotídeo direito" in x['vaso'].lower()]:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
-        txt_bulbo_dir += f" Apresentando na parede uma placa de ateroma {p['composicao_texto'].lower()}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
+        comp = p['composicao_texto'].lower().removeprefix("placa ")
+        txt_bulbo_dir += f" Apresentando na parede uma placa de ateroma {comp}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
         tem_achado_bulbo_dir = True
     for c in st.session_state.calcificacoes_isoladas:
         if c['lado'] == "Direito" and "bulbo" in c['topografia']:
@@ -462,7 +476,8 @@ if gerar_laudo:
     elif placas_aci_dir:
         p = placas_aci_dir[0]
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
-        txt_aci_dir = f"Artéria carótida interna direita pérvia, apresentando na parede uma placa de ateroma {p['composicao_texto'].lower()}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_dir}"
+        comp_aci_dir = p['composicao_texto'].lower().removeprefix("placa ")
+        txt_aci_dir = f"Artéria carótida interna direita pérvia, apresentando na parede uma placa de ateroma {comp_aci_dir}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_dir}"
     else:
         txt_aci_dir = f"Artéria carótida interna direita pérvia, {sufixo_hemo_aci_dir}"
     for inc in incs_aci_dir:
@@ -489,7 +504,8 @@ if gerar_laudo:
         txt_comum_esq += f" Identifica-se alteração estrutural incipiente precoce (espessamento focal igual ou inferior a 1.5 mm) no {inc['localizacao']}, medindo {inc['espessura']} mm de espessura."
     for p in [x for x in st.session_state.lista_placas if "carótida comum esquerda" in x['vaso'].lower()]:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
-        txt_comum_esq += f" Identifica-se na parede uma placa de ateroma {p['composicao_texto'].lower()}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
+        comp = p['composicao_texto'].lower().removeprefix("placa ")
+        txt_comum_esq += f" Identifica-se na parede uma placa de ateroma {comp}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
     for c in st.session_state.calcificacoes_isoladas:
         if c['lado'] == "Esquerdo" and "comum" in c['topografia']:
             txt_comum_esq += " Identificam-se calcificações parietais isoladas sem repercussão hemodinâmica."
@@ -506,7 +522,8 @@ if gerar_laudo:
         tem_achado_bulbo_esq = True
     for p in [x for x in st.session_state.lista_placas if "bulbo carotídeo esquerdo" in x['vaso'].lower()]:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
-        txt_bulbo_esq += f" Apresentando na parede uma placa de ateroma {p['composicao_texto'].lower()}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
+        comp = p['composicao_texto'].lower().removeprefix("placa ")
+        txt_bulbo_esq += f" Apresentando na parede uma placa de ateroma {comp}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
         tem_achado_bulbo_esq = True
     for c in st.session_state.calcificacoes_isoladas:
         if c['lado'] == "Esquerdo" and "bulbo" in c['topografia']:
@@ -526,7 +543,8 @@ if gerar_laudo:
     elif placas_aci_esq:
         p = placas_aci_esq[0]
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
-        txt_aci_esq = f"Artéria carótida interna esquerda pérvia, apresentando na parede uma placa de ateroma {p['composicao_texto'].lower()}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_esq}"
+        comp_aci_esq = p['composicao_texto'].lower().removeprefix("placa ")
+        txt_aci_esq = f"Artéria carótida interna esquerda pérvia, apresentando na parede uma placa de ateroma {comp_aci_esq}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_esq}"
     else:
         txt_aci_esq = f"Artéria carótida interna esquerda pérvia, {sufixo_hemo_aci_esq}"
     for inc in incs_aci_esq:
@@ -581,16 +599,20 @@ if gerar_laudo:
         v_nome = p['vaso'].lower()
         if "interna" in v_nome:
             status_hemo, _ = obter_texto_hemo_continuo(
-                estado_aci_dir if "direita" in v_nome else estado_aci_esq, 
-                vps_aci_dir if "direita" in v_nome else vps_aci_esq, 
-                vcc_dir if "direita" in v_nome else vcc_esq, 
-                True, 
-                diretriz_selecionada
+                estado_aci_dir if "direita" in v_nome else estado_aci_esq,
+                vps_aci_dir if "direita" in v_nome else vps_aci_esq,
+                vcc_dir if "direita" in v_nome else vcc_esq,
+                True,
+                diretriz_selecionada,
+                incluir_velocidades
             )
             vps_val = vps_aci_dir if "direita" in v_nome else vps_aci_esq
             vcc_val = vcc_dir if "direita" in v_nome else vcc_esq
             rel_val = round(vps_val / vcc_val, 2)
-            justificativa_hemo = f", caracterizada por VPS de {vps_val} cm/s e relação ACI/ACC de {rel_val}" if "Normal" not in status_hemo else ""
+            if "Normal" in status_hemo or not incluir_velocidades:
+                justificativa_hemo = ""
+            else:
+                justificativa_hemo = f", caracterizada por VPS de {vps_val} cm/s e relação ACI/ACC de {rel_val}"
         else:
             status_hemo = "Estenose < 50%" if not p['culpada_hemo'] else "Estenose de 50-59%"
             justificativa_hemo = ""
