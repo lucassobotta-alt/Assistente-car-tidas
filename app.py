@@ -152,6 +152,14 @@ with st.sidebar:
         st.session_state.lesoes_incipientes = []
         st.session_state.calcificacoes_isoladas = []
         st.session_state.lesoes_nao_ateromatosas = []
+        for k in [
+            "w_nome", "w_tecnica",
+            "w_cmi_dir", "w_estado_aci_dir", "w_vps_aci_dir", "w_vcc_dir",
+            "w_ace_dir", "w_espectro_vert_dir", "w_vps_vert_dir",
+            "w_cmi_esq", "w_estado_aci_esq", "w_vps_aci_esq", "w_vcc_esq",
+            "w_ace_esq", "w_espectro_vert_esq", "w_vps_vert_esq",
+        ]:
+            st.session_state.pop(k, None)
         st.toast("🔄 Todos os dados clínicos foram limpos!")
         st.rerun()
 
@@ -165,9 +173,9 @@ opcoes_tecnicas = {
 
 col_id1, col_id2 = st.columns([2, 2])
 with col_id1:
-    nome = st.text_input("Nome do Paciente", "")
+    nome = st.text_input("Nome do Paciente", "", key="w_nome")
 with col_id2:
-    opcao_selecionada = st.selectbox("Condições Técnicas do Exame:", list(opcoes_tecnicas.keys()))
+    opcao_selecionada = st.selectbox("Condições Técnicas do Exame:", list(opcoes_tecnicas.keys()), key="w_tecnica")
     texto_tecnica_final = opcoes_tecnicas[opcao_selecionada]
 
 st.markdown("---")
@@ -176,23 +184,23 @@ col_hemo_dir, col_hemo_esq = st.columns(2)
 
 with col_hemo_dir:
     st.header("LADO DIREITO")
-    cmi_dir = st.number_input("CMI Artéria Carótida Comum Direita (mm)", min_value=0.0, max_value=5.0, value=0.4, step=0.1)
-    estado_aci_dir = st.selectbox("Estado da Artéria Carótida Interna Direita", ["Pérvia (Calcular por Velocidade)", "Suboclusão", "Oclusão"])
-    vps_aci_dir = st.number_input("VPS Artéria Carótida Interna Direita (cm/s)", min_value=0.0, value=90.0, step=5.0)
-    vcc_dir = st.number_input("VPS Artéria Carótida Comum Direita (cm/s)", min_value=1.0, value=60.0, step=5.0)
-    ace_dir = st.selectbox("Artéria Carótida Externa Direita", ["Com padrão espectral de alta resistência, compatível com perfusão de leitos musculares extracranianos.", "Alterada / Estenose hemodinâmica"])
-    espectro_vert_dir = st.selectbox("Espectro Artéria Vertebral Direita", ["Normal (Fluxo Anterógrado)", "Hipoplasia", "Roubo Latente", "Roubo Parcial (Fluxo Alternante)", "Roubo Total (Fluxo Retrógrado)"])
-    vps_vert_dir = st.number_input("VPS Artéria Vertebral Direita (cm/s)", min_value=0.0, value=30.0, step=5.0)
+    cmi_dir = st.number_input("CMI Artéria Carótida Comum Direita (mm)", min_value=0.0, max_value=5.0, value=0.4, step=0.1, key="w_cmi_dir")
+    estado_aci_dir = st.selectbox("Estado da Artéria Carótida Interna Direita", ["Pérvia (Calcular por Velocidade)", "Suboclusão", "Oclusão"], key="w_estado_aci_dir")
+    vps_aci_dir = st.number_input("VPS Artéria Carótida Interna Direita (cm/s)", min_value=0.0, value=90.0, step=5.0, key="w_vps_aci_dir")
+    vcc_dir = st.number_input("VPS Artéria Carótida Comum Direita (cm/s)", min_value=1.0, value=60.0, step=5.0, key="w_vcc_dir")
+    ace_dir = st.selectbox("Artéria Carótida Externa Direita", ["Com padrão espectral de alta resistência, compatível com perfusão de leitos musculares extracranianos.", "Alterada / Estenose hemodinâmica"], key="w_ace_dir")
+    espectro_vert_dir = st.selectbox("Espectro Artéria Vertebral Direita", ["Normal (Fluxo Anterógrado)", "Hipoplasia", "Roubo Latente", "Roubo Parcial (Fluxo Alternante)", "Roubo Total (Fluxo Retrógrado)"], key="w_espectro_vert_dir")
+    vps_vert_dir = st.number_input("VPS Artéria Vertebral Direita (cm/s)", min_value=0.0, value=30.0, step=5.0, key="w_vps_vert_dir")
 
 with col_hemo_esq:
     st.header("LADO ESQUERDO")
-    cmi_esq = st.number_input("CMI Artéria Carótida Comum Esquerda (mm)", min_value=0.0, max_value=5.0, value=0.4, step=0.1)
-    estado_aci_esq = st.selectbox("Estado da Artéria Carótida Interna Esquerda", ["Pérvia (Calcular por Velocidade)", "Suboclusão", "Oclusão"])
-    vps_aci_esq = st.number_input("VPS Artéria Carótida Interna Esquerda (cm/s)", min_value=0.0, value=100.0, step=5.0)
-    vcc_esq = st.number_input("VPS Artéria Carótida Comum Esquerda (cm/s)", min_value=1.0, value=60.0, step=5.0)
-    ace_esq = st.selectbox("Artéria Carótida Externa Esquerda", ["Com padrão espectral de alta resistência, compatível com perfusão de leitos musculares extracranianos.", "Alterada / Estenose hemodinâmica"])
-    espectro_vert_esq = st.selectbox("Espectro Artéria Vertebral Esquerda", ["Normal (Fluxo Anterógrado)", "Hipoplasia", "Roubo Latente", "Roubo Parcial (Fluxo Alternante)", "Roubo Total (Fluxo Retrógrado)"])
-    vps_vert_esq = st.number_input("VPS Artéria Vertebral Esquerda (cm/s)", min_value=0.0, value=30.0, step=5.0)
+    cmi_esq = st.number_input("CMI Artéria Carótida Comum Esquerda (mm)", min_value=0.0, max_value=5.0, value=0.4, step=0.1, key="w_cmi_esq")
+    estado_aci_esq = st.selectbox("Estado da Artéria Carótida Interna Esquerda", ["Pérvia (Calcular por Velocidade)", "Suboclusão", "Oclusão"], key="w_estado_aci_esq")
+    vps_aci_esq = st.number_input("VPS Artéria Carótida Interna Esquerda (cm/s)", min_value=0.0, value=100.0, step=5.0, key="w_vps_aci_esq")
+    vcc_esq = st.number_input("VPS Artéria Carótida Comum Esquerda (cm/s)", min_value=1.0, value=60.0, step=5.0, key="w_vcc_esq")
+    ace_esq = st.selectbox("Artéria Carótida Externa Esquerda", ["Com padrão espectral de alta resistência, compatível com perfusão de leitos musculares extracranianos.", "Alterada / Estenose hemodinâmica"], key="w_ace_esq")
+    espectro_vert_esq = st.selectbox("Espectro Artéria Vertebral Esquerda", ["Normal (Fluxo Anterógrado)", "Hipoplasia", "Roubo Latente", "Roubo Parcial (Fluxo Alternante)", "Roubo Total (Fluxo Retrógrado)"], key="w_espectro_vert_esq")
+    vps_vert_esq = st.number_input("VPS Artéria Vertebral Esquerda (cm/s)", min_value=0.0, value=30.0, step=5.0, key="w_vps_vert_esq")
 
 st.markdown("---")
 
