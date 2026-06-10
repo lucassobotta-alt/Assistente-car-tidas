@@ -49,7 +49,7 @@ def obter_texto_hemo_continuo(estado, vps_aci, vcc, tem_placa=False, diretriz="D
             if tem_placa:
                 return "Estenose < 50%", f"determinando estenose leve (<50% pelos critérios da Diretriz SBC 2023), caracterizada por velocidade de pico sistólico na artéria carótida interna de {vps_aci} cm/s."
             else:
-                return "Normal", "pérvia, com fluxo bifásico anterógrado de baixa resistência, caracterizado por diástole sustentada e velocidades dentro da normalidade, compatível com irrigação de leito encefálico de baixa impedância. Não há sinais de estenose ou turbulência."
+                return "Normal", "com fluxo bifásico anterógrado de baixa resistência, caracterizado por diástole sustentada e velocidades dentro da normalidade, compatível com irrigação de leito encefálico de baixa impedância. Não há sinais de estenose ou turbulência."
         
         if vps_aci > 400 or relacao > 5.0:
             return "Estenose > 90%", f"determinando estenose acentuada (>90% pelos critérios da Diretriz SBC 2023), caracterizada por acentuada elevação das velocidades de fluxo com VPS na artéria carótida interna de {vps_aci} cm/s e relação artéria carótida interna / artéria carótida comum de {relacao}."
@@ -65,7 +65,7 @@ def obter_texto_hemo_continuo(estado, vps_aci, vcc, tem_placa=False, diretriz="D
             if tem_placa:
                 return "Estenose < 50%", f"determinando estenose leve (<50% pelos critérios do Consenso NASCET), com VPS na artéria carótida interna de {vps_aci} cm/s."
             else:
-                return "Normal", "pérvia, apresentando padrão de velocidades normais ao estudo Doppler, sem critérios para estenose hemodinâmica pelo Consenso NASCET."
+                return "Normal", "apresentando padrão de velocidades normais ao estudo Doppler, sem critérios para estenose hemodinâmica pelo Consenso NASCET."
         
         if vps_aci >= 230 or relacao >= 4.0:
             return "Estenose ≥ 70%", f"determinando estenose severa (≥70% pelos critérios do Consenso NASCET), caracterizada por VPS na artéria carótida interna de {vps_aci} cm/s e relação ACI/ACC de {relacao}."
@@ -406,8 +406,7 @@ if gerar_laudo:
         doc.add_paragraph().paragraph_format.space_after = Pt(12)
 
     adicionar_titulo('DUPLEX SCAN DAS ARTÉRIAS CARÓTIDAS E VERTEBRAIS')
-    if nome.strip():
-        adicionar_texto_esquerda(f"Paciente: {nome}")
+    adicionar_texto_esquerda(f"Paciente: {nome.strip() if nome.strip() else 'Não informado'}")
     adicionar_texto_esquerda(texto_tecnica_final, bold_prefix="Técnica: ")
     adicionar_subtitulo('RELATÓRIO')
     
@@ -415,6 +414,9 @@ if gerar_laudo:
     adicionar_subtitulo('LADO DIREITO')
     
     txt_comum_dir = f"Artéria carótida comum direita pérvia, com diâmetro e trajeto conservados, apresentando fluxo bifásico anterógrado de baixa resistência. Espessura do complexo médio-intimal: {cmi_dir} mm."
+    for na in [x for x in st.session_state.lesoes_nao_ateromatosas if x['lado'] == "Direito" and "comum" in x['vaso'].lower()]:
+        suf_h = "com alteração hemodinâmica local" if na['hemo'] else "sem repercussão hemodinâmica"
+        txt_comum_dir += f" Identifica-se {na['tipo'].lower()} medindo {na['medida']} mm, {suf_h}."
     for inc in [x for x in st.session_state.lesoes_incipientes if "carótida comum direita" in x['vaso'].lower()]:
         txt_comum_dir += f" Identifica-se alteração estrutural incipiente precoce (espessamento focal igual ou inferior a 1.5 mm) no {inc['localizacao']}, medindo {inc['espessura']} mm de espessura."
     for p in [x for x in st.session_state.lista_placas if "carótida comum direita" in x['vaso'].lower()]:
@@ -447,21 +449,38 @@ if gerar_laudo:
     adicionar_texto_esquerda(txt_bulbo_dir)
 
     placas_aci_dir = [p for p in st.session_state.lista_placas if "interna direita" in p['vaso'].lower()]
-    if placas_aci_dir:
+    nas_aci_dir = [x for x in st.session_state.lesoes_nao_ateromatosas if x['lado'] == "Direito" and "interna" in x['vaso'].lower()]
+    calcs_aci_dir = [c for c in st.session_state.calcificacoes_isoladas if c['lado'] == "Direito" and "interna" in c['topografia']]
+    incs_aci_dir = [x for x in st.session_state.lesoes_incipientes if "interna direita" in x['vaso'].lower()]
+
+    if estado_aci_dir in ["Oclusão", "Suboclusão"]:
+        txt_aci_dir = f"Artéria carótida interna direita {sufixo_hemo_aci_dir}"
+    elif placas_aci_dir:
         p = placas_aci_dir[0]
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
         txt_aci_dir = f"Artéria carótida interna direita pérvia, apresentando na parede uma placa de ateroma {p['composicao_texto'].lower()}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_dir}"
     else:
         txt_aci_dir = f"Artéria carótida interna direita pérvia, {sufixo_hemo_aci_dir}"
+    for inc in incs_aci_dir:
+        txt_aci_dir += f" Identifica-se lesão estrutural incipiente no {inc['localizacao']}, medindo {inc['espessura']} mm de espessura."
+    for na in nas_aci_dir:
+        suf_h = "com alteração hemodinâmica local" if na['hemo'] else "sem repercussão hemodinâmica"
+        txt_aci_dir += f" Identifica-se {na['tipo'].lower()} medindo {na['medida']} mm, {suf_h}."
+    for c in calcs_aci_dir:
+        txt_aci_dir += " Identificam-se calcificações parietais isoladas sem repercussão hemodinâmica."
     adicionar_texto_esquerda(txt_aci_dir)
 
-    adicionar_texto_esquerda(f"Artéria carótida externa direita {ace_dir.lower()}")
+    ace_dir_texto = ace_dir if ace_dir.endswith(".") else ace_dir + "."
+    adicionar_texto_esquerda(f"Artéria carótida externa direita {ace_dir_texto.lower()}")
     adicionar_texto_esquerda(texto_vert_dir)
 
     # --- LADO ESQUERDO ---
     adicionar_subtitulo('LADO ESQUERDO')
     
     txt_comum_esq = f"Artéria carótida comum esquerda pérvia, com diâmetro e trajeto conservados, apresentando fluxo bifásico anterógrado de baixa resistência. Espessura do complexo médio-intimal: {cmi_esq} mm."
+    for na in [x for x in st.session_state.lesoes_nao_ateromatosas if x['lado'] == "Esquerdo" and "comum" in x['vaso'].lower()]:
+        suf_h = "com alteração hemodinâmica local" if na['hemo'] else "sem repercussão hemodinâmica"
+        txt_comum_esq += f" Identifica-se {na['tipo'].lower()} medindo {na['medida']} mm, {suf_h}."
     for inc in [x for x in st.session_state.lesoes_incipientes if "carótida comum esquerda" in x['vaso'].lower()]:
         txt_comum_esq += f" Identifica-se alteração estrutural incipiente precoce (espessamento focal igual ou inferior a 1.5 mm) no {inc['localizacao']}, medindo {inc['espessura']} mm de espessura."
     for p in [x for x in st.session_state.lista_placas if "carótida comum esquerda" in x['vaso'].lower()]:
@@ -494,15 +513,29 @@ if gerar_laudo:
     adicionar_texto_esquerda(txt_bulbo_esq)
 
     placas_aci_esq = [p for p in st.session_state.lista_placas if "interna esquerda" in p['vaso'].lower()]
-    if placas_aci_esq:
+    nas_aci_esq = [x for x in st.session_state.lesoes_nao_ateromatosas if x['lado'] == "Esquerdo" and "interna" in x['vaso'].lower()]
+    calcs_aci_esq = [c for c in st.session_state.calcificacoes_isoladas if c['lado'] == "Esquerdo" and "interna" in c['topografia']]
+    incs_aci_esq = [x for x in st.session_state.lesoes_incipientes if "interna esquerda" in x['vaso'].lower()]
+
+    if estado_aci_esq in ["Oclusão", "Suboclusão"]:
+        txt_aci_esq = f"Artéria carótida interna esquerda {sufixo_hemo_aci_esq}"
+    elif placas_aci_esq:
         p = placas_aci_esq[0]
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
         txt_aci_esq = f"Artéria carótida interna esquerda pérvia, apresentando na parede uma placa de ateroma {p['composicao_texto'].lower()}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_esq}"
     else:
         txt_aci_esq = f"Artéria carótida interna esquerda pérvia, {sufixo_hemo_aci_esq}"
+    for inc in incs_aci_esq:
+        txt_aci_esq += f" Identifica-se lesão estrutural incipiente no {inc['localizacao']}, medindo {inc['espessura']} mm de espessura."
+    for na in nas_aci_esq:
+        suf_h = "com alteração hemodinâmica local" if na['hemo'] else "sem repercussão hemodinâmica"
+        txt_aci_esq += f" Identifica-se {na['tipo'].lower()} medindo {na['medida']} mm, {suf_h}."
+    for c in calcs_aci_esq:
+        txt_aci_esq += " Identificam-se calcificações parietais isoladas sem repercussão hemodinâmica."
     adicionar_texto_esquerda(txt_aci_esq)
 
-    adicionar_texto_esquerda(f"Artéria carótida externa esquerda {ace_esq.lower()}")
+    ace_esq_texto = ace_esq if ace_esq.endswith(".") else ace_esq + "."
+    adicionar_texto_esquerda(f"Artéria carótida externa esquerda {ace_esq_texto.lower()}")
     adicionar_texto_esquerda(texto_vert_esq)
 
     # --- IMPRESSÃO DIAGNÓSTICA (Com quebra de página opcional) ---
@@ -573,11 +606,16 @@ if gerar_laudo:
     has_bulbo_esq = any(c['lado'] == "Esquerdo" and c['topografia'] == "bulbo carotídeo" for c in st.session_state.calcificacoes_isoladas)
 
     if has_bulbo_dir and has_bulbo_esq:
-        adicionar_texto_esquerda("– Calcificações parietais isoladas sem repercussão nos bulbos carotídeos bilateralmente.")
+        adicionar_texto_esquerda("– Calcificações parietais isoladas sem repercussão hemodinâmica nos bulbos carotídeos bilateralmente.")
         tem_achado = True
+        for c in [x for x in st.session_state.calcificacoes_isoladas if x['topografia'] != "bulbo carotídeo"]:
+            preposicao = "na" if c['topografia'].startswith("artéria") else "no"
+            adicionar_texto_esquerda(f"– Calcificações parietais isoladas sem repercussão hemodinâmica {preposicao} {c['topografia']} {c['lado'].lower()}.")
+            tem_achado = True
     else:
         for c in st.session_state.calcificacoes_isoladas:
-            adicionar_texto_esquerda(f"– Calcificações parietais isoladas sem repercussão no {c['topografia']} {c['lado'].lower()}.")
+            preposicao = "na" if c['topografia'].startswith("artéria") else "no"
+            adicionar_texto_esquerda(f"– Calcificações parietais isoladas sem repercussão hemodinâmica {preposicao} {c['topografia']} {c['lado'].lower()}.")
             tem_achado = True
 
     if not tem_achado:
