@@ -15,6 +15,12 @@ if 'calcificacoes_isoladas' not in st.session_state:
 if 'lesoes_nao_ateromatosas' not in st.session_state:
     st.session_state.lesoes_nao_ateromatosas = []
 
+# Aplicar sync de velocidade de tortuosidade antes de renderizar widgets
+if '_sync_vps' in st.session_state:
+    for _k, _v in st.session_state['_sync_vps'].items():
+        st.session_state[_k] = _v
+    del st.session_state['_sync_vps']
+
 # --- FUNÇÃO AUXILIAR PARA ESTIMAR PLAQUE-RADS ---
 def retirar_prefixo_numerico(opcao_texto):
     if ". " in opcao_texto:
@@ -277,10 +283,12 @@ with st.expander("2. Lesões Não Ateromatosas (Tortuosidades e Vasculite)"):
                     st.session_state.lesoes_nao_ateromatosas.append(item_na)
                 if hemo_tort and vps_tort > 0:
                     suffix_ld = "dir" if ld == "Direito" else "esq"
+                    if '_sync_vps' not in st.session_state:
+                        st.session_state['_sync_vps'] = {}
                     if "interna" in vaso_tort.lower():
-                        st.session_state[f"w_vps_aci_{suffix_ld}"] = vps_tort
+                        st.session_state['_sync_vps'][f"w_vps_aci_{suffix_ld}"] = vps_tort
                     elif "comum" in vaso_tort.lower():
-                        st.session_state[f"w_vcc_{suffix_ld}"] = vps_tort
+                        st.session_state['_sync_vps'][f"w_vcc_{suffix_ld}"] = vps_tort
             st.toast("✅ Tortuosidade registrada com sucesso!")
             st.rerun()
 
