@@ -275,7 +275,14 @@ with st.expander("2. Lesões Não Ateromatosas (Tortuosidades e Vasculite)"):
                 item_na = {"categoria": "tortuosidade", "subtipo": subtipo_tort, "vaso": vaso_tort, "lado": ld, "segmento": segmento_tort, "hemo": hemo_tort, "vps_tort": vps_tort}
                 if item_na not in st.session_state.lesoes_nao_ateromatosas:
                     st.session_state.lesoes_nao_ateromatosas.append(item_na)
+                if hemo_tort and vps_tort > 0:
+                    suffix_ld = "dir" if ld == "Direito" else "esq"
+                    if "interna" in vaso_tort.lower():
+                        st.session_state[f"w_vps_aci_{suffix_ld}"] = vps_tort
+                    elif "comum" in vaso_tort.lower():
+                        st.session_state[f"w_vcc_{suffix_ld}"] = vps_tort
             st.toast("✅ Tortuosidade registrada com sucesso!")
+            st.rerun()
 
     else:
         col_v1, col_v2, col_v3 = st.columns(3)
@@ -452,7 +459,23 @@ if gerar_laudo:
 
     status_aci_dir_limpo, sufixo_hemo_aci_dir = obter_texto_hemo_continuo(estado_aci_dir, vps_aci_dir, vcc_dir, tem_placa_aci_dir, diretriz_selecionada, incluir_velocidades)
     status_aci_esq_limpo, sufixo_hemo_aci_esq = obter_texto_hemo_continuo(estado_aci_esq, vps_aci_esq, vcc_esq, tem_placa_aci_esq, diretriz_selecionada, incluir_velocidades)
-    
+
+    # Override hemodinâmico quando tortuosidade é a causa da aceleração focal
+    tort_hemo_aci_dir = next((na for na in st.session_state.lesoes_nao_ateromatosas
+                              if na.get('categoria') == 'tortuosidade' and na['hemo']
+                              and na['lado'] == 'Direito' and 'interna' in na['vaso'].lower()), None)
+    tort_hemo_aci_esq = next((na for na in st.session_state.lesoes_nao_ateromatosas
+                              if na.get('categoria') == 'tortuosidade' and na['hemo']
+                              and na['lado'] == 'Esquerdo' and 'interna' in na['vaso'].lower()), None)
+    if tort_hemo_aci_dir:
+        vps_t = tort_hemo_aci_dir.get('vps_tort', 0)
+        sufixo_hemo_aci_dir = f"apresentando elevação focal da velocidade de pico sistólico (VPS de {vps_t:.0f} cm/s) no ponto de maior curvatura, secundária à tortuosidade de trajeto, sem evidência de processo estenótico ateromatoso associado."
+        status_aci_dir_limpo = "Tortuosidade com Repercussão Hemodinâmica"
+    if tort_hemo_aci_esq:
+        vps_t = tort_hemo_aci_esq.get('vps_tort', 0)
+        sufixo_hemo_aci_esq = f"apresentando elevação focal da velocidade de pico sistólico (VPS de {vps_t:.0f} cm/s) no ponto de maior curvatura, secundária à tortuosidade de trajeto, sem evidência de processo estenótico ateromatoso associado."
+        status_aci_esq_limpo = "Tortuosidade com Repercussão Hemodinâmica"
+
     _, texto_vert_dir = avaliar_vertebral(espectro_vert_dir, vps_vert_dir)
     _, texto_vert_esq = avaliar_vertebral(espectro_vert_esq, vps_vert_esq)
 
@@ -692,16 +715,21 @@ if gerar_laudo:
         tem_achado = True
         v_nome = p['vaso'].lower()
         if "interna" in v_nome:
-            status_hemo, _ = obter_texto_hemo_continuo(
-                estado_aci_dir if "direita" in v_nome else estado_aci_esq,
-                vps_aci_dir if "direita" in v_nome else vps_aci_esq,
-                vcc_dir if "direita" in v_nome else vcc_esq,
-                True, diretriz_selecionada, incluir_velocidades
-            )
-            vps_val = vps_aci_dir if "direita" in v_nome else vps_aci_esq
-            vcc_val = vcc_dir if "direita" in v_nome else vcc_esq
-            rel_val = round(vps_val / max(vcc_val, 1), 2)
-            justificativa_hemo = "" if ("Normal" in status_hemo or not incluir_velocidades) else f", caracterizada por VPS de {vps_val} cm/s e relação ACI/ACC de {rel_val}"
+            tem_tort_hemo = (tort_hemo_aci_dir if "direita" in v_nome else tort_hemo_aci_esq)
+            if tem_tort_hemo:
+                status_hemo = status_aci_dir_limpo if "direita" in v_nome else status_aci_esq_limpo
+                justificativa_hemo = " (aceleração focal atribuída à tortuosidade de trajeto)"
+            else:
+                status_hemo, _ = obter_texto_hemo_continuo(
+                    estado_aci_dir if "direita" in v_nome else estado_aci_esq,
+                    vps_aci_dir if "direita" in v_nome else vps_aci_esq,
+                    vcc_dir if "direita" in v_nome else vcc_esq,
+                    True, diretriz_selecionada, incluir_velocidades
+                )
+                vps_val = vps_aci_dir if "direita" in v_nome else vps_aci_esq
+                vcc_val = vcc_dir if "direita" in v_nome else vcc_esq
+                rel_val = round(vps_val / max(vcc_val, 1), 2)
+                justificativa_hemo = "" if ("Normal" in status_hemo or not incluir_velocidades) else f", caracterizada por VPS de {vps_val} cm/s e relação ACI/ACC de {rel_val}"
         else:
             status_hemo = "Estenose < 50%" if not p['culpada_hemo'] else "Estenose de 50-59%"
             justificativa_hemo = ""
