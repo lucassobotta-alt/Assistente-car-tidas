@@ -1,3 +1,4 @@
+import re
 import streamlit as st
 from docx import Document
 from docx.shared import Pt
@@ -82,6 +83,35 @@ def obter_texto_hemo_continuo(estado, vps_aci, vcc, tem_placa=False, diretriz="D
         else:
             det = f", caracterizada por VPS na artéria carótida interna{vel_aci}{vel_rel2}" if incluir_vel else ""
             return "Estenose de 50-69%", f"determinando estenose moderada (50-69% pelos critérios do Consenso NASCET){det}."
+
+def texto_tortuosidade_report(na):
+    seg = na['segmento']
+    vaso = na['vaso'].lower()
+    lado = na['lado'].lower()
+    if na['hemo'] and na.get('vps_tort', 0) > 0:
+        hemo_text = f"com alteração hemodinâmica caracterizada por aumento expressivo na velocidade de pico sistólico em até {na['vps_tort']:.0f} cm/s no ponto da maior curvatura"
+    else:
+        hemo_text = "sem alteração hemodinâmica"
+    subtipo = na['subtipo']
+    if subtipo == "Acotovelamento (Kinking)":
+        return f"Tortuosidade de trajeto com acotovelamento (<i>Kinking</i>) no segmento cervical {seg} da {vaso} {lado}, {hemo_text}."
+    elif subtipo == "Looping":
+        return f"Tortuosidade de trajeto sem acotovelamento, configurando <i>loop</i>, no segmento cervical {seg} da {vaso} {lado}, {hemo_text}."
+    else:
+        return f"Tortuosidade de trajeto configurando <i>coil</i> no segmento cervical {seg} da {vaso} {lado}, {hemo_text}."
+
+def impressao_tortuosidade_text(na):
+    seg = na['segmento']
+    vaso = na['vaso'].lower()
+    lado = na['lado'].lower()
+    hemo_imp = "com alteração hemodinâmica" if na['hemo'] else "sem alteração hemodinâmica"
+    subtipo = na['subtipo']
+    if subtipo == "Acotovelamento (Kinking)":
+        return f"– Acotovelamento (Kinking) no segmento cervical {seg} da {vaso} {lado}, {hemo_imp}."
+    elif subtipo == "Looping":
+        return f"– Looping no segmento cervical {seg} da {vaso} {lado}, {hemo_imp}."
+    else:
+        return f"– Coil no segmento cervical {seg} da {vaso} {lado}, {hemo_imp}."
 
 def avaliar_vertebral(espectro, vps_vert):
     if espectro == "Normal (Fluxo Anterógrado)":
@@ -223,33 +253,60 @@ with col_hemo_esq:
 st.markdown("---")
 
 with st.expander("2. Lesões Não Ateromatosas (Tortuosidades e Vasculite)"):
-    col_na1, col_na2, col_na3 = st.columns(3)
-    with col_na1:
-        vaso_na = st.selectbox("Vaso com Lesão Não Ateromatosa:", ["Artéria carótida interna", "Artéria carótida comum", "Bulbo carotídeo", "Artéria vertebral"])
-        lado_na = st.selectbox("Lado do Achado:", ["Direito", "Esquerdo", "Bilateral"])
-    with col_na2:
-        tipo_na = st.selectbox("Selecione a Lesão Não Ateromatosa:", [
-            "Tortuosidade / Alongamento (Alongamento simples)",
-            "Tortuosidade / Alongamento (Kinking - Angulação aguda < 90°)",
-            "Tortuosidade / Alongamento (Coiling - Alça completa em espiral)",
-            "Vasculite / Arterite (Espessamento parietal concêntrico e homogêneo - Sinal do Halo)",
-            "Vasculite / Arterite (Espessamento difuso irregular de padrão inflamatório)"
-        ])
-    with col_na3:
-        mensuracao_na = st.number_input("Mensuração / Espessura parietal (mm) se aplicável:", min_value=0.0, max_value=10.0, value=2.1, step=0.1)
-        hemo_na = st.toggle("Gera alteração hemodinâmica ou aceleração focal?", value=False, key="hemo_na")
+    categoria_na = st.radio("Tipo de lesão:", ["Tortuosidade", "Vasculite"], horizontal=True, key="cat_na")
 
-    if st.button("💾 Registrar Lesão Não Ateromatosa"):
-        lados_add = ["Direito", "Esquerdo"] if lado_na == "Bilateral" else [lado_na]
-        for ld in lados_add:
-            item_na = {"vaso": vaso_na, "lado": ld, "tipo": tipo_na, "medida": mensuracao_na, "hemo": hemo_na}
-            if item_na not in st.session_state.lesoes_nao_ateromatosas:
-                st.session_state.lesoes_nao_ateromatosas.append(item_na)
-        st.toast("✅ Lesão não ateromatosa registrada com sucesso!")
+    if categoria_na == "Tortuosidade":
+        col_t1, col_t2, col_t3 = st.columns(3)
+        with col_t1:
+            subtipo_tort = st.selectbox("Tipo de tortuosidade:", ["Acotovelamento (Kinking)", "Looping", "Coil"], key="subtipo_tort")
+            lado_tort = st.selectbox("Lado:", ["Direito", "Esquerdo", "Bilateral"], key="lado_tort")
+        with col_t2:
+            vaso_tort = st.selectbox("Artéria:", ["Artéria carótida interna", "Artéria carótida comum"], key="vaso_tort")
+            segmento_tort = st.selectbox("Segmento cervical:", ["proximal", "médio", "distal"], key="seg_tort")
+        with col_t3:
+            hemo_tort = st.toggle("Há alteração hemodinâmica?", value=False, key="hemo_tort")
+            vps_tort = 0.0
+            if hemo_tort:
+                vps_tort = st.number_input("VPS no ponto de maior curvatura (cm/s):", min_value=0.0, value=0.0, step=5.0, key="vps_tort_val")
+
+        if st.button("💾 Registrar Tortuosidade"):
+            lados_add = ["Direito", "Esquerdo"] if lado_tort == "Bilateral" else [lado_tort]
+            for ld in lados_add:
+                item_na = {"categoria": "tortuosidade", "subtipo": subtipo_tort, "vaso": vaso_tort, "lado": ld, "segmento": segmento_tort, "hemo": hemo_tort, "vps_tort": vps_tort}
+                if item_na not in st.session_state.lesoes_nao_ateromatosas:
+                    st.session_state.lesoes_nao_ateromatosas.append(item_na)
+            st.toast("✅ Tortuosidade registrada com sucesso!")
+
+    else:
+        col_v1, col_v2, col_v3 = st.columns(3)
+        with col_v1:
+            vaso_na = st.selectbox("Vaso:", ["Artéria carótida interna", "Artéria carótida comum", "Bulbo carotídeo", "Artéria vertebral"], key="vaso_vasc")
+            lado_na = st.selectbox("Lado:", ["Direito", "Esquerdo", "Bilateral"], key="lado_vasc")
+        with col_v2:
+            tipo_na = st.selectbox("Tipo de vasculite:", [
+                "Vasculite / Arterite (Espessamento parietal concêntrico e homogêneo - Sinal do Halo)",
+                "Vasculite / Arterite (Espessamento difuso irregular de padrão inflamatório)"
+            ], key="tipo_vasc")
+        with col_v3:
+            mensuracao_na = st.number_input("Espessura parietal (mm):", min_value=0.0, max_value=10.0, value=2.1, step=0.1, key="med_vasc")
+            hemo_na = st.toggle("Alteração hemodinâmica local?", value=False, key="hemo_vasc")
+
+        if st.button("💾 Registrar Vasculite"):
+            lados_add = ["Direito", "Esquerdo"] if lado_na == "Bilateral" else [lado_na]
+            for ld in lados_add:
+                item_na = {"categoria": "vasculite", "vaso": vaso_na, "lado": ld, "tipo": tipo_na, "medida": mensuracao_na, "hemo": hemo_na}
+                if item_na not in st.session_state.lesoes_nao_ateromatosas:
+                    st.session_state.lesoes_nao_ateromatosas.append(item_na)
+            st.toast("✅ Vasculite registrada com sucesso!")
 
     if st.session_state.lesoes_nao_ateromatosas:
         for idx, na in enumerate(st.session_state.lesoes_nao_ateromatosas):
-            st.write(f"• `{idx+1:02d}` **{na['vaso']} {na['lado']}**: {na['tipo']} ({na['medida']} mm) — Repercussão: {na['hemo']}")
+            if na.get('categoria') == 'tortuosidade':
+                hemo_lbl = f"com hemo ({na.get('vps_tort', 0):.0f} cm/s)" if na['hemo'] else "sem alteração hemo"
+                st.write(f"• `{idx+1:02d}` **{na['vaso']} {na['lado']}**: {na['subtipo']} — {na['segmento']} — {hemo_lbl}")
+            else:
+                suf_h = "com repercussão" if na.get('hemo') else "sem repercussão"
+                st.write(f"• `{idx+1:02d}` **{na.get('vaso','')} {na.get('lado','')}**: {na.get('tipo','')} ({na.get('medida','')} mm) — {suf_h}")
         if st.button("❌ Limpar Lista Não Ateromatosa"):
             st.session_state.lesoes_nao_ateromatosas = []
             st.rerun()
@@ -444,17 +501,26 @@ if gerar_laudo:
             run_pre.font.name = fonte_doc
             run_pre.font.size = tamanho_atual
 
-        run = p.add_run(texto)
-        run.italic = italico
-        run.font.name = fonte_doc
-        run.font.size = tamanho_atual
+        parts = re.split(r'(<i>.*?</i>)', texto)
+        for part in parts:
+            if part.startswith('<i>') and part.endswith('</i>'):
+                run = p.add_run(part[3:-4])
+                run.italic = True
+            else:
+                run = p.add_run(part)
+                run.italic = italico
+            run.font.name = fonte_doc
+            run.font.size = tamanho_atual
 
     # --- CONSTRUÇÃO DOS PARÁGRAFOS DO RELATÓRIO ---
 
     txt_comum_dir = f"Artéria carótida comum direita pérvia, com diâmetro e trajeto conservados, apresentando fluxo bifásico anterógrado de baixa resistência. Espessura do complexo médio-intimal: {cmi_dir} mm."
     for na in [x for x in st.session_state.lesoes_nao_ateromatosas if x['lado'] == "Direito" and "comum" in x['vaso'].lower()]:
-        suf_h = "com alteração hemodinâmica local" if na['hemo'] else "sem repercussão hemodinâmica"
-        txt_comum_dir += f" Identifica-se {na['tipo'].lower()} medindo {na['medida']} mm, {suf_h}."
+        if na.get('categoria') == 'tortuosidade':
+            txt_comum_dir += " " + texto_tortuosidade_report(na)
+        else:
+            suf_h = "com alteração hemodinâmica local" if na.get('hemo') else "sem repercussão hemodinâmica"
+            txt_comum_dir += f" Identifica-se espessamento parietal sugestivo de processo inflamatório, medindo {na.get('medida', 0)} mm, {suf_h}."
     for inc in [x for x in st.session_state.lesoes_incipientes if "carótida comum direita" in x['vaso'].lower()]:
         txt_comum_dir += f" Identifica-se espessamento focal da camada médio-intimal no {inc['localizacao']}, medindo {inc['espessura']} mm."
     for p in [x for x in st.session_state.lista_placas if "carótida comum direita" in x['vaso'].lower()]:
@@ -468,8 +534,11 @@ if gerar_laudo:
     txt_bulbo_dir = "Bulbo carotídeo direito pérvio, com diâmetro e trajeto conservados."
     tem_achado_bulbo_dir = False
     for na in [x for x in st.session_state.lesoes_nao_ateromatosas if x['lado'] == "Direito" and "bulbo" in x['vaso'].lower()]:
-        suf_h = "com alteração hemodinâmica local" if na['hemo'] else "sem repercussão hemodinâmica"
-        txt_bulbo_dir += f" Identifica-se alteração não ateromatosa do tipo {na['tipo'].lower()} medindo {na['medida']} mm, {suf_h}."
+        if na.get('categoria') == 'tortuosidade':
+            txt_bulbo_dir += " " + texto_tortuosidade_report(na)
+        else:
+            suf_h = "com alteração hemodinâmica local" if na.get('hemo') else "sem repercussão hemodinâmica"
+            txt_bulbo_dir += f" Identifica-se espessamento parietal sugestivo de processo inflamatório, medindo {na.get('medida', 0)} mm, {suf_h}."
         tem_achado_bulbo_dir = True
     for inc in [x for x in st.session_state.lesoes_incipientes if "bulbo carotídeo direito" in x['vaso'].lower()]:
         txt_bulbo_dir += f" Identifica-se espessamento focal da camada médio-intimal no {inc['localizacao']}, medindo {inc['espessura']} mm."
@@ -509,8 +578,11 @@ if gerar_laudo:
     for inc in incs_aci_dir:
         txt_aci_dir += f" Identifica-se espessamento focal da camada médio-intimal no {inc['localizacao']}, medindo {inc['espessura']} mm."
     for na in nas_aci_dir:
-        suf_h = "com alteração hemodinâmica local" if na['hemo'] else "sem repercussão hemodinâmica"
-        txt_aci_dir += f" Identifica-se {na['tipo'].lower()} medindo {na['medida']} mm, {suf_h}."
+        if na.get('categoria') == 'tortuosidade':
+            txt_aci_dir += " " + texto_tortuosidade_report(na)
+        else:
+            suf_h = "com alteração hemodinâmica local" if na.get('hemo') else "sem repercussão hemodinâmica"
+            txt_aci_dir += f" Identifica-se espessamento parietal sugestivo de processo inflamatório, medindo {na.get('medida', 0)} mm, {suf_h}."
     for c in calcs_aci_dir:
         txt_aci_dir += " Identificam-se calcificações parietais isoladas sem repercussão hemodinâmica."
 
@@ -518,8 +590,11 @@ if gerar_laudo:
     
     txt_comum_esq = f"Artéria carótida comum esquerda pérvia, com diâmetro e trajeto conservados, apresentando fluxo bifásico anterógrado de baixa resistência. Espessura do complexo médio-intimal: {cmi_esq} mm."
     for na in [x for x in st.session_state.lesoes_nao_ateromatosas if x['lado'] == "Esquerdo" and "comum" in x['vaso'].lower()]:
-        suf_h = "com alteração hemodinâmica local" if na['hemo'] else "sem repercussão hemodinâmica"
-        txt_comum_esq += f" Identifica-se {na['tipo'].lower()} medindo {na['medida']} mm, {suf_h}."
+        if na.get('categoria') == 'tortuosidade':
+            txt_comum_esq += " " + texto_tortuosidade_report(na)
+        else:
+            suf_h = "com alteração hemodinâmica local" if na.get('hemo') else "sem repercussão hemodinâmica"
+            txt_comum_esq += f" Identifica-se espessamento parietal sugestivo de processo inflamatório, medindo {na.get('medida', 0)} mm, {suf_h}."
     for inc in [x for x in st.session_state.lesoes_incipientes if "carótida comum esquerda" in x['vaso'].lower()]:
         txt_comum_esq += f" Identifica-se espessamento focal da camada médio-intimal no {inc['localizacao']}, medindo {inc['espessura']} mm."
     for p in [x for x in st.session_state.lista_placas if "carótida comum esquerda" in x['vaso'].lower()]:
@@ -533,8 +608,11 @@ if gerar_laudo:
     txt_bulbo_esq = "Bulbo carotídeo esquerdo pérvio, com diâmetro e trajeto conservados."
     tem_achado_bulbo_esq = False
     for na in [x for x in st.session_state.lesoes_nao_ateromatosas if x['lado'] == "Esquerdo" and "bulbo" in x['vaso'].lower()]:
-        suf_h = "com alteração hemodinâmica local" if na['hemo'] else "sem repercussão hemodinâmica"
-        txt_bulbo_esq += f" Identifica-se alteração não ateromatosa do tipo {na['tipo'].lower()} medindo {na['medida']} mm, {suf_h}."
+        if na.get('categoria') == 'tortuosidade':
+            txt_bulbo_esq += " " + texto_tortuosidade_report(na)
+        else:
+            suf_h = "com alteração hemodinâmica local" if na.get('hemo') else "sem repercussão hemodinâmica"
+            txt_bulbo_esq += f" Identifica-se espessamento parietal sugestivo de processo inflamatório, medindo {na.get('medida', 0)} mm, {suf_h}."
         tem_achado_bulbo_esq = True
     for inc in [x for x in st.session_state.lesoes_incipientes if "bulbo carotídeo esquerdo" in x['vaso'].lower()]:
         txt_bulbo_esq += f" Identifica-se espessamento focal da camada médio-intimal no {inc['localizacao']}, medindo {inc['espessura']} mm."
@@ -574,8 +652,11 @@ if gerar_laudo:
     for inc in incs_aci_esq:
         txt_aci_esq += f" Identifica-se espessamento focal da camada médio-intimal no {inc['localizacao']}, medindo {inc['espessura']} mm."
     for na in nas_aci_esq:
-        suf_h = "com alteração hemodinâmica local" if na['hemo'] else "sem repercussão hemodinâmica"
-        txt_aci_esq += f" Identifica-se {na['tipo'].lower()} medindo {na['medida']} mm, {suf_h}."
+        if na.get('categoria') == 'tortuosidade':
+            txt_aci_esq += " " + texto_tortuosidade_report(na)
+        else:
+            suf_h = "com alteração hemodinâmica local" if na.get('hemo') else "sem repercussão hemodinâmica"
+            txt_aci_esq += f" Identifica-se espessamento parietal sugestivo de processo inflamatório, medindo {na.get('medida', 0)} mm, {suf_h}."
     for c in calcs_aci_esq:
         txt_aci_esq += " Identificam-se calcificações parietais isoladas sem repercussão hemodinâmica."
 
@@ -598,11 +679,10 @@ if gerar_laudo:
 
     for na in st.session_state.lesoes_nao_ateromatosas:
         tem_achado = True
-        if "tortuosidade" in na['tipo'].lower():
-            suf_msg = "hemodinamicamente significativa." if na['hemo'] else "sem repercussão hemodinâmica."
-            impressao_linhas.append(f"– Tortuosidade de trajeto na {na['vaso'].lower()} {na['lado'].lower()} {suf_msg}")
-        elif "vasculite" in na['tipo'].lower() or "arterite" in na['tipo'].lower():
-            impressao_linhas.append(f"– Alterações sugestivas de processo inflamatório (vasculite) na {na['vaso'].lower()} {na['lado'].lower()}.")
+        if na.get('categoria') == 'tortuosidade':
+            impressao_linhas.append(impressao_tortuosidade_text(na))
+        else:
+            impressao_linhas.append(f"– Alterações sugestivas de processo inflamatório (vasculite) na {na.get('vaso','').lower()} {na.get('lado','').lower()}.")
 
     for inc in st.session_state.lesoes_incipientes:
         impressao_linhas.append(f"– Alteração ateromatosa incipiente na {inc['vaso'].lower()} ({inc['localizacao']}), medindo {inc['espessura']} mm.")
