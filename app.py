@@ -479,10 +479,16 @@ if gerar_laudo:
         vps_t = tort_hemo_aci_dir.get('vps_tort', 0)
         sufixo_hemo_aci_dir = f"apresentando elevação focal da velocidade de pico sistólico (VPS de {vps_t:.0f} cm/s) no ponto de maior curvatura, secundária à tortuosidade de trajeto, sem evidência de processo estenótico ateromatoso associado."
         status_aci_dir_limpo = "Tortuosidade com Repercussão Hemodinâmica"
+    elif vps_aci_dir == 0.0 and estado_aci_dir == "Pérvia (Calcular por Velocidade)":
+        sufixo_hemo_aci_dir = "sem repercussão hemodinâmica significativa identificada ao estudo Doppler."
+        status_aci_dir_limpo = "Velocidade Não Informada"
     if tort_hemo_aci_esq:
         vps_t = tort_hemo_aci_esq.get('vps_tort', 0)
         sufixo_hemo_aci_esq = f"apresentando elevação focal da velocidade de pico sistólico (VPS de {vps_t:.0f} cm/s) no ponto de maior curvatura, secundária à tortuosidade de trajeto, sem evidência de processo estenótico ateromatoso associado."
         status_aci_esq_limpo = "Tortuosidade com Repercussão Hemodinâmica"
+    elif vps_aci_esq == 0.0 and estado_aci_esq == "Pérvia (Calcular por Velocidade)":
+        sufixo_hemo_aci_esq = "sem repercussão hemodinâmica significativa identificada ao estudo Doppler."
+        status_aci_esq_limpo = "Velocidade Não Informada"
 
     _, texto_vert_dir = avaliar_vertebral(espectro_vert_dir, vps_vert_dir)
     _, texto_vert_esq = avaliar_vertebral(espectro_vert_esq, vps_vert_esq)
@@ -577,7 +583,7 @@ if gerar_laudo:
     for p in [x for x in st.session_state.lista_placas if "bulbo carotídeo direito" in x['vaso'].lower()]:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
         comp = p['composicao_texto'].lower().removeprefix("placa ")
-        txt_bulbo_dir += f" Apresentando na parede uma placa de ateroma {comp}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
+        txt_bulbo_dir += f" Apresenta na parede uma placa de ateroma {comp}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
         tem_achado_bulbo_dir = True
     for c in st.session_state.calcificacoes_isoladas:
         if c['lado'] == "Direito" and "bulbo" in c['topografia']:
@@ -651,7 +657,7 @@ if gerar_laudo:
     for p in [x for x in st.session_state.lista_placas if "bulbo carotídeo esquerdo" in x['vaso'].lower()]:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
         comp = p['composicao_texto'].lower().removeprefix("placa ")
-        txt_bulbo_esq += f" Apresentando na parede uma placa de ateroma {comp}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
+        txt_bulbo_esq += f" Apresenta na parede uma placa de ateroma {comp}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
         tem_achado_bulbo_esq = True
     for c in st.session_state.calcificacoes_isoladas:
         if c['lado'] == "Esquerdo" and "bulbo" in c['topografia']:
@@ -723,34 +729,26 @@ if gerar_laudo:
         tem_achado = True
         v_nome = p['vaso'].lower()
         if "interna" in v_nome:
-            tem_tort_hemo = (tort_hemo_aci_dir if "direita" in v_nome else tort_hemo_aci_esq)
-            if tem_tort_hemo:
-                status_hemo = status_aci_dir_limpo if "direita" in v_nome else status_aci_esq_limpo
-                justificativa_hemo = " (aceleração focal atribuída à tortuosidade de trajeto)"
-            else:
-                status_hemo, _ = obter_texto_hemo_continuo(
-                    estado_aci_dir if "direita" in v_nome else estado_aci_esq,
-                    vps_aci_dir if "direita" in v_nome else vps_aci_esq,
-                    vcc_dir if "direita" in v_nome else vcc_esq,
-                    True, diretriz_selecionada, incluir_velocidades
-                )
-                vps_val = vps_aci_dir if "direita" in v_nome else vps_aci_esq
-                vcc_val = vcc_dir if "direita" in v_nome else vcc_esq
-                rel_val = round(vps_val / max(vcc_val, 1), 2)
-                justificativa_hemo = "" if ("Normal" in status_hemo or not incluir_velocidades) else f", caracterizada por VPS de {vps_val} cm/s e relação ACI/ACC de {rel_val}"
+            status_hemo = status_aci_dir_limpo if "direita" in v_nome else status_aci_esq_limpo
         else:
-            status_hemo = "Estenose < 50%" if not p['culpada_hemo'] else "Estenose de 50-59%"
-            justificativa_hemo = ""
+            status_hemo = "Velocidade Não Informada" if not p['culpada_hemo'] else "Estenose de 50-59%"
 
-        suffix_diag_pr = f" [{p['plaque_rads']}]" if p['plaque_rads'] else ""
+        pr_str = p.get('plaque_rads') or ""
+        try:
+            pr_num = int(pr_str.split("Plaque-RADS")[1].strip()) if "Plaque-RADS" in pr_str else 0
+        except (ValueError, IndexError):
+            pr_num = 0
+        risk_note = f", com achados sugestivos de risco de instabilidade plaqueária ({pr_str})" if pr_num >= 4 else ""
+
         if "Oclusão" in status_hemo:
-            impressao_linhas.append(f"– Placa de ateroma determinando oclusão completa de {v_nome}{suffix_diag_pr}.")
+            impressao_linhas.append(f"– Placa de ateroma determinando oclusão completa da {v_nome}{risk_note}.")
         elif "Suboclusão" in status_hemo:
-            impressao_linhas.append(f"– Placa de ateroma determinando suboclusão em {v_nome}{suffix_diag_pr}.")
-        elif "Normal" in status_hemo or "< 50%" in status_hemo:
-            impressao_linhas.append(f"– Placa de ateroma discreta na {v_nome}{suffix_diag_pr}{justificativa_hemo}.")
+            impressao_linhas.append(f"– Placa de ateroma determinando suboclusão da {v_nome}{risk_note}.")
+        elif "Normal" in status_hemo or "< 50%" in status_hemo or "Velocidade Não Informada" in status_hemo or "Tortuosidade" in status_hemo:
+            impressao_linhas.append(f"– Placa de ateroma discreta na {v_nome}{risk_note}.")
         else:
-            impressao_linhas.append(f"– Placa de ateroma determinando estenose de {status_hemo.replace('Estenose de ', '')} na {v_nome}{justificativa_hemo}{suffix_diag_pr}.")
+            pct = status_hemo.replace('Estenose de ', '').replace('Estenose ', '')
+            impressao_linhas.append(f"– Placa de ateroma determinando estenose de {pct} na {v_nome}{risk_note}.")
 
     has_bulbo_dir = any(c['lado'] == "Direito" and c['topografia'] == "bulbo carotídeo" for c in st.session_state.calcificacoes_isoladas)
     has_bulbo_esq = any(c['lado'] == "Esquerdo" and c['topografia'] == "bulbo carotídeo" for c in st.session_state.calcificacoes_isoladas)
