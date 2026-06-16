@@ -480,15 +480,17 @@ if gerar_laudo:
         sufixo_hemo_aci_dir = f"apresentando elevação focal da velocidade de pico sistólico (VPS de {vps_t:.0f} cm/s) no ponto de maior curvatura, secundária à tortuosidade de trajeto, sem evidência de processo estenótico ateromatoso associado."
         status_aci_dir_limpo = "Tortuosidade com Repercussão Hemodinâmica"
     elif vps_aci_dir == 0.0 and estado_aci_dir == "Pérvia (Calcular por Velocidade)":
-        sufixo_hemo_aci_dir = "sem repercussão hemodinâmica significativa identificada ao estudo Doppler."
         status_aci_dir_limpo = "Velocidade Não Informada"
     if tort_hemo_aci_esq:
         vps_t = tort_hemo_aci_esq.get('vps_tort', 0)
         sufixo_hemo_aci_esq = f"apresentando elevação focal da velocidade de pico sistólico (VPS de {vps_t:.0f} cm/s) no ponto de maior curvatura, secundária à tortuosidade de trajeto, sem evidência de processo estenótico ateromatoso associado."
         status_aci_esq_limpo = "Tortuosidade com Repercussão Hemodinâmica"
     elif vps_aci_esq == 0.0 and estado_aci_esq == "Pérvia (Calcular por Velocidade)":
-        sufixo_hemo_aci_esq = "sem repercussão hemodinâmica significativa identificada ao estudo Doppler."
         status_aci_esq_limpo = "Velocidade Não Informada"
+
+    # Texto de fluxo normal para usar quando há placa mas sem velocidade informada
+    _, _txt_fluxo_normal = obter_texto_hemo_continuo("Pérvia (Calcular por Velocidade)", 0, 0, False, diretriz_selecionada, incluir_velocidades)
+    txt_fluxo_normal_aci = _txt_fluxo_normal.lstrip("com ")
 
     _, texto_vert_dir = avaliar_vertebral(espectro_vert_dir, vps_vert_dir)
     _, texto_vert_esq = avaliar_vertebral(espectro_vert_esq, vps_vert_esq)
@@ -609,7 +611,10 @@ if gerar_laudo:
         p = placas_aci_dir[0]
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
         comp_aci_dir = p['composicao_texto'].lower().removeprefix("placa ")
-        txt_aci_dir = f"Artéria carótida interna direita pérvia, apresentando na parede uma placa de ateroma {comp_aci_dir}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_dir}"
+        if vps_aci_dir == 0.0 and not tort_hemo_aci_dir:
+            txt_aci_dir = f"Artéria carótida interna direita pérvia. Apresenta na parede uma placa de ateroma {comp_aci_dir}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, sem repercussão hemodinâmica. Mantém {txt_fluxo_normal_aci}"
+        else:
+            txt_aci_dir = f"Artéria carótida interna direita pérvia, apresentando na parede uma placa de ateroma {comp_aci_dir}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_dir}"
     else:
         txt_aci_dir = f"Artéria carótida interna direita pérvia, {sufixo_hemo_aci_dir}"
     for inc in incs_aci_dir:
@@ -683,7 +688,10 @@ if gerar_laudo:
         p = placas_aci_esq[0]
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
         comp_aci_esq = p['composicao_texto'].lower().removeprefix("placa ")
-        txt_aci_esq = f"Artéria carótida interna esquerda pérvia, apresentando na parede uma placa de ateroma {comp_aci_esq}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_esq}"
+        if vps_aci_esq == 0.0 and not tort_hemo_aci_esq:
+            txt_aci_esq = f"Artéria carótida interna esquerda pérvia. Apresenta na parede uma placa de ateroma {comp_aci_esq}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, sem repercussão hemodinâmica. Mantém {txt_fluxo_normal_aci}"
+        else:
+            txt_aci_esq = f"Artéria carótida interna esquerda pérvia, apresentando na parede uma placa de ateroma {comp_aci_esq}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_esq}"
     else:
         txt_aci_esq = f"Artéria carótida interna esquerda pérvia, {sufixo_hemo_aci_esq}"
     for inc in incs_aci_esq:
