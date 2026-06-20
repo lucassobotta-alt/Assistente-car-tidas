@@ -168,7 +168,8 @@ for idx, m_nome in enumerate(membros_para_processar):
                     seg_origem = st.selectbox(
                         "Origem do refluxo (escape proximal):",
                         ["Insuficiência valvar isolada", "Tributárias pélvicas", "Varizes ganglionares",
-                         "Veia de Giacomini incompetente", "Veia perfurante incompetente"],
+                         "Tributária epifascial incompetente", "Veia de Giacomini incompetente",
+                         "Veia perfurante incompetente"],
                         key=f"seg_origem_{m_nome}"
                     )
                 with c_des:
@@ -192,17 +193,22 @@ for idx, m_nome in enumerate(membros_para_processar):
                 with c_prox3:
                     seg_prox_cm = st.text_input("Distância (cm):", "0", key=f"seg_prox_cm_{m_nome}")
 
-                c_dist1, c_dist2, c_dist3 = st.columns(3)
-                with c_dist1:
-                    seg_dist_ref = st.selectbox("Fim — Referência:", _refs, key=f"seg_dist_ref_{m_nome}")
-                with c_dist2:
-                    if seg_dist_ref == "Interlinha do Joelho":
-                        seg_dist_pos = st.radio("Posição:", ["acima", "abaixo"], horizontal=True, key=f"seg_dist_pos_{m_nome}")
-                    else:
-                        seg_dist_pos = ""
-                        st.empty()
-                with c_dist3:
-                    seg_dist_cm = st.text_input("Distância (cm):", "15", key=f"seg_dist_cm_{m_nome}")
+                if seg_desague != "Região maleolar":
+                    c_dist1, c_dist2, c_dist3 = st.columns(3)
+                    with c_dist1:
+                        seg_dist_ref = st.selectbox("Fim — Referência:", _refs, key=f"seg_dist_ref_{m_nome}")
+                    with c_dist2:
+                        if seg_dist_ref == "Interlinha do Joelho":
+                            seg_dist_pos = st.radio("Posição:", ["acima", "abaixo"], horizontal=True, key=f"seg_dist_pos_{m_nome}")
+                        else:
+                            seg_dist_pos = ""
+                            st.empty()
+                    with c_dist3:
+                        seg_dist_cm = st.text_input("Distância (cm):", "15", key=f"seg_dist_cm_{m_nome}")
+                else:
+                    seg_dist_ref = ""
+                    seg_dist_pos = ""
+                    seg_dist_cm = ""
 
                 if st.button("💾 Registrar Segmento", key=f"reg_seg_vsm_{m_nome}"):
                     st.session_state["segmentos_vsm_reg"][m_nome].append({
@@ -509,14 +515,16 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                     else:
                         desague_txt = ""
                     inicio = _fmt_ref_doc(reg["prox_ref"], reg["prox_pos"], reg["prox_cm"])
-                    fim = _fmt_ref_doc(reg["dist_ref"], reg["dist_pos"], reg["dist_cm"])
+                    tem_fim = reg.get("dist_ref") and desague != "Região maleolar"
+                    fim = _fmt_ref_doc(reg["dist_ref"], reg["dist_pos"], reg["dist_cm"]) if tem_fim else None
+                    extensao_txt = f"com extensão de {inicio} até {fim}" if fim else f"a partir de {inicio}"
                     if reg["segmentos"]:
                         segs_txt = ", ".join(reg["segmentos"])
-                        add_p(f"Identificado(s) segmento(s) incompetente(s) no tronco da veia safena magna ({segs_txt}){origem_txt}, com extensão de {inicio} até {fim}{desague_txt}.")
+                        add_p(f"Identificado(s) segmento(s) incompetente(s) no tronco da veia safena magna ({segs_txt}){origem_txt}, {extensao_txt}{desague_txt}.")
                         for terco_m in reg["segmentos"]:
                             conclusoes_lista.append((m_nome, f"Insuficiência segmentar do tronco da VSM ({terco_m})."))
                     else:
-                        add_p(f"Insuficiência valvar do tronco da veia safena magna{origem_txt}, entre {inicio} e {fim}{desague_txt}.")
+                        add_p(f"Insuficiência valvar do tronco da veia safena magna{origem_txt}, {extensao_txt}{desague_txt}.")
                         conclusoes_lista.append((m_nome, "Insuficiência valvar do tronco da VSM sem segmento incompetente definido."))
 
         # Impressão das Medidas da VSM
