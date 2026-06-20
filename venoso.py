@@ -11,12 +11,8 @@ st.title("🌀 Assistente de Laudos: Duplex Scan Venoso de MMII")
 
 # --- SIDEBAR: CONFIGURAÇÕES E DADOS DO MÉDICO ---
 with st.sidebar:
-    st.markdown("## ⚙️ Painel de Controle")
-    fonte_doc = st.selectbox("Fonte do Documento:", ["Arial", "Calibri", "Times New Roman"])
-    tamanho_fonte = st.slider("Tamanho Texto (pt):", 10, 14, 11)
-    espacamento_linhas = st.slider("Espaçamento:", 1.0, 1.5, 1.15)
-    
-    st.markdown("---")
+    st.markdown("## ⚙️ Painel de Controle Avançado")
+
     st.markdown("### 📚 Referências Científicas")
     st.markdown(
         "📄 <a href='https://www.ejves.com/article/S1078-5884(21)00979-5/fulltext' target='_blank'>"
@@ -27,9 +23,28 @@ with st.sidebar:
         "Consenso Brasileiro de Angiologia e Cirurgia Vascular – SBACV 2020</a>",
         unsafe_allow_html=True
     )
+
     st.markdown("---")
-    nome_medico = st.text_input("Médico:", "Lucas Santos Guimarães")
-    crm_medico = st.text_input("CRM:", "4061")
+    st.markdown("### 📝 Formatação Externa (.docx)")
+    fonte_doc = st.selectbox("Família da Fonte:", ["Arial", "Calibri", "Times New Roman"])
+    tamanho_fonte = st.slider("Tamanho do Texto (pt):", 10, 14, 11)
+    espacamento_linhas = st.slider("Espaçamento entre Linhas:", 1.0, 1.5, 1.15, step=0.05)
+    quebrar_pagina_diag = st.toggle("Separar Impressão Diagnóstica em Nova Página", value=False)
+    modo_saida = st.radio(
+        "Modo de saída do laudo:",
+        ["Somente DOCX", "Somente Visualização", "Visualização + DOCX"],
+        index=2
+    )
+
+    st.markdown("---")
+    st.markdown("### ✍️ Identidade & Assinatura")
+    nome_clinica = st.text_input("Cabeçalho / Nome da Clínica:", placeholder="Ex: Instituto de Diagnóstico Vascular")
+    nome_medico = st.text_input("Nome do Médico:", "Lucas Santos Guimarães")
+    colcrm1, colcrm2 = st.columns([2, 1])
+    with colcrm1:
+        crm_medico = st.text_input("CRM:", "4061")
+    with colcrm2:
+        crm_uf = st.selectbox("UF", ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"], index=25)
     rqe_medico = st.text_input("RQE:", "")
 
 # --- IDENTIFICAÇÃO DO PACIENTE ---
@@ -69,7 +84,7 @@ for idx, m_nome in enumerate(membros_para_processar):
         if svp_status == "Anormal":
             c_svp1, c_svp2 = st.columns(2)
             with c_svp1: svp_res["tipo"] = st.selectbox("Tipo de Alteração:", ["Refluxo", "Trombose Venosa Profunda (TVP)"], key=f"svp_tipo_{m_nome}")
-            with c_svp2: svp_res["veias"] = st.multiselect("Veias Acometidas:", ["Veia Femoral Comum (VFC)", "Veia Femoral Superficial (VFS)", "Veia Femoral Profunda (VFP)", "Veia Poplítea (V POP)", "Veias Gastrocnêmias", "Veias Soleares", "Veias Tibiais Posteriores (VTP)", "Veias Fibulares"], key=f"svp_veias_{m_nome}")
+            with c_svp2: svp_res["veias"] = st.multiselect("Veias Acometidas:", ["Veia Femoral Comum (VFC)", "Veia Femoral (VF)", "Veia Femoral Profunda (VFP)", "Veia Poplítea (V POP)", "Veias Gastrocnêmias", "Veias Soleares", "Veias Tibiais Posteriores (VTP)", "Veias Fibulares"], key=f"svp_veias_{m_nome}")
         
         st.markdown("---")
         
@@ -198,6 +213,21 @@ for idx, m_nome in enumerate(membros_para_processar):
             with cm5: vsm_prox_perna = st.text_input("Terço proximal da perna (mm):", "3.0", key=f"prox_p_{m_nome}")
             with cm6: vsm_med_perna = st.text_input("Terço médio da perna (mm):", "2.8", key=f"med_p_{m_nome}")
             with cm7: vsm_dist_perna = st.text_input("Terço distal da perna (mm):", "2.5", key=f"dist_p_{m_nome}")
+            # Alertas de diâmetro da VSM (ESVS 2022)
+            _alertas_vsm = []
+            try:
+                if float(jsf_mm) > 8.0:
+                    _alertas_vsm.append(f"JSF: {jsf_mm} mm > 8,0 mm — dilatação acentuada da junção safenofemoral")
+            except ValueError: pass
+            for _lbl, _val in [("Terço proximal da coxa", vsm_prox_coxa), ("Terço médio da coxa", vsm_med_coxa),
+                                ("Terço distal da coxa", vsm_dist_coxa), ("Terço proximal da perna", vsm_prox_perna),
+                                ("Terço médio da perna", vsm_med_perna), ("Terço distal da perna", vsm_dist_perna)]:
+                try:
+                    if float(_val) > 6.0:
+                        _alertas_vsm.append(f"{_lbl}: {_val} mm > 6,0 mm — tronco dilatado (limiar ESVS 2022 para indicação terapêutica)")
+                except ValueError: pass
+            if _alertas_vsm:
+                st.warning("⚠️ **Diâmetros fora do limiar de referência (ESVS 2022):**\n\n" + "\n\n".join(f"• {a}" for a in _alertas_vsm))
         else: jsf_mm = vsm_prox_coxa = vsm_med_coxa = vsm_dist_coxa = vsm_prox_perna = vsm_med_perna = vsm_dist_perna = ""
 
         st.markdown("---")
@@ -246,11 +276,16 @@ for idx, m_nome in enumerate(membros_para_processar):
             for p_idx in range(qtd_perf):
                 st.markdown(f"**Veia Perfurante Incompetente #{p_idx + 1}**")
                 perf_dados = {}
-                cp_1, cp_2, cp_3, cp_4 = st.columns(4)
+                cp_1, cp_2, cp_3, cp_4, cp_5 = st.columns(5)
                 with cp_1: perf_dados["regiao"] = st.selectbox("Região Anatômica:", ["Coxa", "Perna"], key=f"perf_reg_{m_nome}_{p_idx}")
                 with cp_2: perf_dados["face"] = st.selectbox("Face Medida:", ["Medial", "Lateral", "Anterior", "Posterior", "Anterolateral", "Posterointerna"], key=f"perf_face_{m_nome}_{p_idx}")
                 with cp_3: perf_dados["ref_ponto"] = st.selectbox("Referência de Medida:", ["Interlinha do Joelho", "Face Plantar"], key=f"perf_ref_{m_nome}_{p_idx}")
                 with cp_4: perf_dados["altura_cm"] = st.text_input("Altura aferida (cm):", "12", key=f"perf_alt_{m_nome}_{p_idx}")
+                with cp_5: perf_dados["diametro_mm"] = st.text_input("Diâmetro (mm):", "3.5", key=f"perf_diam_{m_nome}_{p_idx}")
+                try:
+                    if float(perf_dados["diametro_mm"]) > 3.5:
+                        st.warning(f"⚠️ Perfurante #{p_idx + 1}: diâmetro {perf_dados['diametro_mm']} mm > 3,5 mm — critério ESVS 2022 para perfurante patológica")
+                except ValueError: pass
                 
                 if perf_dados["ref_ponto"] == "Interlinha do Joelho":
                     perf_dados["posicao_joelho"] = st.radio("Posição do plano do joelho:", ["Acima", "Abaixo"], horizontal=True, key=f"perf_pos_j_{m_nome}_{p_idx}")
@@ -340,11 +375,20 @@ def construir_laudo_word(membros_lista, dados_m_dict):
             r_p.bold = True
         p.add_run(text)
 
+    if nome_clinica.strip():
+        p_cl = doc.add_paragraph()
+        p_cl.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r_cl = p_cl.add_run(nome_clinica.upper())
+        r_cl.bold = True
+        r_cl.font.name = fonte_doc
+        r_cl.font.size = Pt(tamanho_fonte + 2)
+        doc.add_paragraph().paragraph_format.space_after = Pt(8)
+
     if formato_exame == "Bilateral (Laudo Único)":
         add_p("DOS MEMBROS INFERIORES", bold_pre='DUPLEX SCAN VENOSO ', space_after=12)
     else:
         add_p(f"DO MEMBRO INFERIOR {membros_lista[0]}", bold_pre='DUPLEX SCAN VENOSO ', space_after=12)
-        
+
     add_p(f" {nome_paciente}", bold_pre="Paciente:")
     add_p("TÉCNICA", space_before=12, space_after=6)
     add_p("Exame realizado com transdutor linear de alta frequência...", space_after=12)
@@ -464,7 +508,9 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                 r_pos = p_dados["posicao_joelho"]
                 
                 txt_ref_perf = f"localizada {r_pos.lower()} da interlinha do joelho" if "Interlinha" in r_ref else f"a partir da face plantar"
-                add_p(f"Identificada veia perfurante incompetente na {r_reg.lower()}, face {r_face.lower()}, medindo {r_alt} cm de altura {txt_ref_perf}.", bullet=True)
+                r_diam = p_dados.get("diametro_mm", "")
+                txt_diam = f", com diâmetro de {r_diam} mm" if r_diam else ""
+                add_p(f"Identificada veia perfurante incompetente na {r_reg.lower()}, face {r_face.lower()}{txt_diam}, medindo {r_alt} cm de altura {txt_ref_perf}.", bullet=True)
                 conclusoes_lista.append((m_nome, f"Insuficiência de veia perfurante na {r_reg.lower()} (face {r_face.lower()})."))
 
         # 2.4 MAPA DE VARICOSIDADES
@@ -507,6 +553,8 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                     conclusoes_lista.append((m_nome, "Edema intersticial subcutâneo no membro avaliado."))
 
     # IMPRESSÃO DIAGNÓSTICA (CONCLUSÃO)
+    if quebrar_pagina_diag:
+        doc.add_page_break()
     add_p("⸻", space_after=12)
     add_p("IMPRESSÃO DIAGNÓSTICA", space_after=6)
     if not conclusoes_lista:
@@ -524,23 +572,44 @@ def construir_laudo_word(membros_lista, dados_m_dict):
             prefixo = f"[{m_origem}] " if formato_exame == "Bilateral (Laudo Único)" else ""
             add_p(f"{prefixo}{conclusao_txt}", bullet=True)
 
-    doc.add_paragraph().paragraph_format.space_before = Pt(25)
-    add_p(f"{nome_medico}\nCRM {crm_medico}" + (f" / RQE {rqe_medico}" if rqe_medico.strip() else ""), align=WD_ALIGN_PARAGRAPH.CENTER)
+    if nome_medico or crm_medico:
+        doc.add_paragraph().paragraph_format.space_before = Pt(25)
+        p_assin = doc.add_paragraph()
+        p_assin.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_assin.paragraph_format.line_spacing = espacamento_linhas
+        if nome_medico:
+            r = p_assin.add_run(f"{nome_medico}\n")
+            r.bold = True
+        if crm_medico:
+            p_assin.add_run(f"CRM-{crm_uf} {crm_medico}\n")
+        if rqe_medico.strip():
+            p_assin.add_run(f"RQE {rqe_medico}")
     return doc
 
 # --- PROCESSAMENTO DO BOTÃO DE GERAR LAUDO ---
+def _exibir_doc(doc, buf, nome_arquivo, label_download):
+    st.success("Laudo gerado com sucesso!")
+    if modo_saida in ["Somente Visualização", "Visualização + DOCX"]:
+        texto_viz = "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+        st.markdown("## 👁️ Visualização do Laudo")
+        st.text_area("Laudo Gerado", value=texto_viz, height=600)
+    if modo_saida in ["Somente DOCX", "Visualização + DOCX"]:
+        st.download_button(label_download, buf, nome_arquivo,
+                           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                           use_container_width=True)
+
 if st.button("🚀 Gerar Laudo Venoso Completo", use_container_width=True):
     if formato_exame == "Bilateral (Laudos Separados)":
         for m_nome in ["DIREITO", "ESQUERDO"]:
-            doc_separado = construir_laudo_word([m_nome], dados_membros)
+            doc_sep = construir_laudo_word([m_nome], dados_membros)
             buf = BytesIO()
-            doc_separado.save(buf)
+            doc_sep.save(buf)
             buf.seek(0)
-            st.download_button(f"📥 Baixar Laudo Membro {m_nome} (.docx)", buf, f"Laudo_Venoso_MMII_{m_nome}.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+            _exibir_doc(doc_sep, buf, f"Laudo_Venoso_MMII_{m_nome}.docx",
+                        f"📥 Baixar Laudo Membro {m_nome} (.docx)")
     else:
         doc_unico = construir_laudo_word(membros_para_processar, dados_membros)
         buf = BytesIO()
         doc_unico.save(buf)
         buf.seek(0)
-        st.success("Laudo atualizado gerado com sucesso!")
-        st.download_button("📥 Baixar Laudo Venoso (.docx)", buf, "Laudo_Venoso_MMII.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+        _exibir_doc(doc_unico, buf, "Laudo_Venoso_MMII.docx", "📥 Baixar Laudo Venoso (.docx)")
