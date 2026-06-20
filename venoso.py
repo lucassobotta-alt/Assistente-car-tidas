@@ -152,11 +152,26 @@ for idx, m_nome in enumerate(membros_para_processar):
 
             st.markdown("**Segmentos Incompetentes no Tronco da VSM:**")
             seg_sel = st.multiselect(
-                "Selecione o(s) segmento(s):",
+                "Segmento(s) afetado(s) — deixe vazio para insuficiência valvar isolada:",
                 ["terço proximal da coxa", "terço médio da coxa", "terço distal da coxa",
                  "terço proximal da perna", "terço médio da perna", "terço distal da perna"],
                 key=f"segmentos_vsm_sel_{m_nome}"
             )
+
+            c_ori, c_des = st.columns(2)
+            with c_ori:
+                seg_origem = st.selectbox(
+                    "Origem do refluxo (escape proximal):",
+                    ["Insuficiência valvar isolada", "Tributárias pélvicas", "Varizes ganglionares",
+                     "Veia de Giacomini incompetente", "Veia perfurante incompetente"],
+                    key=f"seg_origem_{m_nome}"
+                )
+            with c_des:
+                seg_desague = st.selectbox(
+                    "Ponto distal (deságue do refluxo):",
+                    ["Tributária epifascial varicosa", "Tributária varicosa troncular", "Veia perfurante de drenagem"],
+                    key=f"seg_desague_{m_nome}"
+                )
 
             _refs = ["Junção Safenofemoral (JSF)", "Interlinha do Joelho", "Face Plantar"]
             c_prox1, c_prox2, c_prox3 = st.columns(3)
@@ -184,13 +199,13 @@ for idx, m_nome in enumerate(membros_para_processar):
                 seg_dist_cm = st.text_input("Distância (cm):", "15", key=f"seg_dist_cm_{m_nome}")
 
             if st.button("💾 Registrar Segmento(s)", key=f"reg_seg_vsm_{m_nome}"):
-                if seg_sel:
-                    st.session_state["segmentos_vsm_reg"][m_nome].append({
-                        "segmentos": seg_sel,
-                        "prox_ref": seg_prox_ref, "prox_pos": seg_prox_pos, "prox_cm": seg_prox_cm,
-                        "dist_ref": seg_dist_ref, "dist_pos": seg_dist_pos, "dist_cm": seg_dist_cm,
-                    })
-                    st.rerun()
+                st.session_state["segmentos_vsm_reg"][m_nome].append({
+                    "segmentos": seg_sel,
+                    "origem": seg_origem, "desague": seg_desague,
+                    "prox_ref": seg_prox_ref, "prox_pos": seg_prox_pos, "prox_cm": seg_prox_cm,
+                    "dist_ref": seg_dist_ref, "dist_pos": seg_dist_pos, "dist_cm": seg_dist_cm,
+                })
+                st.rerun()
 
             if st.session_state["segmentos_vsm_reg"][m_nome]:
                 for i, reg in enumerate(st.session_state["segmentos_vsm_reg"][m_nome]):
@@ -198,7 +213,8 @@ for idx, m_nome in enumerate(membros_para_processar):
                         if ref == "Interlinha do Joelho":
                             return f"{cm} cm {pos} da interlinha do joelho"
                         return f"{cm} cm da {ref}"
-                    desc = (f"`{i+1:02d}` **{', '.join(reg['segmentos'])}** — "
+                    segs_label = ", ".join(reg["segmentos"]) if reg["segmentos"] else "insuficiência valvar"
+                    desc = (f"`{i+1:02d}` **{segs_label}** | origem: {reg.get('origem','')} | deságue: {reg.get('desague','')} — "
                             f"de {_fmt_ref(reg['prox_ref'], reg['prox_pos'], reg['prox_cm'])} "
                             f"até {_fmt_ref(reg['dist_ref'], reg['dist_pos'], reg['dist_cm'])}")
                     st.markdown(desc)
@@ -477,12 +493,20 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                         return f"{cm} cm {pos} da interlinha do joelho"
                     return f"{cm} cm da {ref}"
                 for reg in vm["segmentos_lista"]:
-                    segs_txt = ", ".join(reg["segmentos"])
+                    origem = reg.get("origem", "")
+                    desague = reg.get("desague", "")
+                    origem_txt = f" com escape originado de {origem.lower()}" if origem and origem != "Insuficiência valvar isolada" else ""
+                    desague_txt = f", com deságue para {desague.lower()}" if desague else ""
                     inicio = _fmt_ref_doc(reg["prox_ref"], reg["prox_pos"], reg["prox_cm"])
                     fim = _fmt_ref_doc(reg["dist_ref"], reg["dist_pos"], reg["dist_cm"])
-                    add_p(f"Identificado(s) segmento(s) incompetente(s) no tronco da veia safena magna ({segs_txt}), com extensão de {inicio} até {fim}.")
-                    for terco_m in reg["segmentos"]:
-                        conclusoes_lista.append((m_nome, f"Insuficiência segmentar do tronco da VSM ({terco_m})."))
+                    if reg["segmentos"]:
+                        segs_txt = ", ".join(reg["segmentos"])
+                        add_p(f"Identificado(s) segmento(s) incompetente(s) no tronco da veia safena magna ({segs_txt}){origem_txt}, com extensão de {inicio} até {fim}{desague_txt}.")
+                        for terco_m in reg["segmentos"]:
+                            conclusoes_lista.append((m_nome, f"Insuficiência segmentar do tronco da VSM ({terco_m})."))
+                    else:
+                        add_p(f"Insuficiência valvar do tronco da veia safena magna{origem_txt}, entre {inicio} e {fim}{desague_txt}.")
+                        conclusoes_lista.append((m_nome, "Insuficiência valvar do tronco da VSM sem segmento incompetente definido."))
 
         # Impressão das Medidas da VSM
         if "Pérvia" in vm.get("status_geral", ""):
