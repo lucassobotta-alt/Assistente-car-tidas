@@ -20,11 +20,11 @@ with st.sidebar:
     st.markdown("### 📚 Referências Científicas")
     st.markdown(
         "📄 <a href='https://www.ejves.com/article/S1078-5884(21)00979-5/fulltext' target='_blank'>"
-        "ESVS 2022 Clinical Practice Guidelines – Chronic Venous Disease (texto completo)</a><br>"
-        "📄 <a href='https://www.ejves.com/action/showPdf?pii=S1078-5884%2821%2900979-5' target='_blank'>"
-        "ESVS 2022 Clinical Practice Guidelines – Chronic Venous Disease (PDF)</a><br>"
+        "ESVS 2022 Clinical Practice Guidelines – Chronic Venous Disease</a><br>"
         "📄 <a href='https://www.minervamedica.it/en/getfreepdf/NWpVTDlQdVlleGl0S090dkRSM2VvQlZZUWhDR24wMVI0UVVOTEtKbEdRclBDd092dUlDZHgvY0FBVUZtS2ZWaw%253D%253D/R34Y2023N01A0045.pdf' target='_blank'>"
-        "Duplex Ultrasound in Chronic Venous Disease – Minerva Medica 2023</a>",
+        "Duplex Ultrasound in Chronic Venous Disease – Minerva Medica 2023</a><br>"
+        "📄 <a href='https://cbr.org.br/wp-content/uploads/2020/05/Consenso-para-a-Sociedade-Bras.-de-Angiologia-e-Cirurgia-Vascular_2020.pdf' target='_blank'>"
+        "Consenso Brasileiro de Angiologia e Cirurgia Vascular – SBACV 2020</a>",
         unsafe_allow_html=True
     )
     st.markdown("---")
