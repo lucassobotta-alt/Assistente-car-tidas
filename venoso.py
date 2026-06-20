@@ -152,23 +152,62 @@ for idx, m_nome in enumerate(membros_para_processar):
 
             st.markdown("**Segmentos Incompetentes no Tronco da VSM:**")
             seg_sel = st.multiselect(
-                "Selecione o(s) segmento(s) e registre:",
+                "Selecione o(s) segmento(s):",
                 ["terço proximal da coxa", "terço médio da coxa", "terço distal da coxa",
                  "terço proximal da perna", "terço médio da perna", "terço distal da perna"],
                 key=f"segmentos_vsm_sel_{m_nome}"
             )
+
+            _refs = ["Junção Safenofemoral (JSF)", "Interlinha do Joelho", "Face Plantar"]
+            c_prox1, c_prox2, c_prox3 = st.columns(3)
+            with c_prox1:
+                seg_prox_ref = st.selectbox("Início — Referência:", _refs, key=f"seg_prox_ref_{m_nome}")
+            with c_prox2:
+                if seg_prox_ref == "Interlinha do Joelho":
+                    seg_prox_pos = st.radio("Posição:", ["acima", "abaixo"], horizontal=True, key=f"seg_prox_pos_{m_nome}")
+                else:
+                    seg_prox_pos = ""
+                    st.empty()
+            with c_prox3:
+                seg_prox_cm = st.text_input("Distância (cm):", "0", key=f"seg_prox_cm_{m_nome}")
+
+            c_dist1, c_dist2, c_dist3 = st.columns(3)
+            with c_dist1:
+                seg_dist_ref = st.selectbox("Fim — Referência:", _refs, key=f"seg_dist_ref_{m_nome}")
+            with c_dist2:
+                if seg_dist_ref == "Interlinha do Joelho":
+                    seg_dist_pos = st.radio("Posição:", ["acima", "abaixo"], horizontal=True, key=f"seg_dist_pos_{m_nome}")
+                else:
+                    seg_dist_pos = ""
+                    st.empty()
+            with c_dist3:
+                seg_dist_cm = st.text_input("Distância (cm):", "15", key=f"seg_dist_cm_{m_nome}")
+
             if st.button("💾 Registrar Segmento(s)", key=f"reg_seg_vsm_{m_nome}"):
                 if seg_sel:
-                    st.session_state["segmentos_vsm_reg"][m_nome].append(seg_sel)
+                    st.session_state["segmentos_vsm_reg"][m_nome].append({
+                        "segmentos": seg_sel,
+                        "prox_ref": seg_prox_ref, "prox_pos": seg_prox_pos, "prox_cm": seg_prox_cm,
+                        "dist_ref": seg_dist_ref, "dist_pos": seg_dist_pos, "dist_cm": seg_dist_cm,
+                    })
                     st.rerun()
+
             if st.session_state["segmentos_vsm_reg"][m_nome]:
                 for i, reg in enumerate(st.session_state["segmentos_vsm_reg"][m_nome]):
-                    st.write(f"• `{i+1:02d}` {', '.join(reg)}")
+                    def _fmt_ref(ref, pos, cm):
+                        if ref == "Interlinha do Joelho":
+                            return f"{cm} cm {pos} da interlinha do joelho"
+                        return f"{cm} cm da {ref}"
+                    desc = (f"`{i+1:02d}` **{', '.join(reg['segmentos'])}** — "
+                            f"de {_fmt_ref(reg['prox_ref'], reg['prox_pos'], reg['prox_cm'])} "
+                            f"até {_fmt_ref(reg['dist_ref'], reg['dist_pos'], reg['dist_cm'])}")
+                    st.markdown(desc)
                 if st.button("❌ Limpar Segmentos Registrados", key=f"clear_seg_vsm_{m_nome}"):
                     st.session_state["segmentos_vsm_reg"][m_nome] = []
                     st.rerun()
+
             vsm_dados_mapeamento["tronco_refluxo"] = bool(st.session_state["segmentos_vsm_reg"][m_nome])
-            vsm_dados_mapeamento["segmentos_lista"] = [s for reg in st.session_state["segmentos_vsm_reg"][m_nome] for s in reg]
+            vsm_dados_mapeamento["segmentos_lista"] = st.session_state["segmentos_vsm_reg"][m_nome]
 
         # Mensurações da Veia Safena Magna
         if "Pérvia" in vsm_status_geral:
@@ -433,11 +472,17 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                         conclusoes_lista.append((m_nome, "Varizes proximais na coxa, originárias da junção safenofemoral incompetente por falha da válvula terminal."))
 
             if vm["tronco_refluxo"] and vm.get("segmentos_lista"):
-                segs = vm["segmentos_lista"]
-                segs_txt = ", ".join(segs)
-                add_p(f"Identificado(s) segmento(s) incompetente(s) no tronco da veia safena magna: {segs_txt}.")
-                for terco_m in segs:
-                    conclusoes_lista.append((m_nome, f"Insuficiência segmentar do tronco da VSM ({terco_m})."))
+                def _fmt_ref_doc(ref, pos, cm):
+                    if ref == "Interlinha do Joelho":
+                        return f"{cm} cm {pos} da interlinha do joelho"
+                    return f"{cm} cm da {ref}"
+                for reg in vm["segmentos_lista"]:
+                    segs_txt = ", ".join(reg["segmentos"])
+                    inicio = _fmt_ref_doc(reg["prox_ref"], reg["prox_pos"], reg["prox_cm"])
+                    fim = _fmt_ref_doc(reg["dist_ref"], reg["dist_pos"], reg["dist_cm"])
+                    add_p(f"Identificado(s) segmento(s) incompetente(s) no tronco da veia safena magna ({segs_txt}), com extensão de {inicio} até {fim}.")
+                    for terco_m in reg["segmentos"]:
+                        conclusoes_lista.append((m_nome, f"Insuficiência segmentar do tronco da VSM ({terco_m})."))
 
         # Impressão das Medidas da VSM
         if "Pérvia" in vm.get("status_geral", ""):
