@@ -413,6 +413,330 @@ for idx, m_nome in enumerate(membros_para_processar):
 
 st.markdown("---")
 
+# --- FUNÇÃO DE CARTOGRAFIA VENOSA ---
+def gerar_cartografia_venosa(m_nome, dados_m, paciente):
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as mpatches
+    from matplotlib.lines import Line2D
+    import numpy as np
+
+    KNEE_H = 38
+    JSF_H  = 80
+    JSP_H  = 37
+    TOTAL_H = 90
+
+    EXTENT_MAP = {
+        "toda sua extensão":       0,
+        "terço proximal da coxa":  66,
+        "terço médio da coxa":     55,
+        "terço distal da coxa":    44,
+        "altura do joelho":        KNEE_H,
+        "terço proximal da perna": 28,
+        "terço médio da perna":    18,
+        "terço distal da perna":   8,
+    }
+
+    def texto_para_altura(txt):
+        for chave, h in EXTENT_MAP.items():
+            if chave in txt.lower():
+                return h
+        return 0
+
+    def calc_altura(ref, pos, cm_str):
+        try:
+            cm = float(str(cm_str).replace(",", ".").strip() or "0")
+        except (ValueError, TypeError):
+            cm = 0.0
+        ref = str(ref)
+        pos = str(pos).lower()
+        if "Plantar" in ref:
+            return cm
+        if "JSF" in ref or "Safenofemoral" in ref:
+            return JSF_H - cm
+        if "Joelho" in ref:
+            return (KNEE_H + cm) if "acima" in pos else (KNEE_H - cm)
+        return cm
+
+    # ---- silhueta ----
+    SIL_Y  = np.array([0,  6,  16,  26,  38,  50,  62,  73,  82])
+    SIL_XR = np.array([2.0, 2.3, 2.7, 2.9, 2.3, 3.1, 3.5, 3.3, 2.6])
+    SIL_XL = np.array([-2.0,-2.3,-2.6,-2.8,-2.2,-2.7,-3.1,-2.9,-2.3])
+
+    def draw_silhueta(ax):
+        xs_f = np.concatenate([SIL_XR, SIL_XL[::-1]])
+        ys_f = np.concatenate([SIL_Y, SIL_Y[::-1]])
+        ax.fill(xs_f, ys_f, color='#EFD9C6', alpha=0.55, zorder=1)
+        ax.plot(SIL_XR, SIL_Y, color='#C49A7A', lw=1.5, zorder=2)
+        ax.plot(SIL_XL, SIL_Y, color='#C49A7A', lw=1.5, zorder=2)
+        # pé
+        ax.fill([-2.0, 2.0, 3.2, -0.5], [0, 0, -3, -3],
+                color='#EFD9C6', alpha=0.55, zorder=1)
+        ax.plot([-2.0, -0.5, 3.2, 2.0], [0, -3, -3, 0],
+                color='#C49A7A', lw=1.5, zorder=2)
+
+    # ---- figura ----
+    fig, (ax_med, ax_post) = plt.subplots(1, 2, figsize=(11, 15))
+    fig.patch.set_facecolor('#F8F9FA')
+
+    for ax in (ax_med, ax_post):
+        ax.set_facecolor('#F8F9FA')
+        ax.set_xlim(-7, 7)
+        ax.set_ylim(-6, TOTAL_H + 6)
+        ax.set_aspect('equal', adjustable='box')
+        ax.axis('off')
+        draw_silhueta(ax)
+        # linha do joelho
+        ax.plot([-3.5, 3.5], [KNEE_H, KNEE_H], color='#AAAAAA',
+                lw=0.9, ls='--', zorder=3, alpha=0.8)
+        ax.text(4.1, KNEE_H, "Joelho", fontsize=7, va='center', color='#888888')
+        # régua
+        for h in range(0, 85, 10):
+            ax.plot([-6.1, -5.7], [h, h], color='#CCCCCC', lw=0.7, zorder=3)
+            ax.text(-6.5, h, f"{h}", fontsize=5.5, va='center',
+                    ha='right', color='#AAAAAA')
+        ax.text(-6.5, -4, "cm", fontsize=5.5, ha='right', color='#AAAAAA')
+
+    # ---- VSM ----
+    VSM_X = -0.8
+    vsm = dados_m["vsm_mapeamento"]
+    vsm_status_geral = vsm.get("status_geral", "")
+
+    if "Ausente" in vsm_status_geral:
+        ax_med.plot([VSM_X, VSM_X], [0, JSF_H], color='#BBBBBB',
+                    lw=3, ls=':', zorder=5, alpha=0.7)
+        ax_med.text(VSM_X + 0.3, 40, "VSM\nAusente", fontsize=8,
+                    va='center', color='#AAAAAA', style='italic')
+    else:
+        jsf_incomp = vsm.get("jsf_status", "") == "Incompetente"
+        valvulas   = vsm.get("jsf_valvulas", "")
+        det        = vsm.get("jsf_detalhes_input", {})
+
+        regioes_incomp = []
+
+        if jsf_incomp:
+            if "Terminal e Pré-terminal" in valvulas:
+                y_base = texto_para_altura(det.get("extensao_refluxo", "toda sua extensão"))
+                regioes_incomp.append((JSF_H, y_base))
+            elif "Apenas a Válvula Pré-terminal" in valvulas:
+                try:
+                    cm_j = float(str(det.get("cm_ponto_j","10") or "10").replace(",","."))
+                except ValueError:
+                    cm_j = 10.0
+                regioes_incomp.append((JSF_H, JSF_H - cm_j))
+            elif "Apenas a Válvula Terminal" in valvulas:
+                if "Acessória Anterior" not in det.get("destino_terminal",""):
+                    regioes_incomp.append((JSF_H, JSF_H - 4))
+
+        for seg in vsm.get("segmentos_lista", []):
+            yt = calc_altura(seg.get("prox_ref",""), seg.get("prox_pos",""), seg.get("prox_cm","0"))
+            yb = calc_altura(seg.get("dist_ref",""), seg.get("dist_pos",""), seg.get("dist_cm","0"))
+            if seg.get("desague") == "Região maleolar":
+                yb = 0
+            regioes_incomp.append((max(yt, yb), min(yt, yb)))
+
+        def is_incomp(y):
+            return any(yb <= y <= yt for yt, yb in regioes_incomp)
+
+        ys_vsm = np.linspace(0, JSF_H, 400)
+        prev_y    = ys_vsm[0]
+        prev_incomp = is_incomp(prev_y)
+        for cur_y in ys_vsm[1:]:
+            cur_incomp = is_incomp(cur_y)
+            if cur_incomp != prev_incomp:
+                cor = '#C0392B' if prev_incomp else '#1565C0'
+                ax_med.plot([VSM_X, VSM_X], [prev_y, cur_y],
+                            color=cor, lw=4, solid_capstyle='round', zorder=5)
+                prev_y = cur_y
+                prev_incomp = cur_incomp
+        cor = '#C0392B' if prev_incomp else '#1565C0'
+        ax_med.plot([VSM_X, VSM_X], [prev_y, JSF_H],
+                    color=cor, lw=4, solid_capstyle='round', zorder=5)
+
+        # setas de refluxo
+        for yt, yb in regioes_incomp:
+            if yt - yb > 6:
+                mid = (yt + yb) / 2
+                ax_med.annotate('', xy=(VSM_X + 0.7, mid - 5),
+                                xytext=(VSM_X + 0.7, mid + 5),
+                                arrowprops=dict(arrowstyle='->', color='#C0392B',
+                                                lw=1.5, mutation_scale=13))
+
+        # rótulo VSM
+        ax_med.text(VSM_X - 0.35, 45, "VSM", fontsize=8.5, ha='right',
+                    va='center', color='#1A1A2E', fontweight='bold', rotation=90)
+
+        # junção JSF
+        jsf_cor = '#C0392B' if jsf_incomp else '#1565C0'
+        ax_med.scatter([VSM_X], [JSF_H], s=160, color=jsf_cor,
+                       marker='D', zorder=10, edgecolors='white', linewidths=0.8)
+        ax_med.text(VSM_X + 0.4, JSF_H,
+                    f"JSF ({'INC' if jsf_incomp else 'COMP'})",
+                    fontsize=7.5, va='center', color=jsf_cor, fontweight='bold')
+
+        # diâmetros VSM
+        DIAM_VSM = [
+            (JSF_H,        dados_m.get("jsf_mm",""),        8.0),
+            (66,           dados_m.get("vsm_prox_coxa",""), 6.0),
+            (55,           dados_m.get("vsm_med_coxa",""),  6.0),
+            (44,           dados_m.get("vsm_dist_coxa",""), 6.0),
+            (KNEE_H - 10,  dados_m.get("vsm_prox_perna",""),6.0),
+            (KNEE_H - 20,  dados_m.get("vsm_med_perna",""), 6.0),
+            (KNEE_H - 30,  dados_m.get("vsm_dist_perna",""),6.0),
+        ]
+        for y_d, val, limiar in DIAM_VSM:
+            if val and str(val).strip():
+                try:
+                    cor_d = '#922B21' if float(str(val).replace(",",".")) > limiar else '#2C3E50'
+                    ax_med.plot([VSM_X - 0.3, VSM_X + 0.3], [y_d, y_d],
+                                color=cor_d, lw=1.3, zorder=6)
+                    ax_med.text(VSM_X - 0.45, y_d, f"{val}mm",
+                                fontsize=6, ha='right', va='center', color=cor_d)
+                except ValueError:
+                    pass
+
+    # ---- VSP ----
+    VSP_X = 0.0
+    vsp_d    = dados_m["vsp_dados_input"]
+    vsp_temp = vsp_d.get("template", "")
+
+    if "Ausente" in vsp_temp:
+        ax_post.plot([VSP_X, VSP_X], [0, JSP_H], color='#BBBBBB',
+                     lw=3, ls=':', zorder=5, alpha=0.7)
+        ax_post.text(VSP_X + 0.4, JSP_H / 2, "VSP\nAusente", fontsize=8,
+                     va='center', color='#AAAAAA', style='italic')
+    else:
+        vsp_incomp = "JSP Incompetente" in vsp_temp
+        giacomini  = "extensão cranial" in vsp_temp
+        jsp_cor    = '#C0392B' if vsp_incomp else '#1565C0'
+
+        # extensão cranial / Giacomini
+        if giacomini:
+            ax_post.plot([VSP_X, VSP_X], [JSP_H, JSP_H + 17],
+                         color='#8E44AD', lw=2.5, ls='--', zorder=5)
+            ax_post.text(VSP_X + 0.4, JSP_H + 8, "Giacomini",
+                         fontsize=7, va='center', color='#8E44AD')
+
+        ax_post.plot([VSP_X, VSP_X], [0, JSP_H],
+                     color=jsp_cor, lw=4, solid_capstyle='round', zorder=5)
+        ax_post.scatter([VSP_X], [JSP_H], s=160, color=jsp_cor,
+                        marker='D', zorder=10, edgecolors='white', linewidths=0.8)
+        ax_post.text(VSP_X + 0.4, JSP_H,
+                     f"JSP ({'INC' if vsp_incomp else 'COMP'})",
+                     fontsize=7.5, va='center', color=jsp_cor, fontweight='bold')
+
+        if vsp_incomp:
+            ax_post.annotate('', xy=(VSP_X + 0.7, 10),
+                             xytext=(VSP_X + 0.7, 22),
+                             arrowprops=dict(arrowstyle='->', color='#C0392B',
+                                             lw=1.5, mutation_scale=13))
+
+        ax_post.text(VSP_X - 0.35, 18, "VSP", fontsize=8.5, ha='right',
+                     va='center', color='#1A1A2E', fontweight='bold', rotation=90)
+
+        DIAM_VSP = [
+            (JSP_H,        dados_m.get("jsp_mm","")          ),
+            (JSP_H - 5,    dados_m.get("vsp_crossa","")      ),
+            (KNEE_H - 20,  dados_m.get("vsp_med_perna_diam","")),
+        ]
+        for y_d, val in DIAM_VSP:
+            if val and str(val).strip():
+                ax_post.plot([VSP_X - 0.3, VSP_X + 0.3], [y_d, y_d],
+                             color='#2C3E50', lw=1.3, zorder=6)
+                ax_post.text(VSP_X - 0.45, y_d, f"{val}mm",
+                             fontsize=6, ha='right', va='center', color='#2C3E50')
+
+    # ---- perfurantes ----
+    COR_PF = '#E67E22'
+    for perf in dados_m.get("perfurantes_lista", []):
+        y_pf = calc_altura(
+            perf.get("ref_ponto","Face Plantar"),
+            perf.get("posicao_joelho","Abaixo").lower(),
+            perf.get("altura_cm","0")
+        )
+        y_pf = max(2.0, min(float(y_pf), JSF_H - 2))
+        ax_med.plot([-2.5, VSM_X], [y_pf, y_pf], color=COR_PF, lw=2, zorder=7)
+        ax_med.scatter([VSM_X], [y_pf], s=70, color=COR_PF, marker='o',
+                       zorder=8, edgecolors='white', linewidths=0.8)
+        diam_pf = perf.get("diametro_mm","")
+        face_pf = perf.get("face","PF")
+        lbl_pf  = (face_pf[:3] if face_pf else "PF")
+        try:
+            if diam_pf:
+                lbl_pf += f" {diam_pf}mm"
+                if float(str(diam_pf).replace(",",".")) > 3.5:
+                    lbl_pf += " ⚠"
+        except ValueError:
+            pass
+        ax_med.text(-2.7, y_pf, lbl_pf, fontsize=6.5,
+                    ha='right', va='center', color=COR_PF)
+
+    # ---- SVP badge ----
+    svp = dados_m.get("svp", {})
+    if svp.get("status") == "Anormal":
+        tipo_svp  = svp.get("tipo","Alteração")
+        veias_svp = svp.get("veias",[])
+        txt_svp   = f"SVP: {tipo_svp}"
+        if veias_svp:
+            txt_svp += "\n" + "\n".join(f"• {v}" for v in veias_svp[:3])
+        for ax in (ax_med, ax_post):
+            ax.text(0, JSF_H + 5.5, txt_svp, fontsize=6.5, ha='center',
+                    va='bottom', color='#7B241C', fontweight='bold',
+                    bbox=dict(boxstyle='round,pad=0.4', facecolor='#FADBD8',
+                              edgecolor='#E74C3C', alpha=0.9, lw=1.5), zorder=15)
+
+    # ---- outros achados ----
+    if "3.1" in dados_m.get("giacomini_opt","") or "3.2" in dados_m.get("giacomini_opt",""):
+        ax_med.text(0, JSF_H - 8, "↑ Giacomini", fontsize=7, ha='center',
+                    color='#8E44AD',
+                    bbox=dict(boxstyle='round,pad=0.3', facecolor='#F5EEF8',
+                              edgecolor='#8E44AD', alpha=0.8, lw=1))
+    if any(x in dados_m.get("varizes_pelvicas_opt","") for x in ["5.1","5.2"]):
+        ax_med.text(0, JSF_H + 0.5, "Escape Pélvico", fontsize=7, ha='center',
+                    color='#566573',
+                    bbox=dict(boxstyle='round,pad=0.3', facecolor='#EBF5FB',
+                              edgecolor='#566573', alpha=0.8, lw=1))
+
+    # ---- varicosidades (badge) ----
+    vd = dados_m.get("varic_dados", {})
+    if vd.get("possui"):
+        tipos_var = []
+        if vd.get("telangiectasias"):     tipos_var.append("Telang.")
+        if vd.get("micro_reticulares"):   tipos_var.append("Reticulares")
+        if vd.get("veias_varicosas"):     tipos_var.append("Varicosas")
+        if tipos_var:
+            ax_med.text(-5.5, 6, "Varicosidades:\n" + ", ".join(tipos_var),
+                        fontsize=6, ha='left', va='bottom', color='#784212',
+                        bbox=dict(boxstyle='round,pad=0.4', facecolor='#FEF9E7',
+                                  edgecolor='#D4AC0D', alpha=0.9, lw=1))
+
+    # ---- títulos e legenda ----
+    ax_med.set_title("Vista Medial\nVeia Safena Magna (VSM)",
+                     fontsize=10, fontweight='bold', color='#1A1A2E', pad=12)
+    ax_post.set_title("Vista Posterior\nVeia Safena Parva (VSP)",
+                      fontsize=10, fontweight='bold', color='#1A1A2E', pad=12)
+
+    legenda = [
+        Line2D([0],[0], color='#1565C0', lw=3.5,  label='Veia competente'),
+        Line2D([0],[0], color='#C0392B', lw=3.5,  label='Refluxo / incompetência'),
+        Line2D([0],[0], color='#BBBBBB', lw=2.5, ls=':', label='Ausente'),
+        Line2D([0],[0], color='#8E44AD', lw=2.5, ls='--', label='Veia de Giacomini'),
+        Line2D([0],[0], color='#E67E22', lw=2,
+               marker='o', markersize=6, label='Perfurante incompetente'),
+        mpatches.Patch(color='#1565C0', label='Junção competente (◆)'),
+        mpatches.Patch(color='#C0392B', label='Junção incompetente (◆)'),
+    ]
+    fig.legend(handles=legenda, loc='lower center', ncol=4,
+               fontsize=7.5, framealpha=0.95, edgecolor='#CCCCCC',
+               bbox_to_anchor=(0.5, 0.005))
+
+    fig.suptitle(
+        f"CARTOGRAFIA VENOSA — MEMBRO INFERIOR {m_nome}\nPaciente: {paciente}",
+        fontsize=12, fontweight='bold', color='#1A1A2E', y=0.995
+    )
+    plt.tight_layout(rect=[0, 0.07, 1, 0.975])
+    return fig
+
+
 # --- FUNÇÃO DE MONTAGEM E CONSTRUÇÃO DO DOCUMENTO WORD ---
 def construir_laudo_word(membros_lista, dados_m_dict):
     doc = Document()
@@ -668,7 +992,15 @@ def _exibir_doc(doc, buf, nome_arquivo, label_download):
                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                            use_container_width=True)
 
-if st.button("🚀 Gerar Laudo Venoso Completo", use_container_width=True):
+col_btn1, col_btn2 = st.columns(2)
+
+with col_btn1:
+    gerar_laudo_btn = st.button("🚀 Gerar Laudo Venoso Completo", use_container_width=True)
+
+with col_btn2:
+    gerar_cart_btn = st.button("🗺️ Gerar Cartografia Venosa", use_container_width=True, type="secondary")
+
+if gerar_laudo_btn:
     if formato_exame == "Bilateral (Laudos Separados)":
         for m_nome in ["DIREITO", "ESQUERDO"]:
             doc_sep = construir_laudo_word([m_nome], dados_membros)
@@ -683,3 +1015,28 @@ if st.button("🚀 Gerar Laudo Venoso Completo", use_container_width=True):
         doc_unico.save(buf)
         buf.seek(0)
         _exibir_doc(doc_unico, buf, "Laudo_Venoso_MMII.docx", "📥 Baixar Laudo Venoso (.docx)")
+
+if gerar_cart_btn:
+    import matplotlib.pyplot as plt
+    for m_nome in membros_para_processar:
+        if m_nome not in dados_membros:
+            st.warning(f"Dados do membro {m_nome} não encontrados.")
+            continue
+        with st.spinner(f"Gerando cartografia do membro {m_nome}..."):
+            fig = gerar_cartografia_venosa(m_nome, dados_membros[m_nome], nome_paciente)
+            buf_img = BytesIO()
+            fig.savefig(buf_img, format='png', dpi=150, bbox_inches='tight',
+                        facecolor=fig.get_facecolor())
+            buf_img.seek(0)
+            plt.close(fig)
+        st.markdown(f"### 🗺️ Cartografia Venosa — Membro {m_nome}")
+        st.image(buf_img, use_container_width=True)
+        buf_img.seek(0)
+        st.download_button(
+            label=f"📥 Baixar Cartografia {m_nome} (.png)",
+            data=buf_img,
+            file_name=f"Cartografia_Venosa_MII_{m_nome}.png",
+            mime="image/png",
+            key=f"dl_cart_{m_nome}",
+            use_container_width=True
+        )
