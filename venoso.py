@@ -163,23 +163,16 @@ for idx, m_nome in enumerate(membros_para_processar):
             seg_dist_cm = "15"
 
             if incluir_segmento:
-                c_ori, c_des = st.columns(2)
-                with c_ori:
-                    seg_origem = st.selectbox(
-                        "Origem do refluxo (escape proximal):",
-                        ["Insuficiência valvar isolada", "Tributárias pélvicas", "Varizes ganglionares",
-                         "Tributária epifascial incompetente", "Veia de Giacomini incompetente",
-                         "Veia perfurante incompetente"],
-                        key=f"seg_origem_{m_nome}"
-                    )
-                with c_des:
-                    seg_desague = st.selectbox(
-                        "Ponto distal (deságue do refluxo):",
-                        ["Tributária epifascial varicosa", "Tributária varicosa troncular",
-                         "Veia perfurante de drenagem", "Região maleolar"],
-                        key=f"seg_desague_{m_nome}"
-                    )
+                # Linha 1: Origem
+                seg_origem = st.selectbox(
+                    "Origem do refluxo (escape proximal):",
+                    ["Insuficiência valvar isolada", "Tributárias pélvicas", "Varizes ganglionares",
+                     "Tributária epifascial incompetente", "Veia de Giacomini incompetente",
+                     "Veia perfurante incompetente"],
+                    key=f"seg_origem_{m_nome}"
+                )
 
+                # Linha 2: Início — Referência e Distância
                 _refs = ["Junção Safenofemoral (JSF)", "Interlinha do Joelho", "Face Plantar"]
                 c_prox1, c_prox2, c_prox3 = st.columns(3)
                 with c_prox1:
@@ -193,6 +186,15 @@ for idx, m_nome in enumerate(membros_para_processar):
                 with c_prox3:
                     seg_prox_cm = st.text_input("Distância (cm):", "0", key=f"seg_prox_cm_{m_nome}")
 
+                # Linha 3: Ponto distal
+                seg_desague = st.selectbox(
+                    "Ponto distal (deságue do refluxo):",
+                    ["Tributária epifascial varicosa", "Tributária varicosa troncular",
+                     "Veia perfurante de drenagem", "Região maleolar"],
+                    key=f"seg_desague_{m_nome}"
+                )
+
+                # Linha 4: Fim — Referência e Distância (oculto se região maleolar)
                 if seg_desague != "Região maleolar":
                     c_dist1, c_dist2, c_dist3 = st.columns(3)
                     with c_dist1:
