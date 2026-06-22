@@ -413,31 +413,44 @@ for idx, m_nome in enumerate(membros_para_processar):
         st.markdown("---")
 
         # --- 2.3 VEIAS PERFURANTES INCOMPETENTES ISOLADAS ---
-        st.markdown("#### 2.3 Veias Perfurantes Incompetentes (Mapeamento Separado)")
+        st.markdown("#### 2.3 Veias Perfurantes Incompetentes")
         possui_perfurantes = st.checkbox("Identifica veias perfurantes incompetentes neste membro?", value=False, key=f"has_perf_{m_nome}")
         perfurantes_coletadas = []
-        
+
         if possui_perfurantes:
             st.markdown("<div style='background-color: #fff9e6; padding: 10px; border-left: 4px solid #ffcc00; border-radius: 4px; margin-bottom: 15px;'><strong>📍 Localização Dinâmica de Perfurantes Incompetentes</strong></div>", unsafe_allow_html=True)
             qtd_perf = len(st.session_state["lista_perfurantes"][m_nome])
-            
+
             for p_idx in range(qtd_perf):
                 st.markdown(f"**Veia Perfurante Incompetente #{p_idx + 1}**")
                 perf_dados = {}
-                cp_1, cp_2, cp_3, cp_4, cp_5 = st.columns(5)
-                with cp_1: perf_dados["regiao"] = st.selectbox("Região Anatômica:", ["Coxa", "Perna"], key=f"perf_reg_{m_nome}_{p_idx}")
-                with cp_2: perf_dados["face"] = st.selectbox("Face Medida:", ["Medial", "Lateral", "Anterior", "Posterior", "Anterolateral", "Posterointerna"], key=f"perf_face_{m_nome}_{p_idx}")
-                with cp_3: perf_dados["ref_ponto"] = st.selectbox("Referência de Medida:", ["Interlinha do Joelho", "Face Plantar"], key=f"perf_ref_{m_nome}_{p_idx}")
-                with cp_4: perf_dados["altura_cm"] = st.text_input("Altura aferida (cm):", "12", key=f"perf_alt_{m_nome}_{p_idx}")
-                with cp_5: perf_dados["diametro_mm"] = st.text_input("Diâmetro (mm):", "3.5", key=f"perf_diam_{m_nome}_{p_idx}")
+                cp_1, cp_2 = st.columns(2)
+                with cp_1:
+                    perf_dados["localizacao"] = st.selectbox(
+                        "Localização:",
+                        ["face posterior da coxa", "face lateral da coxa", "face medial da coxa",
+                         "face posterior da perna", "face medial da perna (paratibial)", "face lateral da perna"],
+                        key=f"perf_loc_{m_nome}_{p_idx}"
+                    )
+                with cp_2:
+                    perf_dados["diametro_mm"] = st.text_input("Diâmetro (mm):", "3.5", key=f"perf_diam_{m_nome}_{p_idx}")
                 try:
                     if float(perf_dados["diametro_mm"]) > 3.5:
                         st.warning(f"⚠️ Perfurante #{p_idx + 1}: diâmetro {perf_dados['diametro_mm']} mm > 3,5 mm — critério ESVS 2022 para perfurante patológica")
                 except ValueError: pass
-                
-                if perf_dados["ref_ponto"] == "Interlinha do Joelho":
-                    perf_dados["posicao_joelho"] = st.radio("Posição do plano do joelho:", ["Acima", "Abaixo"], horizontal=True, key=f"perf_pos_j_{m_nome}_{p_idx}")
-                else: perf_dados["posicao_joelho"] = ""
+
+                _refs_perf = ["Junção Safenofemoral (JSF)", "Interlinha do Joelho", "Junção Safenopoplítea (JSP)", "Face Plantar"]
+                cp_3, cp_4, cp_5 = st.columns(3)
+                with cp_3:
+                    perf_dados["ref_ponto"] = st.selectbox("Referência de altura:", _refs_perf, key=f"perf_ref_{m_nome}_{p_idx}")
+                with cp_4:
+                    if perf_dados["ref_ponto"] == "Interlinha do Joelho":
+                        perf_dados["posicao_joelho"] = st.radio("Posição:", ["acima", "abaixo"], horizontal=True, key=f"perf_pos_j_{m_nome}_{p_idx}")
+                    else:
+                        perf_dados["posicao_joelho"] = ""
+                        st.empty()
+                with cp_5:
+                    perf_dados["altura_cm"] = st.text_input("Distância (cm):", "12", key=f"perf_alt_{m_nome}_{p_idx}")
                 
                 perfurantes_coletadas.append(perf_dados)
                 st.markdown("---")
@@ -1035,17 +1048,24 @@ def construir_laudo_word(membros_lista, dados_m_dict):
         if dm["perfurantes_lista"]:
             add_p("VEIAS PERFURANTES INCOMPETENTES RELEVANTES", space_before=8, space_after=4)
             for p_dados in dm["perfurantes_lista"]:
-                r_reg = p_dados["regiao"]
-                r_face = p_dados["face"]
+                r_loc = p_dados.get("localizacao", p_dados.get("regiao", "") + " face " + p_dados.get("face", ""))
                 r_ref = p_dados["ref_ponto"]
                 r_alt = p_dados["altura_cm"]
-                r_pos = p_dados["posicao_joelho"]
-                
-                txt_ref_perf = f"localizada {r_pos.lower()} da interlinha do joelho" if "Interlinha" in r_ref else f"a partir da face plantar"
+                r_pos = p_dados.get("posicao_joelho", "")
                 r_diam = p_dados.get("diametro_mm", "")
                 txt_diam = f", com diâmetro de {r_diam} mm" if r_diam else ""
-                add_p(f"Identificada veia perfurante incompetente na {r_reg.lower()}, face {r_face.lower()}{txt_diam}, medindo {r_alt} cm de altura {txt_ref_perf}.", bullet=True)
-                conclusoes_lista.append((m_nome, f"Insuficiência de veia perfurante na {r_reg.lower()} (face {r_face.lower()})."))
+                if "Interlinha" in r_ref:
+                    txt_ref_perf = f"a {r_alt} cm {r_pos} da interlinha do joelho"
+                elif "Face Plantar" in r_ref:
+                    txt_ref_perf = f"a {r_alt} cm da face plantar"
+                elif "JSF" in r_ref or "Safenofemoral" in r_ref:
+                    txt_ref_perf = f"a {r_alt} cm da junção safenofemoral"
+                elif "JSP" in r_ref or "Safenopoplítea" in r_ref:
+                    txt_ref_perf = f"a {r_alt} cm da junção safenopoplítea"
+                else:
+                    txt_ref_perf = f"a {r_alt} cm"
+                add_p(f"Identificada veia perfurante incompetente na {r_loc}{txt_diam}, {txt_ref_perf}, com escape de refluxo para veias varicosas epifasciais.", bullet=True)
+                conclusoes_lista.append((m_nome, f"Insuficiência de veia perfurante ({r_loc})."))
 
         # 2.4 MAPA DE VARICOSIDADES
         vd = dm["varic_dados"]
