@@ -1064,7 +1064,7 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                     txt_ref_perf = f"a {r_alt} cm da junção safenopoplítea"
                 else:
                     txt_ref_perf = f"a {r_alt} cm"
-                add_p(f"Identificada veia perfurante incompetente na {r_loc}{txt_diam}, {txt_ref_perf}.", bullet=True)
+                add_p(f"Identificada veia perfurante incompetente na {r_loc}{txt_diam}, {txt_ref_perf}, com escape de refluxo para veias varicosas epifasciais.", bullet=True)
                 conclusoes_lista.append((m_nome, f"Insuficiência de veia perfurante ({r_loc})."))
 
         # 2.4 MAPA DE VARICOSIDADES
