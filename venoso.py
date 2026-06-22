@@ -964,13 +964,13 @@ def construir_laudo_word(membros_lista, dados_m_dict):
             if vm.get("segmentos_lista"):
                 refluxo_total = any(reg.get("desague") == "Região maleolar" for reg in vm["segmentos_lista"])
                 if not refluxo_total:
-                    add_p("No restante do trajeto, a veia safena magna segue competente.")
+                    add_p("Nos demais segmentos, a veia safena magna segue competente.")
             elif vm["jsf_status"] == "Incompetente":
                 # JSF incompetente mas sem segmentos registrados e sem extensão total
                 det = vm.get("jsf_detalhes_input", {})
                 extensao = det.get("extensao_refluxo", "")
                 if extensao and extensao != "toda sua extensão":
-                    add_p("No restante do trajeto, a veia safena magna segue competente.")
+                    add_p("Nos demais segmentos, a veia safena magna segue competente.")
 
         # Impressão das Medidas da VSM
         if "Pérvia" in vm.get("status_geral", ""):
