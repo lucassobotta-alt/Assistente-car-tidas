@@ -986,7 +986,7 @@ def construir_laudo_word(membros_lista, dados_m_dict):
         elif "Ausente" in vsp_txt_temp:
             add_p(f"Veia safena parva ausente cirurgicamente ({vsp_txt_temp}).")
         elif "extensão cranial" in vsp_txt_temp:
-            add_p("Junção safenopoplítea anatomicamente ausente. Observa-se extensão cranial da veia safena parva (Veia de Giacomini) cursando no plano fascial posterior da coxa.")
+            add_p("Junção safenopoplítea anatomicamente ausente. Observa-se extensão cranial da veia safena parva cursando no plano fascial posterior da coxa.")
             conclusoes_lista.append((m_nome, "Extensão cranial anatômica da veia safena parva."))
         elif vsp_txt_temp == "Junção safenopoplítea competente":
             add_p("Junção safenopoplítea competente. A veia safena parva segue pérvia e competente em todo o seu trajeto.")
