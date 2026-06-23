@@ -1034,8 +1034,9 @@ def construir_laudo_word(membros_lista, dados_m_dict):
 
         # Impressão das Medidas da VSP
         if not ("Ausente" in vsp_txt_temp):
-            medidas_vsp = [
-                ("Junção/Extensão Safenopoplítea:", dm['jsp_mm']),
+            _jsp_ausente = "extensão cranial" in vsp_txt_temp
+            medidas_vsp = [] if _jsp_ausente else [("Junção safenopoplítea:", dm['jsp_mm'])]
+            medidas_vsp += [
                 ("Crossa da safena parva:", dm['vsp_crossa']),
                 ("Terço médio da perna:", dm['vsp_med_perna_diam'])
             ]
@@ -1057,7 +1058,7 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                 txt_ref_perf = f"localizada {r_pos.lower()} da interlinha do joelho" if "Interlinha" in r_ref else f"a partir da face plantar"
                 r_diam = p_dados.get("diametro_mm", "")
                 txt_diam = f", com diâmetro de {r_diam} mm" if r_diam else ""
-                add_p(f"Identificada veia perfurante incompetente na {r_reg.lower()}, face {r_face.lower()}{txt_diam}, medindo {r_alt} cm de altura {txt_ref_perf}.", bullet=True)
+                add_p(f"Identificada veia perfurante incompetente na {r_reg.lower()}, face {r_face.lower()}{txt_diam}, medindo {r_alt} cm de altura {txt_ref_perf}, determinando escape para tributárias varicosas.", bullet=True)
                 conclusoes_lista.append((m_nome, f"Insuficiência de veia perfurante na {r_reg.lower()} (face {r_face.lower()})."))
 
         # 2.4 MAPA DE VARICOSIDADES
