@@ -407,9 +407,16 @@ for idx, m_nome in enumerate(membros_para_processar):
             varizes_extrassaf_dados["localizacao"] = st.text_input("Localização das varizes extrassafênicas:", "face lateral da coxa e perna", key=f"varext_loc_{m_nome}")
             varizes_extrassaf_dados["origem"] = st.selectbox(
                 "Origem das varizes extrassafênicas:",
-                ["Tributária incompetente", "Veia ciática persistente", "Refluxo pélvico"],
+                ["Tributária incompetente", "Refluxo de origem ciática", "Refluxo pélvico"],
                 key=f"varext_origem_{m_nome}"
             )
+            if varizes_extrassaf_dados["origem"] == "Refluxo de origem ciática":
+                varizes_extrassaf_dados["ciatica_subtipo"] = st.radio(
+                    "Tipo de refluxo ciático:",
+                    ["Varizes acompanhando o trajeto do nervo ciático", "Veia ciática persistente"],
+                    horizontal=True,
+                    key=f"varext_ciatica_{m_nome}"
+                )
 
         st.markdown("---")
 
@@ -1072,12 +1079,20 @@ def construir_laudo_word(membros_lista, dados_m_dict):
             _ve_origem = ved.get("origem", "Tributária incompetente")
             if _ve_origem == "Tributária incompetente":
                 _ve_txt = f"Identificam-se varizes extrassafênicas em {_ve_loc}, com ponto de escape hemodinâmico em tributária incompetente."
-            elif _ve_origem == "Veia ciática persistente":
-                _ve_txt = f"Identificam-se varizes extrassafênicas em {_ve_loc}, originadas a partir de veia ciática persistente."
+                _ve_concl = f"Varizes extrassafênicas em {_ve_loc} por tributária incompetente."
+            elif _ve_origem == "Refluxo de origem ciática":
+                _subtipo = ved.get("ciatica_subtipo", "Varizes acompanhando o trajeto do nervo ciático")
+                if _subtipo == "Veia ciática persistente":
+                    _ve_txt = f"Identificam-se varizes extrassafênicas em {_ve_loc}, originadas a partir de veia ciática persistente."
+                    _ve_concl = f"Varizes extrassafênicas em {_ve_loc} por veia ciática persistente."
+                else:
+                    _ve_txt = f"Identificam-se varizes extrassafênicas em {_ve_loc}, acompanhando o trajeto do nervo ciático, compatíveis com refluxo de origem ciática."
+                    _ve_concl = f"Varizes extrassafênicas em {_ve_loc} acompanhando o trajeto do nervo ciático."
             else:
                 _ve_txt = f"Identificam-se varizes extrassafênicas em {_ve_loc}, com origem em refluxo de origem pélvica."
+                _ve_concl = f"Varizes extrassafênicas em {_ve_loc} por refluxo pélvico."
             add_p(_ve_txt, space_before=6)
-            conclusoes_lista.append((m_nome, f"Varizes extrassafênicas em {_ve_loc} ({_ve_origem.lower()})."))
+            conclusoes_lista.append((m_nome, _ve_concl))
 
         # 3. MÓDULOS ADICIONAIS EXTRA (Giacomini Isolado, Pélvicas)
         if dm["giacomini_opt"] != "Não se aplica / Normal" or dm["varizes_pelvicas_opt"] != "Ausentes":
