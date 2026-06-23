@@ -399,6 +399,15 @@ for idx, m_nome in enumerate(membros_para_processar):
 
         st.markdown("---")
 
+        # --- 2.5 VARIZES EXTRASSAFÊNICAS ---
+        st.markdown("#### 2.5 Varizes Extrassafênicas")
+        possui_varizes_extrassaf = st.checkbox("Identificar varizes extrassafênicas neste membro?", key=f"has_varext_{m_nome}")
+        varizes_extrassaf_dados = {"possui": possui_varizes_extrassaf}
+        if possui_varizes_extrassaf:
+            varizes_extrassaf_dados["localizacao"] = st.text_input("Localização das varizes extrassafênicas:", "face lateral da coxa e perna", key=f"varext_loc_{m_nome}")
+
+        st.markdown("---")
+
         # 3. MÓDULOS ADICIONAIS & VARIÁVEIS EXTRAS
         st.markdown("#### 3. Módulos Adicionais")
         c_add1, c_add2 = st.columns(2)
@@ -432,7 +441,8 @@ for idx, m_nome in enumerate(membros_para_processar):
             "giacomini_opt": giacomini_opt, "varizes_pelvicas_opt": varizes_pelvicas_opt, 
             "pos_op_opt": pos_op_opt, "achados_adi_multi": achados_multiplos, "cisto_medidas": cisto_medidas,
             "perfurantes_lista": perfurantes_coletadas if possui_perfurantes else [],
-            "varic_dados": varic_dados
+            "varic_dados": varic_dados,
+            "varizes_extrassaf_dados": varizes_extrassaf_dados
         }
 
 st.markdown("---")
@@ -1049,6 +1059,12 @@ def construir_laudo_word(membros_lista, dados_m_dict):
             if v_tipos:
                 txt_varicosidades = "Presença de lesões vasculares superficiais do tipo: " + ", ".join(v_tipos) + f", localizadas predominantemente {vd.get('localizacao', '')}."
                 add_p(txt_varicosidades, space_before=6)
+
+        # 2.5 VARIZES EXTRASSAFÊNICAS
+        ved = dm.get("varizes_extrassaf_dados", {})
+        if ved.get("possui", False):
+            add_p(f"Identificam-se varizes extrassafênicas localizadas em {ved.get('localizacao', '')}.", space_before=6)
+            conclusoes_lista.append((m_nome, f"Varizes extrassafênicas em {ved.get('localizacao', '')}."))
 
         # 3. MÓDULOS ADICIONAIS EXTRA (Giacomini Isolado, Pélvicas)
         if dm["giacomini_opt"] != "Não se aplica / Normal" or dm["varizes_pelvicas_opt"] != "Ausentes":
