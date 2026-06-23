@@ -645,7 +645,10 @@ def gerar_cartografia_venosa(m_nome, dados_m, paciente):
                              fontsize=6, ha='right', va='center', color='#2C3E50')
 
     # ---- perfurantes ----
-    COR_PF = '#E67E22'
+    COR_PF  = '#C0392B'
+    X_DEEP  =  0.4   # lado profundo (intrafascial)
+    X_SUPER = -3.4   # lado superficial (extrafascial)
+
     for perf in dados_m.get("perfurantes_lista", []):
         y_pf = calc_altura(
             perf.get("ref_ponto","Face Plantar"),
@@ -653,12 +656,32 @@ def gerar_cartografia_venosa(m_nome, dados_m, paciente):
             perf.get("altura_cm","0")
         )
         y_pf = max(2.0, min(float(y_pf), JSF_H - 2))
-        ax_med.plot([-2.5, VSM_X], [y_pf, y_pf], color=COR_PF, lw=2, zorder=7)
-        ax_med.scatter([VSM_X], [y_pf], s=70, color=COR_PF, marker='o',
+
+        # Trajeto da perfurante: sistema profundo → VSM → superficial (refluxo)
+        ax_med.plot([X_DEEP, X_SUPER], [y_pf, y_pf],
+                    color=COR_PF, lw=2, ls='--', zorder=7,
+                    dash_capstyle='round')
+
+        # Marcador onde a perfurante cruza (e alimenta) a VSM
+        ax_med.scatter([VSM_X], [y_pf], s=75, color=COR_PF, marker='o',
                        zorder=8, edgecolors='white', linewidths=0.8)
+
+        # Seta de escape: sentido profundo → superficial
+        ax_med.annotate('', xy=(X_SUPER + 0.15, y_pf),
+                        xytext=(X_SUPER + 0.95, y_pf),
+                        arrowprops=dict(arrowstyle='->', color=COR_PF,
+                                        lw=1.5, mutation_scale=12))
+
+        # Ramos varicosos no ponto de escape superficial
+        for dx, dy in [(-0.45, 2.8), (-0.25, 4.5), (-0.55, -2.2), (-0.35, -4.0)]:
+            ax_med.plot([X_SUPER, X_SUPER + dx], [y_pf, y_pf + dy],
+                        color=COR_PF, lw=1.8, solid_capstyle='round',
+                        zorder=7, alpha=0.85)
+
+        # Rótulo acima do ponto profundo
         diam_pf = perf.get("diametro_mm","")
         face_pf = perf.get("face","PF")
-        lbl_pf  = (face_pf[:3] if face_pf else "PF")
+        lbl_pf  = face_pf[:3] if face_pf else "PF"
         try:
             if diam_pf:
                 lbl_pf += f" {diam_pf}mm"
@@ -666,8 +689,8 @@ def gerar_cartografia_venosa(m_nome, dados_m, paciente):
                     lbl_pf += " ⚠"
         except ValueError:
             pass
-        ax_med.text(-2.7, y_pf, lbl_pf, fontsize=6.5,
-                    ha='right', va='center', color=COR_PF)
+        ax_med.text(X_DEEP + 0.15, y_pf + 1.5, lbl_pf, fontsize=6.5,
+                    ha='left', va='bottom', color=COR_PF, fontweight='bold')
 
     # ---- SVP badge ----
     svp = dados_m.get("svp", {})
@@ -719,8 +742,8 @@ def gerar_cartografia_venosa(m_nome, dados_m, paciente):
         Line2D([0],[0], color='#C0392B', lw=3.5,  label='Refluxo / incompetência'),
         Line2D([0],[0], color='#BBBBBB', lw=2.5, ls=':', label='Ausente'),
         Line2D([0],[0], color='#8E44AD', lw=2.5, ls='--', label='Veia de Giacomini'),
-        Line2D([0],[0], color='#E67E22', lw=2,
-               marker='o', markersize=6, label='Perfurante incompetente'),
+        Line2D([0],[0], color='#C0392B', lw=2, ls='--',
+               marker='o', markersize=6, label='Perfurante incompetente → escape varicoso'),
         mpatches.Patch(color='#1565C0', label='Junção competente (◆)'),
         mpatches.Patch(color='#C0392B', label='Junção incompetente (◆)'),
     ]
