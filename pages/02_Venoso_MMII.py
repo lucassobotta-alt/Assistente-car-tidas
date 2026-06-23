@@ -319,7 +319,7 @@ for idx, m_nome in enumerate(membros_para_processar):
             st.markdown("**Mensurações da Veia Safena Parva (Diâmetros em mm):**")
             cp1, cp2, cp3 = st.columns(3)
             label_jsp_dinamico = "Extensão cranial (mm):" if "extensão cranial" in vsp_template else "Junção safenopoplítea (mm):"
-            with cp1: vsp_dados_form["jsp_mm"] = st.text_input(label_jsp_dinamico, "4.2", key=f"jsp_mm_{m_nome}")
+            with cp1: vsp_dados_form["jsp_mm"] = st.text_input(label_jsp_dinamico, "4.2", key=f"jsp_mm_{m_nome}", disabled="extensão cranial" in vsp_template)
             with cp2: vsp_dados_form["vsp_crossa"] = st.text_input("Crossa da safena parva (mm):", "3.8", key=f"crossa_{m_nome}")
             with cp3: vsp_dados_form["vsp_med_perna_diam"] = st.text_input("Terço médio da perna (mm):", "3.0", key=f"med_per_{m_nome}")
 
@@ -945,11 +945,14 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                     if reg["segmentos"]:
                         segs_txt = ", ".join(reg["segmentos"])
                         add_p(f"Identificado(s) segmento(s) incompetente(s) no tronco da veia safena magna ({segs_txt}){origem_txt}, {extensao_txt}{desague_txt}.")
-                        for terco_m in reg["segmentos"]:
-                            conclusoes_lista.append((m_nome, f"Insuficiência segmentar do tronco da VSM ({terco_m})."))
                     else:
                         add_p(f"Insuficiência valvar do tronco da veia safena magna{origem_txt}, {extensao_txt}{desague_txt}.")
                         conclusoes_lista.append((m_nome, "Insuficiência valvar do tronco da VSM sem segmento incompetente definido."))
+                _total_segs_vsm = sum(len(r.get("segmentos", [])) for r in vm["segmentos_lista"])
+                if _total_segs_vsm == 1:
+                    conclusoes_lista.append((m_nome, "Insuficiência segmentar de veia safena magna."))
+                elif _total_segs_vsm >= 2:
+                    conclusoes_lista.append((m_nome, "Insuficiência multissegmentar de veia safena magna."))
 
             # Competência residual da VSM
             if vm.get("segmentos_lista"):
