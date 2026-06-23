@@ -927,7 +927,10 @@ def construir_laudo_word(membros_lista, dados_m_dict):
             add_p(f"Veia safena magna ausente ({vm['status_geral']}).")
         else:
             if vm["jsf_status"] == "Competente":
-                add_p("A junção safenofemoral apresenta-se competente, sem evidências de refluxo valvar patológico. Veia safena magna segue pérvia e competente.")
+                if vm.get("tronco_refluxo") and vm.get("segmentos_lista"):
+                    add_p("A junção safenofemoral apresenta-se competente, sem evidências de refluxo valvar patológico.")
+                else:
+                    add_p("Veia safena magna segue pérvia e competente.")
             else:
                 v_padrao = vm["jsf_valvulas"]
                 det = vm.get("jsf_detalhes_input", {})
@@ -983,17 +986,19 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                         add_p(f"Insuficiência valvar do tronco da veia safena magna{origem_txt}, {extensao_txt}{desague_txt}.")
                         conclusoes_lista.append((m_nome, "Insuficiência valvar do tronco da VSM sem segmento incompetente definido."))
 
-            # Se há refluxo parcial (deságue não chega à região maleolar), descreve competência no restante
+            # Competência residual da VSM
             if vm.get("segmentos_lista"):
                 refluxo_total = any(reg.get("desague") == "Região maleolar" for reg in vm["segmentos_lista"])
                 if not refluxo_total:
-                    add_p("Nos demais segmentos, a veia safena magna segue competente.")
+                    add_p("No restante do trajeto a veia safena magna segue competente.")
             elif vm["jsf_status"] == "Incompetente":
-                # JSF incompetente mas sem segmentos registrados e sem extensão total
-                det = vm.get("jsf_detalhes_input", {})
-                extensao = det.get("extensao_refluxo", "")
-                if extensao and extensao != "toda sua extensão":
-                    add_p("Nos demais segmentos, a veia safena magna segue competente.")
+                _vp  = vm.get("jsf_valvulas", "")
+                _det = vm.get("jsf_detalhes_input", {})
+                if "Terminal e Pré-terminal" in _vp:
+                    if _det.get("extensao_refluxo", "") != "toda sua extensão":
+                        add_p("No restante do trajeto a veia safena magna segue competente.")
+                elif "Apenas a Válvula Pré-terminal" in _vp:
+                    add_p("No restante do trajeto a veia safena magna segue competente.")
 
         # Impressão das Medidas da VSM
         if "Pérvia" in vm.get("status_geral", ""):
