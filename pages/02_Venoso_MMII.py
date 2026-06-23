@@ -895,10 +895,9 @@ def construir_laudo_word(membros_lista, dados_m_dict):
         dm = dados_m_dict[m_nome]
         add_p("⸻", space_after=12)
         
-        if formato_exame == "Bilateral (Laudo Único)":
-            add_p(f"RELATÓRIO TÉCNICO – MEMBRO INFERIOR {m_nome}", space_after=12)
-        else: add_p("RELATÓRIO", space_after=12)
-            
+        add_p(f"MEMBRO INFERIOR {m_nome}", space_after=12)
+        lado = "direita" if m_nome == "DIREITO" else "esquerda"
+
         # 1. SVP
         add_p("SISTEMA VENOSO PROFUNDO", space_after=6)
         if dm["svp"]["status"] == "Normal":
@@ -930,20 +929,20 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                     extensao_txt = det.get("extensao_refluxo", "toda sua extensão")
                     
                     add_p(f"Refluxo originado de incompetência das válvulas pré-terminal e terminal da junção safenofemoral, com escape para a veia safena magna, que segue incompetente até {extensao_txt}. O refluxo apresenta deságue para {det.get('desague_tipo','tributárias epifasciais varicosas')} localizado {termo_dist}.")
-                    conclusoes_lista.append((m_nome, f"Insuficiência segmentar do tronco da veia safena magna por incompetência da junção safenofemoral (até {extensao_txt})."))
+                    conclusoes_lista.append((m_nome, f"Insuficiência segmentar do tronco da veia safena magna {lado} por incompetência da junção safenofemoral (até {extensao_txt})."))
                 
                 elif "Apenas a Válvula Pré-terminal" in v_padrao:
                     add_p(f"Refluxo originado de incompetência da válvula pré-terminal da junção safenofemoral, com escape de refluxo proveniente de tributária para o segmento proximal da veia safena magna que segue incompetente até cerca de {det.get('cm_ponto_j','__')} cm da junção/ponto J, onde ocorre drenagem para {det.get('tipo_drenagem','tributárias epifasciais varicosas')} formando complexos varicosos na face medial da coxa em {det.get('terco_coxa','terço médio')}.")
-                    conclusoes_lista.append((m_nome, "Insuficiência proximal da veia safena magna por incompetência da junção safenofemoral, associada a varizes calibrosas mediais na coxa."))
+                    conclusoes_lista.append((m_nome, f"Insuficiência proximal da veia safena magna {lado} por incompetência da junção safenofemoral, associada a varizes calibrosas mediais na coxa."))
                 
                 elif "Apenas a Válvula Terminal" in v_padrao:
                     dest_term = det.get("destino_terminal", "")
                     if "Acessória Anterior" in dest_term:
                         add_p(f"Refluxo originado de incompetência da válvula terminal da junção safenofemoral com escape para o segmento proximal da veia safena acessória anterior e deságue em veias epifasciais varicosas na face {det.get('vsaa_desague','anterolateral da coxa')}. Há extensão dos trajetos varicosos até a face {det.get('vsaa_extensao','lateral do joelho')}. A veia safena magna segue competente.")
-                        conclusoes_lista.append((m_nome, "Varizes anterolaterais na coxa originárias da veia safena acessória anterior por insuficiência da válvula terminal da JSF."))
+                        conclusoes_lista.append((m_nome, f"Varizes anterolaterais na coxa {lado} originárias da veia safena acessória anterior por insuficiência da válvula terminal da JSF."))
                     else:
                         add_p(f"Refluxo originado de incompetência da válvula terminal da junção safenofemoral fluindo para tributárias não safênicas na {det.get('tributarias_tipo','coxa')}. A veia safena magna segue pérvia e competente com calibre preservado.")
-                        conclusoes_lista.append((m_nome, "Varizes proximais na coxa, originárias da junção safenofemoral incompetente por falha da válvula terminal."))
+                        conclusoes_lista.append((m_nome, f"Varizes proximais na coxa {lado}, originárias da junção safenofemoral incompetente por falha da válvula terminal."))
 
             if vm["tronco_refluxo"] and vm.get("segmentos_lista"):
                 def _fmt_ref_doc(ref, pos, cm):
@@ -971,9 +970,9 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                         add_p(f"Insuficiência valvar do tronco da veia safena magna{origem_txt}, {extensao_txt}{desague_txt}.")
                 _total_segs_vsm = len(vm["segmentos_lista"])
                 if _total_segs_vsm == 1:
-                    conclusoes_lista.append((m_nome, "Insuficiência segmentar de veia safena magna."))
+                    conclusoes_lista.append((m_nome, f"Insuficiência segmentar de veia safena magna {lado}."))
                 elif _total_segs_vsm >= 2:
-                    conclusoes_lista.append((m_nome, "Insuficiência multissegmentar de veia safena magna."))
+                    conclusoes_lista.append((m_nome, f"Insuficiência multissegmentar de veia safena magna {lado}."))
 
             # Competência residual da VSM
             if vm.get("segmentos_lista"):
@@ -1008,14 +1007,13 @@ def construir_laudo_word(membros_lista, dados_m_dict):
             add_p(f"Veia safena parva ausente cirurgicamente ({vsp_txt_temp}).")
         elif "extensão cranial" in vsp_txt_temp:
             add_p("Junção safenopoplítea anatomicamente ausente. Observa-se extensão cranial da veia safena parva cursando no plano fascial posterior da coxa.")
-            conclusoes_lista.append((m_nome, "Extensão cranial anatômica da veia safena parva."))
         elif vsp_txt_temp == "Junção safenopoplítea competente":
             add_p("Junção safenopoplítea competente. A veia safena parva segue pérvia e competente em todo o seu trajeto.")
         elif "escape do refluxo para a veia safena parva" in vsp_txt_temp:
             incomp_tipo = vsp_d.get("vsp_incomp_tipo", "Incompetência completa")
             if incomp_tipo == "Incompetência completa":
                 add_p("Junção safenopoplítea incompetente, com escape do refluxo valvar patológico para a veia safena parva, determinando incompetência troncular completa do vaso.")
-                conclusoes_lista.append((m_nome, "Insuficiência troncular completa da veia safena parva por incompetência da junção safenopoplítea."))
+                conclusoes_lista.append((m_nome, f"Insuficiência troncular completa da veia safena parva {lado} por incompetência da junção safenopoplítea."))
             else:
                 ref_des = vsp_d.get("vsp_desague_ref", "")
                 pos_des = vsp_d.get("vsp_desague_pos", "")
@@ -1027,10 +1025,10 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                 else:
                     loc_des = "ponto não especificado"
                 add_p(f"Junção safenopoplítea incompetente, com escape do refluxo valvar patológico para a veia safena parva, determinando incompetência segmentar do vaso, com deságue do refluxo {loc_des}. No restante do trajeto a veia safena parva segue competente.")
-                conclusoes_lista.append((m_nome, "Insuficiência segmentar da veia safena parva por incompetência da junção safenopoplítea."))
+                conclusoes_lista.append((m_nome, f"Insuficiência segmentar da veia safena parva {lado} por incompetência da junção safenopoplítea."))
         elif "ascendente" in vsp_txt_temp:
             add_p("Junção safenopoplítea incompetente, com refluxo valvar patológico drenado de forma ascendente através da veia de Giacomini.")
-            conclusoes_lista.append((m_nome, "Insuficiência da junção safenopoplítea com refluxo ascendente via veia de Giacomini."))
+            conclusoes_lista.append((m_nome, f"Insuficiência da junção safenopoplítea {lado} com refluxo ascendente via veia de Giacomini."))
 
         # Impressão das Medidas da VSP
         if not ("Ausente" in vsp_txt_temp):
@@ -1128,7 +1126,8 @@ def construir_laudo_word(membros_lista, dados_m_dict):
     add_p("⸻", space_after=12)
     add_p("IMPRESSÃO DIAGNÓSTICA", space_after=6)
     if not conclusoes_lista:
-        add_p("Veias safenas magna e parva competentes, sem evidências de refluxo hemodinamicamente significativo.", bullet=True)
+        add_p("Ausência de trombose venosa profunda.", bullet=True)
+        add_p("Veias safenas competentes.", bullet=True)
     else:
         vistas = set()
         conclusoes_unicas = []
