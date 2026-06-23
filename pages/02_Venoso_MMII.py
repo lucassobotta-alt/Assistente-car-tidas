@@ -405,6 +405,11 @@ for idx, m_nome in enumerate(membros_para_processar):
         varizes_extrassaf_dados = {"possui": possui_varizes_extrassaf}
         if possui_varizes_extrassaf:
             varizes_extrassaf_dados["localizacao"] = st.text_input("Localização das varizes extrassafênicas:", "face lateral da coxa e perna", key=f"varext_loc_{m_nome}")
+            varizes_extrassaf_dados["origem"] = st.selectbox(
+                "Origem das varizes extrassafênicas:",
+                ["Tributária incompetente", "Veia ciática persistente", "Refluxo pélvico"],
+                key=f"varext_origem_{m_nome}"
+            )
 
         st.markdown("---")
 
@@ -1063,8 +1068,16 @@ def construir_laudo_word(membros_lista, dados_m_dict):
         # 2.5 VARIZES EXTRASSAFÊNICAS
         ved = dm.get("varizes_extrassaf_dados", {})
         if ved.get("possui", False):
-            add_p(f"Identificam-se varizes extrassafênicas localizadas em {ved.get('localizacao', '')}.", space_before=6)
-            conclusoes_lista.append((m_nome, f"Varizes extrassafênicas em {ved.get('localizacao', '')}."))
+            _ve_loc    = ved.get("localizacao", "")
+            _ve_origem = ved.get("origem", "Tributária incompetente")
+            if _ve_origem == "Tributária incompetente":
+                _ve_txt = f"Identificam-se varizes extrassafênicas em {_ve_loc}, com ponto de escape hemodinâmico em tributária incompetente."
+            elif _ve_origem == "Veia ciática persistente":
+                _ve_txt = f"Identificam-se varizes extrassafênicas em {_ve_loc}, originadas a partir de veia ciática persistente."
+            else:
+                _ve_txt = f"Identificam-se varizes extrassafênicas em {_ve_loc}, com origem em refluxo de origem pélvica."
+            add_p(_ve_txt, space_before=6)
+            conclusoes_lista.append((m_nome, f"Varizes extrassafênicas em {_ve_loc} ({_ve_origem.lower()})."))
 
         # 3. MÓDULOS ADICIONAIS EXTRA (Giacomini Isolado, Pélvicas)
         if dm["giacomini_opt"] != "Não se aplica / Normal" or dm["varizes_pelvicas_opt"] != "Ausentes":
