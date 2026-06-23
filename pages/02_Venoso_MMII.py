@@ -284,9 +284,6 @@ for idx, m_nome in enumerate(membros_para_processar):
         vsp_template = st.selectbox(
             "Avaliação da Junção Safenopoplítea / Veia Safena Parva:",
             [
-                "Normal (Pérvia, de trajeto anatômico habitual e competente)",
-                "Ausente (Safenectomia Total)",
-                "Ausente (Safenectomia Segmentar)",
                 "Junção safenopoplítea ausente com extensão cranial da veia safena parva",
                 "Junção safenopoplítea competente",
                 "Junção safenopoplítea incompetente com escape do refluxo para a veia safena parva",
@@ -883,7 +880,7 @@ def construir_laudo_word(membros_lista, dados_m_dict):
         # 1. SVP
         add_p("SISTEMA VENOSO PROFUNDO", space_after=6)
         if dm["svp"]["status"] == "Normal":
-            add_p("As veias femoral comum, femoral, poplítea, tibiais posteriores e fibulares apresentam-se pérvias, compressíveis, com fluxo fásico com a respiração e competentes...")
+            add_p("As veias femoral comum, femoral, poplítea, tibiais posteriores e fibulares apresentam-se pérvias, compressíveis, com fluxo fásico com a respiração e competentes.")
         else:
             add_p(f"Sistema Venoso Profundo ANORMAL. Detectados sinais de {dm['svp']['tipo']} nas veias: {', '.join(dm['svp'].get('veias', []))}.")
 
