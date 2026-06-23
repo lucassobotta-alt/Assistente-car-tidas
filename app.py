@@ -781,30 +781,30 @@ if gerar_laudo:
     if incluir_observacoes:
         if cmi_alterado:
             obs_ativas.append(
-                "\"O espessamento do complexo médio-intimal carotídeo é considerado marcador de aterosclerose subclínica "
+                "O espessamento do complexo médio-intimal carotídeo é considerado marcador de aterosclerose subclínica "
                 "e associa-se a aumento do risco de eventos cardiovasculares, devendo sua interpretação ser integrada ao "
-                "contexto clínico e aos demais fatores de risco do paciente.\" Referências: Mannheim Carotid Intima-Media "
+                "contexto clínico e aos demais fatores de risco do paciente. Referências: Mannheim Carotid Intima-Media "
                 "Thickness Consensus (2004–2006); ESC/EAS Guidelines for the Management of Dyslipidaemias (2021)."
             )
         if st.session_state.lesoes_incipientes:
             obs_ativas.append(
-                "\"A presença de lesão ateromatosa incipiente, embora sem repercussão hemodinâmica significativa, "
+                "A presença de lesão ateromatosa incipiente, embora sem repercussão hemodinâmica significativa, "
                 "constitui marcador de aterosclerose subclínica e possui relevância na estratificação do risco "
                 "cardiovascular global, devendo ser considerada em conjunto com os demais fatores de risco e "
-                "achados clínicos do paciente.\""
+                "achados clínicos do paciente."
             )
         if tem_placa:
             obs_ativas.append(
-                f"\"A presença de placa aterosclerótica carotídea, independentemente do grau de estenose, caracteriza "
+                f"A presença de placa aterosclerótica carotídea, independentemente do grau de estenose, caracteriza "
                 f"aterosclerose subclínica e constitui fator agravante de risco cardiovascular, devendo ser considerada "
                 f"na estratificação global do risco cardiovascular, conforme a Diretriz Brasileira de Dislipidemias e "
-                f"Prevenção da Aterosclerose – {ano_dislipidemia}.\""
+                f"Prevenção da Aterosclerose – {ano_dislipidemia}."
             )
-        if maior_que_plaque_rads_2 or any(p['plaque_rads'] is not None for p in st.session_state.lista_placas):
+        if any(p['plaque_rads'] is not None for p in st.session_state.lista_placas):
             obs_ativas.append(
-                "\"A classificação Plaque-RADS padroniza a caracterização ultrassonográfica das placas carotídeas, "
+                "A classificação Plaque-RADS padroniza a caracterização ultrassonográfica das placas carotídeas, "
                 "incorporando aspectos morfológicos relacionados à vulnerabilidade da placa e fornecendo informação "
-                "complementar ao grau de estenose na estratificação do risco de eventos cerebrovasculares.\" Referências: "
+                "complementar ao grau de estenose na estratificação do risco de eventos cerebrovasculares. Referências: "
                 "Plaque-RADS™ Consensus Statement (2023); recomendações da Society of Radiologists in Ultrasound para "
                 "avaliação ultrassonográfica da doença carotídea."
             )
