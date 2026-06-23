@@ -1,11 +1,5 @@
 import streamlit as st
 
-st.set_page_config(
-    page_title="Assistente de Laudos Vasculares",
-    page_icon="🩺",
-    layout="wide"
-)
-
 # ── Cabeçalho principal ──────────────────────────────────────────────────────
 st.markdown(
     """
