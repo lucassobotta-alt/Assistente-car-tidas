@@ -37,6 +37,7 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("### ✍️ Identidade & Assinatura")
+    incluir_identidade = st.toggle("Incluir identidade no laudo", value=True)
     nome_clinica = st.text_input("Cabeçalho / Nome da Clínica:", placeholder="Ex: Instituto de Diagnóstico Vascular")
     nome_medico = st.text_input("Nome do Médico:", "Lucas Santos Guimarães")
     colcrm1, colcrm2 = st.columns([2, 1])
@@ -47,7 +48,16 @@ with st.sidebar:
     rqe_medico = st.text_input("RQE:", "")
 
 # --- IDENTIFICAÇÃO DO PACIENTE ---
-nome_paciente = st.text_input("Nome do Paciente:", "Paciente Exemplo Venoso")
+nome_paciente = st.text_input("Nome do Paciente:", "")
+
+TECNICAS = {
+    "Técnica adequada (ortostase)": "Exame realizado com transdutor linear e paciente em ortostase, sem limitação técnica e com amostra adequada.",
+    "Garroteamento (decúbito)": "Exame realizado com transdutor linear e paciente em decúbito, com garroteamento dos membros inferiores. Amostra adequada.",
+    "Curativo na perna": "Exame realizado com transdutor linear e paciente em ortostase, com limitação técnica decorrente de curativo na perna, limitando a amostra adequada no segmento afetado.",
+}
+tecnica_selecionada = st.selectbox("Técnica do Exame:", list(TECNICAS.keys()))
+tecnica_texto = TECNICAS[tecnica_selecionada]
+
 formato_exame = st.selectbox("Tipo de Exame:", ["Unilateral", "Bilateral (Laudos Separados)", "Bilateral (Laudo Único)"])
 
 membros_para_processar = [st.selectbox("Selecione o Lado Avaliado:", ["DIREITO", "ESQUERDO"])] if formato_exame == "Unilateral" else ["DIREITO", "ESQUERDO"]
@@ -790,9 +800,10 @@ def construir_laudo_word(membros_lista, dados_m_dict):
     else:
         add_p(f"DO MEMBRO INFERIOR {membros_lista[0]}", bold_pre='DUPLEX SCAN VENOSO ', space_after=12)
 
-    add_p(f" {nome_paciente}", bold_pre="Paciente:")
+    if nome_paciente.strip():
+        add_p(f" {nome_paciente}", bold_pre="Paciente:")
     add_p("TÉCNICA", space_before=12, space_after=6)
-    add_p("Exame realizado com transdutor linear de alta frequência...", space_after=12)
+    add_p(tecnica_texto, space_after=12)
     
     conclusoes_lista = []
     
@@ -1005,7 +1016,7 @@ def construir_laudo_word(membros_lista, dados_m_dict):
             prefixo = f"[{m_origem}] " if formato_exame == "Bilateral (Laudo Único)" else ""
             add_p(f"{prefixo}{conclusao_txt}", bullet=True)
 
-    if nome_medico or crm_medico:
+    if incluir_identidade and (nome_medico or crm_medico):
         doc.add_paragraph().paragraph_format.space_before = Pt(25)
         p_assin = doc.add_paragraph()
         p_assin.alignment = WD_ALIGN_PARAGRAPH.CENTER
