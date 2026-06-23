@@ -1046,7 +1046,7 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                     else:
                         add_p(f"Insuficiência valvar do tronco da veia safena magna{origem_txt}, {extensao_txt}{desague_txt}.")
                         conclusoes_lista.append((m_nome, "Insuficiência valvar do tronco da VSM sem segmento incompetente definido."))
-                _total_segs_vsm = sum(len(r.get("segmentos", [])) for r in vm["segmentos_lista"])
+                _total_segs_vsm = len(vm["segmentos_lista"])
                 if _total_segs_vsm == 1:
                     conclusoes_lista.append((m_nome, "Insuficiência segmentar de veia safena magna."))
                 elif _total_segs_vsm >= 2:
