@@ -287,35 +287,43 @@ for idx, m_nome in enumerate(membros_para_processar):
         # 2.2 VEIA SAFENA PARVA (VSP)
         st.markdown("##### 2.2 Veia Safena Parva (VSP)")
         vsp_template = st.selectbox(
-            "Padrão / Alterações na Veia Safena Parva (VSP):",
+            "Avaliação da Junção Safenopoplítea / Veia Safena Parva:",
             [
                 "Normal (Pérvia, de trajeto anatômico habitual e competente)",
                 "Ausente (Safenectomia Total)",
                 "Ausente (Safenectomia Segmentar)",
-                "Junção safenopoplítea ausente, com extensão cranial da veia safena parva (Veia de Giacomini)",
-                "JSP Incompetente -> refluxo na VSP em toda extensão com dilatação/tortuosidade"
+                "Junção safenopoplítea ausente com extensão cranial da veia safena parva",
+                "Junção safenopoplítea competente",
+                "Junção safenopoplítea incompetente com escape do refluxo para a veia safena parva",
+                "Junção safenopoplítea incompetente com refluxo drenado de forma ascendente para veia de Giacomini",
             ],
             key=f"vsp_temp_choise_{m_nome}"
         )
         vsp_dados_form = {"template": vsp_template}
 
-        if "JSP Incompetente" in vsp_template:
-            st.markdown("<sub style='color: #444;'>Detalhamento do Deságue da VSP:</sub>", unsafe_allow_html=True)
-            vsp_dados_form["desague_tipo"] = st.selectbox("Drenagem do refluxo da VSP para:", ["tributárias epifasciais varicosas", "veia perfurante incompetente", "veia comunicante", "malha reticular maleolar"], key=f"vsp_des_tipo_{m_nome}")
-            _refs_vsp = ["Interlinha do Joelho", "Face Plantar"]
-            cvsp_1, cvsp_2, cvsp_3 = st.columns(3)
-            with cvsp_1:
-                vsp_dados_form["desague_ref"] = st.selectbox("Fim do refluxo — Referência:", _refs_vsp, key=f"vsp_des_ref_{m_nome}")
-            with cvsp_2:
-                if vsp_dados_form["desague_ref"] == "Interlinha do Joelho":
-                    vsp_dados_form["desague_pos"] = st.radio("Posição:", ["acima", "abaixo"], horizontal=True, key=f"vsp_des_pos_{m_nome}")
-                else:
-                    vsp_dados_form["desague_pos"] = ""
-                    st.empty()
-            with cvsp_3:
-                vsp_dados_form["desague_cm"] = st.text_input("Distância (cm):", "10", key=f"vsp_des_cm_{m_nome}")
+        if "escape do refluxo para a veia safena parva" in vsp_template:
+            vsp_dados_form["vsp_incomp_tipo"] = st.radio(
+                "Padrão de incompetência da veia safena parva:",
+                ["Incompetência completa", "Incompetência segmentar"],
+                horizontal=True,
+                key=f"vsp_incomp_tipo_{m_nome}"
+            )
+            if vsp_dados_form["vsp_incomp_tipo"] == "Incompetência segmentar":
+                st.markdown("<sub style='color: #444;'>Localização do deságue do refluxo:</sub>", unsafe_allow_html=True)
+                _refs_vsp_des = ["Interlinha do Joelho", "Face Plantar"]
+                cvsp_1, cvsp_2, cvsp_3 = st.columns(3)
+                with cvsp_1:
+                    vsp_dados_form["vsp_desague_ref"] = st.selectbox("Referência:", _refs_vsp_des, key=f"vsp_des_ref_{m_nome}")
+                with cvsp_2:
+                    if vsp_dados_form["vsp_desague_ref"] == "Interlinha do Joelho":
+                        vsp_dados_form["vsp_desague_pos"] = st.radio("Posição:", ["acima", "abaixo"], horizontal=True, key=f"vsp_des_pos_{m_nome}")
+                    else:
+                        vsp_dados_form["vsp_desague_pos"] = ""
+                        st.empty()
+                with cvsp_3:
+                    vsp_dados_form["vsp_desague_cm"] = st.text_input("Distância (cm):", "10", key=f"vsp_des_cm_{m_nome}")
 
-        if "Normal" in vsp_template or "JSP Incompetente" in vsp_template or "Junção safenopoplítea ausente" in vsp_template:
+        if "Ausente (Safenectomia" not in vsp_template:
             incluir_seg_vsp = st.toggle("Incluir Segmento Incompetente da VSP", key=f"incluir_seg_vsp_{m_nome}")
 
             vsp_seg_origem = "Insuficiência valvar isolada"
@@ -722,30 +730,77 @@ def gerar_cartografia_venosa(m_nome, dados_m, paciente):
         ax_post.text(VSP_X + 0.4, JSP_H / 2, "VSP\nAusente", fontsize=8,
                      va='center', color='#AAAAAA', style='italic')
     else:
-        vsp_incomp = "JSP Incompetente" in vsp_temp
-        giacomini  = "extensão cranial" in vsp_temp
-        jsp_cor    = '#C0392B' if vsp_incomp else '#1565C0'
+        giacomini_cranial    = "extensão cranial" in vsp_temp
+        giacomini_ascendente = "ascendente" in vsp_temp
+        vsp_escape           = "escape do refluxo para a veia safena parva" in vsp_temp
+        vsp_incomp_tipo      = vsp_d.get("vsp_incomp_tipo", "Incompetência completa")
+        vsp_incomp_seg       = vsp_escape and vsp_incomp_tipo == "Incompetência segmentar"
+        jsp_incomp           = vsp_escape or giacomini_ascendente
+        if giacomini_cranial:
+            jsp_cor = '#8E44AD'
+        elif jsp_incomp:
+            jsp_cor = '#C0392B'
+        else:
+            jsp_cor = '#1565C0'
 
-        # extensão cranial / Giacomini
-        if giacomini:
+        # extensão cranial (JSP anatomicamente ausente — Giacomini como variante)
+        if giacomini_cranial:
             ax_post.plot([VSP_X, VSP_X], [JSP_H, JSP_H + 17],
                          color='#8E44AD', lw=2.5, ls='--', zorder=5)
-            ax_post.text(VSP_X + 0.4, JSP_H + 8, "Giacomini",
+            ax_post.text(VSP_X + 0.9, JSP_H + 8, "Giacomini",
                          fontsize=7, va='center', color='#8E44AD')
 
-        ax_post.plot([VSP_X, VSP_X], [0, JSP_H],
-                     color=jsp_cor, lw=4, solid_capstyle='round', zorder=5)
-        ax_post.scatter([VSP_X], [JSP_H], s=160, color=jsp_cor,
-                        marker='D', zorder=10, edgecolors='white', linewidths=0.8)
-        ax_post.text(VSP_X + 0.4, JSP_H,
-                     f"JSP ({'INC' if vsp_incomp else 'COMP'})",
-                     fontsize=7.5, va='center', color=jsp_cor, fontweight='bold')
-
-        if vsp_incomp:
-            ax_post.annotate('', xy=(VSP_X + 0.7, 10),
-                             xytext=(VSP_X + 0.7, 22),
+        # refluxo ascendente via Giacomini (JSP incompetente, refluxo sobe)
+        if giacomini_ascendente:
+            ax_post.plot([VSP_X, VSP_X], [JSP_H, JSP_H + 17],
+                         color='#C0392B', lw=2.5, ls='--', zorder=5)
+            ax_post.annotate('', xy=(VSP_X + 0.7, JSP_H + 14),
+                             xytext=(VSP_X + 0.7, JSP_H + 6),
                              arrowprops=dict(arrowstyle='->', color='#C0392B',
                                              lw=1.5, mutation_scale=13))
+            ax_post.text(VSP_X + 0.9, JSP_H + 10, "Giacomini\n(↑ ascend.)",
+                         fontsize=6.5, va='center', color='#C0392B')
+
+        # tronco da VSP
+        if vsp_incomp_seg:
+            ref_des = vsp_d.get("vsp_desague_ref", "Interlinha do Joelho")
+            pos_des = vsp_d.get("vsp_desague_pos", "abaixo")
+            try:
+                cm_des = float(vsp_d.get("vsp_desague_cm", "10"))
+            except ValueError:
+                cm_des = 10.0
+            y_drain = (KNEE_H + cm_des) if pos_des == "acima" else (KNEE_H - cm_des) if ref_des == "Interlinha do Joelho" else cm_des
+            y_drain = max(2.0, min(float(y_drain), JSP_H - 2))
+            ax_post.plot([VSP_X, VSP_X], [y_drain, JSP_H],
+                         color='#C0392B', lw=4, solid_capstyle='round', zorder=5)
+            ax_post.plot([VSP_X, VSP_X], [0, y_drain],
+                         color='#1565C0', lw=4, solid_capstyle='round', zorder=5)
+            ax_post.scatter([VSP_X], [y_drain], s=80, color='#C0392B',
+                            marker='o', zorder=9, edgecolors='white', linewidths=0.8)
+            ax_post.annotate('', xy=(VSP_X + 0.7, y_drain - 4),
+                             xytext=(VSP_X + 0.7, y_drain + 4),
+                             arrowprops=dict(arrowstyle='->', color='#C0392B',
+                                             lw=1.5, mutation_scale=13))
+        else:
+            vsp_line_cor = '#C0392B' if (vsp_escape and not giacomini_ascendente) else '#1565C0'
+            ax_post.plot([VSP_X, VSP_X], [0, JSP_H],
+                         color=vsp_line_cor, lw=4, solid_capstyle='round', zorder=5)
+            if vsp_escape:
+                ax_post.annotate('', xy=(VSP_X + 0.7, 10),
+                                 xytext=(VSP_X + 0.7, 22),
+                                 arrowprops=dict(arrowstyle='->', color='#C0392B',
+                                                 lw=1.5, mutation_scale=13))
+
+        ax_post.scatter([VSP_X], [JSP_H], s=160, color=jsp_cor,
+                        marker='D', zorder=10, edgecolors='white', linewidths=0.8)
+        if giacomini_cranial:
+            jsp_label = "JSP ausente"
+        elif jsp_incomp:
+            jsp_label = "JSP (INC)"
+        else:
+            jsp_label = "JSP (COMP)"
+        ax_post.text(VSP_X + 0.4, JSP_H,
+                     jsp_label, fontsize=7.5, va='center', color=jsp_cor, fontweight='bold')
 
         ax_post.text(VSP_X - 0.35, 18, "VSP", fontsize=8.5, ha='right',
                      va='center', color='#1A1A2E', fontweight='bold', rotation=90)
@@ -1019,31 +1074,40 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                 add_p("Medidas da veia safena magna:", space_before=6, space_after=4)
                 for lbl, val in medidas_vsm_ativas: add_p(f" {val} mm", bold_pre=lbl, bullet=True)
 
-        # 2.2 VEIA SAFENA PARVA (VSP) - TEXTO ADICIONADO E CORRIGIDO
+        # 2.2 VEIA SAFENA PARVA (VSP)
         add_p("Veia Safena Parva:", space_before=8, space_after=4)
         vsp_d = dm["vsp_dados_input"]
         vsp_txt_temp = vsp_d.get("template", "")
-        
+
         if "Normal" in vsp_txt_temp:
             add_p("A veia safena parva apresenta-se pérvia, com trajeto anatômico habitual, paredes finas, totalmente compressível e competente em todo o seu trajeto.")
         elif "Ausente" in vsp_txt_temp:
             add_p(f"Veia safena parva ausente cirurgicamente ({vsp_txt_temp}).")
-        elif "Junção safenopoplítea ausente" in vsp_txt_temp:
+        elif "extensão cranial" in vsp_txt_temp:
             add_p("Junção safenopoplítea anatomicamente ausente. Observa-se extensão cranial da veia safena parva (Veia de Giacomini) cursando no plano fascial posterior da coxa.")
             conclusoes_lista.append((m_nome, "Extensão cranial anatômica da veia safena parva."))
-        elif "JSP Incompetente" in vsp_txt_temp:
-            des_vsp = vsp_d.get("desague_tipo", "tributárias epifasciais")
-            ref_vsp = vsp_d.get("desague_ref", "")
-            pos_vsp = vsp_d.get("desague_pos", "")
-            cm_vsp = vsp_d.get("desague_cm", "")
-            if ref_vsp == "Interlinha do Joelho" and pos_vsp:
-                loc_txt = f"a {cm_vsp} cm {pos_vsp} da interlinha do joelho"
-            elif ref_vsp == "Face Plantar" and cm_vsp:
-                loc_txt = f"a {cm_vsp} cm da face plantar"
+        elif vsp_txt_temp == "Junção safenopoplítea competente":
+            add_p("Junção safenopoplítea competente. A veia safena parva segue pérvia e competente em todo o seu trajeto.")
+        elif "escape do refluxo para a veia safena parva" in vsp_txt_temp:
+            incomp_tipo = vsp_d.get("vsp_incomp_tipo", "Incompetência completa")
+            if incomp_tipo == "Incompetência completa":
+                add_p("Junção safenopoplítea incompetente, com escape do refluxo valvar patológico para a veia safena parva, determinando incompetência troncular completa do vaso.")
+                conclusoes_lista.append((m_nome, "Insuficiência troncular completa da veia safena parva por incompetência da junção safenopoplítea."))
             else:
-                loc_txt = vsp_d.get("localizacao_desague", "terço médio da perna")
-            add_p(f"Junção safenopoplítea (JSP) incompetente, gerando refluxo valvar patológico na veia safena parva em toda a sua extensão, associado a dilatação e tortuosidade do tronco. O refluxo apresenta deságue/drenagem terminal para {des_vsp}, {loc_txt}.")
-            conclusoes_lista.append((m_nome, "Insuficiência troncular da veia safena parva por incompetência da junção safenopoplítea."))
+                ref_des = vsp_d.get("vsp_desague_ref", "")
+                pos_des = vsp_d.get("vsp_desague_pos", "")
+                cm_des  = vsp_d.get("vsp_desague_cm", "")
+                if ref_des == "Interlinha do Joelho" and pos_des:
+                    loc_des = f"a {cm_des} cm {pos_des} da interlinha do joelho"
+                elif ref_des == "Face Plantar" and cm_des:
+                    loc_des = f"a {cm_des} cm da face plantar"
+                else:
+                    loc_des = "ponto não especificado"
+                add_p(f"Junção safenopoplítea incompetente, com escape do refluxo valvar patológico para a veia safena parva, determinando incompetência segmentar do vaso, com deságue do refluxo {loc_des}. No restante do trajeto a veia safena parva segue competente.")
+                conclusoes_lista.append((m_nome, "Insuficiência segmentar da veia safena parva por incompetência da junção safenopoplítea."))
+        elif "ascendente" in vsp_txt_temp:
+            add_p("Junção safenopoplítea incompetente, com refluxo valvar patológico drenado de forma ascendente através da veia de Giacomini.")
+            conclusoes_lista.append((m_nome, "Insuficiência da junção safenopoplítea com refluxo ascendente via veia de Giacomini."))
 
         # Segmentos incompetentes da VSP
         vsp_segs = dm.get("vsp_segmentos_lista", [])
