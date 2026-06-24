@@ -422,6 +422,12 @@ for idx, m_nome in enumerate(membros_para_processar):
                     horizontal=True,
                     key=f"varext_ciatica_{m_nome}"
                 )
+            if varizes_extrassaf_dados["origem"] == "Refluxo pélvico":
+                varizes_extrassaf_dados["pelvico_pontos"] = st.multiselect(
+                    "Ponto(s) de escape do refluxo pélvico:",
+                    ["Ponto inguinal", "Ponto perineal", "Ponto obturatório", "Ponto glúteo"],
+                    key=f"varext_pelvico_{m_nome}"
+                )
 
         st.markdown("---")
 
@@ -1073,8 +1079,14 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                     _ve_txt = f"Identificam-se varizes extrassafênicas em {_ve_loc}, acompanhando o trajeto do nervo ciático, compatíveis com refluxo de origem ciática."
                     _ve_concl = f"Varizes extrassafênicas em {_ve_loc} acompanhando o trajeto do nervo ciático."
             else:
-                _ve_txt = f"Identificam-se varizes extrassafênicas em {_ve_loc}, com origem em refluxo de origem pélvica."
-                _ve_concl = f"Varizes extrassafênicas em {_ve_loc} por refluxo pélvico."
+                _pontos = ved.get("pelvico_pontos", [])
+                if _pontos:
+                    _pontos_txt = ", ".join(p.lower() for p in _pontos)
+                    _ve_txt = f"Identificam-se varizes extrassafênicas em {_ve_loc}, com origem em refluxo pélvico através de {_pontos_txt}."
+                    _ve_concl = f"Varizes extrassafênicas em {_ve_loc} por refluxo pélvico ({_pontos_txt})."
+                else:
+                    _ve_txt = f"Identificam-se varizes extrassafênicas em {_ve_loc}, com origem em refluxo de origem pélvica."
+                    _ve_concl = f"Varizes extrassafênicas em {_ve_loc} por refluxo pélvico."
             add_p(_ve_txt, space_before=6)
             conclusoes_lista.append((m_nome, _ve_concl))
 
