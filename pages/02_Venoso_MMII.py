@@ -37,7 +37,7 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("### ✍️ Identidade & Assinatura")
-    incluir_identidade = st.toggle("Incluir identidade no laudo", value=True)
+    incluir_identidade = st.toggle("Incluir identidade no laudo", value=False)
     nome_clinica = st.text_input("Cabeçalho / Nome da Clínica:", placeholder="Ex: Instituto de Diagnóstico Vascular")
     nome_medico = st.text_input("Nome do Médico:", "Lucas Santos Guimarães")
     colcrm1, colcrm2 = st.columns([2, 1])
