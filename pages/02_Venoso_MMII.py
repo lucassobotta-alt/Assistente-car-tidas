@@ -47,6 +47,16 @@ with st.sidebar:
         crm_uf = st.selectbox("UF", ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"], index=25)
     rqe_medico = st.text_input("RQE:", "")
 
+    st.markdown("---")
+    if st.button("🔄 Resetar Todos os Parâmetros", use_container_width=True, type="secondary"):
+        for _k in list(st.session_state.keys()):
+            del st.session_state[_k]
+        st.session_state["lista_perfurantes"] = {}
+        st.session_state["segmentos_vsm_reg"] = {}
+        st.session_state["vsp_reg"] = {}
+        st.toast("🔄 Todos os dados foram limpos!")
+        st.rerun()
+
 # --- IDENTIFICAÇÃO DO PACIENTE ---
 nome_paciente = st.text_input("Nome do Paciente:", "")
 
@@ -141,11 +151,11 @@ for idx, m_nome in enumerate(membros_para_processar):
                         if jsf_detalhes_input["ponto_ref_dist"] == "Interlinha do Joelho":
                             jsf_detalhes_input["posicao_joelho_dist"] = st.radio("Posição em relação ao joelho:", ["acima", "abaixo"], horizontal=True, key=f"jsf_pos_joelho_{m_nome}")
                         else: jsf_detalhes_input["posicao_joelho_dist"] = ""
-                    with c5: jsf_detalhes_input["dist_fim"] = st.text_input("Distância do ponto de referência (cm):", "0" if jsf_detalhes_input["ponto_ref_dist"]=="Interlinha do Joelho" else "15", key=f"jsf_dist_fim_{m_nome}")
+                    with c5: jsf_detalhes_input["dist_fim"] = st.text_input("Distância do ponto de referência (cm):", "", key=f"jsf_dist_fim_{m_nome}")
 
                 elif "Apenas a Válvula Pré-terminal" in jsf_valvulas:
                     c1, c2, c3 = st.columns(3)
-                    with c1: jsf_detalhes_input["cm_ponto_j"] = st.text_input("Incompetente até cerca de (cm) da JSF/Ponto J:", "10", key=f"jsf_det_j_{m_nome}")
+                    with c1: jsf_detalhes_input["cm_ponto_j"] = st.text_input("Incompetente até cerca de (cm) da JSF/Ponto J:", "", key=f"jsf_det_j_{m_nome}")
                     with c2: jsf_detalhes_input["tipo_drenagem"] = st.selectbox("Drenagem para:", ["tributárias epifasciais varicosas", "veia perfurante incompetente", "veia comunicante"], key=f"jsf_det_dren_{m_nome}")
                     with c3: jsf_detalhes_input["terco_coxa"] = st.selectbox("Em qual terço anatômico:", ["terço proximal da coxa", "terço médio da coxa", "terço distal da coxa"], key=f"jsf_det_terco_{m_nome}")
                 
@@ -157,10 +167,10 @@ for idx, m_nome in enumerate(membros_para_processar):
                     )
                     if "Acessória Anterior" in jsf_detalhes_input["destino_terminal"]:
                         c1, c2 = st.columns(2)
-                        with c1: jsf_detalhes_input["vsaa_desague"] = st.text_input("Deságue da VSAA em veias epifasciais da face:", "anterolateral da coxa", key=f"jsf_vsaa_des_{m_nome}")
-                        with c2: jsf_detalhes_input["vsaa_extensao"] = st.text_input("Extensão dos trajetos varicosos até a face:", "lateral do joelho", key=f"jsf_vsaa_ext_{m_nome}")
+                        with c1: jsf_detalhes_input["vsaa_desague"] = st.text_input("Deságue da VSAA em veias epifasciais da face:", "", key=f"jsf_vsaa_des_{m_nome}")
+                        with c2: jsf_detalhes_input["vsaa_extensao"] = st.text_input("Extensão dos trajetos varicosos até a face:", "", key=f"jsf_vsaa_ext_{m_nome}")
                     else:
-                        jsf_detalhes_input["tributarias_tipo"] = st.text_input("Fluindo para tributárias não safênicas na:", "coxa", key=f"jsf_det_term_trib_{m_nome}")
+                        jsf_detalhes_input["tributarias_tipo"] = st.text_input("Fluindo para tributárias não safênicas na:", "", key=f"jsf_det_term_trib_{m_nome}")
 
                 vsm_dados_mapeamento["jsf_detalhes_input"] = jsf_detalhes_input
 
@@ -171,10 +181,10 @@ for idx, m_nome in enumerate(membros_para_processar):
             seg_desague = "Tributária epifascial varicosa"
             seg_prox_ref = "Junção Safenofemoral (JSF)"
             seg_prox_pos = ""
-            seg_prox_cm = "0"
+            seg_prox_cm = ""
             seg_dist_ref = "Interlinha do Joelho"
             seg_dist_pos = "abaixo"
-            seg_dist_cm = "15"
+            seg_dist_cm = ""
 
             if incluir_segmento:
                 # Linha 1: Origem
@@ -198,7 +208,7 @@ for idx, m_nome in enumerate(membros_para_processar):
                         seg_prox_pos = ""
                         st.empty()
                 with c_prox3:
-                    seg_prox_cm = st.text_input("Distância (cm):", "0", key=f"seg_prox_cm_{m_nome}")
+                    seg_prox_cm = st.text_input("Distância (cm):", "", key=f"seg_prox_cm_{m_nome}")
 
                 # Linha 3: Ponto distal
                 seg_desague = st.selectbox(
@@ -220,7 +230,7 @@ for idx, m_nome in enumerate(membros_para_processar):
                             seg_dist_pos = ""
                             st.empty()
                     with c_dist3:
-                        seg_dist_cm = st.text_input("Distância (cm):", "15", key=f"seg_dist_cm_{m_nome}")
+                        seg_dist_cm = st.text_input("Distância (cm):", "", key=f"seg_dist_cm_{m_nome}")
                 else:
                     seg_dist_ref = ""
                     seg_dist_pos = ""
@@ -257,14 +267,14 @@ for idx, m_nome in enumerate(membros_para_processar):
         if "Pérvia" in vsm_status_geral:
             st.markdown("**Mensurações da Veia Safena Magna (Diâmetros em mm):**")
             cm1, cm2, cm3, cm4 = st.columns(4)
-            with cm1: jsf_mm = st.text_input("Junção safenofemoral (mm):", "4.5", key=f"jsf_mm_{m_nome}")
-            with cm2: vsm_prox_coxa = st.text_input("Terço proximal da coxa (mm):", "3.8", key=f"prox_c_{m_nome}")
-            with cm3: vsm_med_coxa = st.text_input("Terço médio da coxa (mm):", "3.5", key=f"med_c_{m_nome}")
-            with cm4: vsm_dist_coxa = st.text_input("Terço distal da coxa (mm):", "3.2", key=f"dist_c_{m_nome}")
+            with cm1: jsf_mm = st.text_input("Junção safenofemoral (mm):", "", key=f"jsf_mm_{m_nome}")
+            with cm2: vsm_prox_coxa = st.text_input("Terço proximal da coxa (mm):", "", key=f"prox_c_{m_nome}")
+            with cm3: vsm_med_coxa = st.text_input("Terço médio da coxa (mm):", "", key=f"med_c_{m_nome}")
+            with cm4: vsm_dist_coxa = st.text_input("Terço distal da coxa (mm):", "", key=f"dist_c_{m_nome}")
             cm5, cm6, cm7 = st.columns(3)
-            with cm5: vsm_prox_perna = st.text_input("Terço proximal da perna (mm):", "3.0", key=f"prox_p_{m_nome}")
-            with cm6: vsm_med_perna = st.text_input("Terço médio da perna (mm):", "2.8", key=f"med_p_{m_nome}")
-            with cm7: vsm_dist_perna = st.text_input("Terço distal da perna (mm):", "2.5", key=f"dist_p_{m_nome}")
+            with cm5: vsm_prox_perna = st.text_input("Terço proximal da perna (mm):", "", key=f"prox_p_{m_nome}")
+            with cm6: vsm_med_perna = st.text_input("Terço médio da perna (mm):", "", key=f"med_p_{m_nome}")
+            with cm7: vsm_dist_perna = st.text_input("Terço distal da perna (mm):", "", key=f"dist_p_{m_nome}")
             # Alertas de diâmetro da VSM (ESVS 2022)
             _alertas_vsm = []
             try:
@@ -318,15 +328,15 @@ for idx, m_nome in enumerate(membros_para_processar):
                         vsp_dados_form["vsp_desague_pos"] = ""
                         st.empty()
                 with cvsp_3:
-                    vsp_dados_form["vsp_desague_cm"] = st.text_input("Distância (cm):", "10", key=f"vsp_des_cm_{m_nome}")
+                    vsp_dados_form["vsp_desague_cm"] = st.text_input("Distância (cm):", "", key=f"vsp_des_cm_{m_nome}")
 
         if "Ausente (Safenectomia" not in vsp_template:
             st.markdown("**Mensurações da Veia Safena Parva (Diâmetros em mm):**")
             cp1, cp2, cp3 = st.columns(3)
             label_jsp_dinamico = "Extensão cranial (mm):" if "extensão cranial" in vsp_template else "Junção safenopoplítea (mm):"
-            with cp1: vsp_dados_form["jsp_mm"] = st.text_input(label_jsp_dinamico, "4.2", key=f"jsp_mm_{m_nome}", disabled="extensão cranial" in vsp_template)
-            with cp2: vsp_dados_form["vsp_crossa"] = st.text_input("Crossa da safena parva (mm):", "3.8", key=f"crossa_{m_nome}")
-            with cp3: vsp_dados_form["vsp_med_perna_diam"] = st.text_input("Terço médio da perna (mm):", "3.0", key=f"med_per_{m_nome}")
+            with cp1: vsp_dados_form["jsp_mm"] = st.text_input(label_jsp_dinamico, "", key=f"jsp_mm_{m_nome}", disabled="extensão cranial" in vsp_template)
+            with cp2: vsp_dados_form["vsp_crossa"] = st.text_input("Crossa da safena parva (mm):", "", key=f"crossa_{m_nome}")
+            with cp3: vsp_dados_form["vsp_med_perna_diam"] = st.text_input("Terço médio da perna (mm):", "", key=f"med_per_{m_nome}")
 
         if st.button("💾 Registrar Achado da VSP", key=f"reg_vsp_{m_nome}"):
             st.session_state["vsp_reg"][m_nome] = vsp_dados_form
@@ -364,8 +374,8 @@ for idx, m_nome in enumerate(membros_para_processar):
                 with cp_1: perf_dados["regiao"] = st.selectbox("Região Anatômica:", ["Coxa", "Perna"], key=f"perf_reg_{m_nome}_{p_idx}")
                 with cp_2: perf_dados["face"] = st.selectbox("Face Medida:", ["Medial", "Lateral", "Anterior", "Posterior", "Anterolateral", "Posterointerna"], key=f"perf_face_{m_nome}_{p_idx}")
                 with cp_3: perf_dados["ref_ponto"] = st.selectbox("Referência de Medida:", ["Interlinha do Joelho", "Face Plantar"], key=f"perf_ref_{m_nome}_{p_idx}")
-                with cp_4: perf_dados["altura_cm"] = st.text_input("Altura aferida (cm):", "12", key=f"perf_alt_{m_nome}_{p_idx}")
-                with cp_5: perf_dados["diametro_mm"] = st.text_input("Diâmetro (mm):", "3.5", key=f"perf_diam_{m_nome}_{p_idx}")
+                with cp_4: perf_dados["altura_cm"] = st.text_input("Altura aferida (cm):", "", key=f"perf_alt_{m_nome}_{p_idx}")
+                with cp_5: perf_dados["diametro_mm"] = st.text_input("Diâmetro (mm):", "", key=f"perf_diam_{m_nome}_{p_idx}")
                 try:
                     if float(perf_dados["diametro_mm"]) > 3.5:
                         st.warning(f"⚠️ Perfurante #{p_idx + 1}: diâmetro {perf_dados['diametro_mm']} mm > 3,5 mm — critério ESVS 2022 para perfurante patológica")
@@ -400,7 +410,7 @@ for idx, m_nome in enumerate(membros_para_processar):
             with cv_1: varic_dados["telangiectasias"] = st.checkbox("Telangiectasias (< 1 mm)", key=f"var_tel_{m_nome}")
             with cv_2: varic_dados["micro_reticulares"] = st.checkbox("Microvarizes / Varizes Reticulares (1 a 3 mm)", key=f"var_mic_{m_nome}")
             with cv_3: varic_dados["veias_varicosas"] = st.checkbox("Veias Varicosas Tronculares (> 3 mm)", key=f"var_tronc_{m_nome}")
-            varic_dados["localizacao"] = st.text_input("Localização predominante das lesões superficiais:", "em faces lateral da coxa e posterior da perna", key=f"var_loc_{m_nome}")
+            varic_dados["localizacao"] = st.text_input("Localização predominante das lesões superficiais:", "", key=f"var_loc_{m_nome}")
 
         st.markdown("---")
 
@@ -409,7 +419,7 @@ for idx, m_nome in enumerate(membros_para_processar):
         possui_varizes_extrassaf = st.checkbox("Identificar varizes extrassafênicas neste membro?", key=f"has_varext_{m_nome}")
         varizes_extrassaf_dados = {"possui": possui_varizes_extrassaf}
         if possui_varizes_extrassaf:
-            varizes_extrassaf_dados["localizacao"] = st.text_input("Localização das varizes extrassafênicas:", "face lateral da coxa e perna", key=f"varext_loc_{m_nome}")
+            varizes_extrassaf_dados["localizacao"] = st.text_input("Localização das varizes extrassafênicas:", "", key=f"varext_loc_{m_nome}")
             varizes_extrassaf_dados["origem"] = st.selectbox(
                 "Origem das varizes extrassafênicas:",
                 ["Tributária incompetente", "Refluxo de origem ciática", "Refluxo pélvico"],
@@ -444,9 +454,9 @@ for idx, m_nome in enumerate(membros_para_processar):
         if "Cisto de Baker na fossa poplítea" in achados_multiplos:
             st.markdown("<sub style='color: #444;'>Dimensões do Cisto de Baker:</sub>", unsafe_allow_html=True)
             cc1, cc2, cc3 = st.columns(3)
-            with cc1: cisto_medidas["comp"] = st.text_input("Eixo Long (mm):", "35", key=f"cb_c_{m_nome}")
-            with cc2: cisto_medidas["larg"] = st.text_input("Eixo Transv (mm):", "18", key=f"cb_l_{m_nome}")
-            with cc3: cisto_medidas["esp"] = st.text_input("Espessura (mm):", "12", key=f"cb_e_{m_nome}")
+            with cc1: cisto_medidas["comp"] = st.text_input("Eixo Long (mm):", "", key=f"cb_c_{m_nome}")
+            with cc2: cisto_medidas["larg"] = st.text_input("Eixo Transv (mm):", "", key=f"cb_l_{m_nome}")
+            with cc3: cisto_medidas["esp"] = st.text_input("Espessura (mm):", "", key=f"cb_e_{m_nome}")
 
         dados_membros[m_nome] = {
             "svp": svp_res, "vsm_mapeamento": vsm_dados_mapeamento,
