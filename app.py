@@ -4,6 +4,7 @@ from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
+from gtts import gTTS
 
 # Inicialização segura do estado da sessão
 if 'lista_placas' not in st.session_state:
@@ -925,6 +926,22 @@ if gerar_laudo:
             value=texto_visualizacao,
             height=700
         )
+        st.markdown("### 🔊 Leitura em Áudio do Laudo")
+        if st.button("▶️ Gerar Áudio do Laudo", key="audio_arterial"):
+            with st.spinner("Gerando áudio..."):
+                audio_buf = BytesIO()
+                gTTS(text=texto_visualizacao, lang='pt').write_to_fp(audio_buf)
+                audio_buf.seek(0)
+            st.audio(audio_buf, format='audio/mp3')
+    elif modo_saida == "Somente DOCX":
+        texto_visualizacao = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
+        st.markdown("### 🔊 Leitura em Áudio do Laudo")
+        if st.button("▶️ Gerar Áudio do Laudo", key="audio_arterial_docx"):
+            with st.spinner("Gerando áudio..."):
+                audio_buf = BytesIO()
+                gTTS(text=texto_visualizacao, lang='pt').write_to_fp(audio_buf)
+                audio_buf.seek(0)
+            st.audio(audio_buf, format='audio/mp3')
 
     # Download DOCX
     if modo_saida in ["Somente DOCX", "Visualização + DOCX"]:

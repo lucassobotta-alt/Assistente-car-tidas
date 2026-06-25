@@ -4,6 +4,7 @@ from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
+from gtts import gTTS
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.title("🌀 Assistente de Laudos: Duplex Scan Venoso de MMII")
@@ -1155,10 +1156,18 @@ def construir_laudo_word(membros_lista, dados_m_dict):
 # --- PROCESSAMENTO DO BOTÃO DE GERAR LAUDO ---
 def _exibir_doc(doc, buf, nome_arquivo, label_download):
     st.success("Laudo gerado com sucesso!")
+    texto_viz = "\n".join(p.text for p in doc.paragraphs if p.text.strip())
     if modo_saida in ["Somente Visualização", "Visualização + DOCX"]:
-        texto_viz = "\n".join(p.text for p in doc.paragraphs if p.text.strip())
         st.markdown("## 👁️ Visualização do Laudo")
         st.text_area("Laudo Gerado", value=texto_viz, height=600)
+    st.markdown("### 🔊 Leitura em Áudio do Laudo")
+    audio_key = f"audio_venoso_{nome_arquivo}"
+    if st.button("▶️ Gerar Áudio do Laudo", key=audio_key):
+        with st.spinner("Gerando áudio..."):
+            audio_buf = BytesIO()
+            gTTS(text=texto_viz, lang='pt').write_to_fp(audio_buf)
+            audio_buf.seek(0)
+        st.audio(audio_buf, format='audio/mp3')
     if modo_saida in ["Somente DOCX", "Visualização + DOCX"]:
         st.download_button(label_download, buf, nome_arquivo,
                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
