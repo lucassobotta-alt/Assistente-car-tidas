@@ -4,7 +4,92 @@ from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
-from gtts import gTTS
+import streamlit.components.v1 as components
+import json
+
+def render_audio_player(texto: str, key: str = "tts"):
+    texto_js = json.dumps(texto)
+    components.html(f"""
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:4px 0;">
+        <button id="btn_play_{key}" onclick="falarTexto_{key}()"
+            style="padding:8px 18px; background:#1a56db; color:#fff; border:none;
+                   border-radius:6px; cursor:pointer; font-size:14px;">
+            ▶️ Ouvir Laudo
+        </button>
+        <button id="btn_pause_{key}" onclick="pausarTexto_{key}()" style="display:none;
+            padding:8px 18px; background:#f59e0b; color:#fff; border:none;
+            border-radius:6px; cursor:pointer; font-size:14px;">
+            ⏸ Pausar
+        </button>
+        <button id="btn_stop_{key}" onclick="pararTexto_{key}()" style="display:none;
+            padding:8px 18px; background:#e02424; color:#fff; border:none;
+            border-radius:6px; cursor:pointer; font-size:14px;">
+            ⏹ Parar
+        </button>
+        <span id="status_{key}" style="font-size:13px; color:#555;"></span>
+    </div>
+    <script>
+    var _utterance_{key} = null;
+    var _paused_{key} = false;
+
+    function falarTexto_{key}() {{
+        if (window.speechSynthesis.speaking && !_paused_{key}) return;
+        if (_paused_{key}) {{
+            window.speechSynthesis.resume();
+            _paused_{key} = false;
+            document.getElementById('btn_pause_{key}').textContent = '⏸ Pausar';
+            document.getElementById('status_{key}').textContent = '▶ Reproduzindo...';
+            return;
+        }}
+        window.speechSynthesis.cancel();
+        var texto = {texto_js};
+        var partes = texto.match(/[\\s\\S]{{1,200}}(?=[.!?]|$)/g) || [texto];
+        var idx = 0;
+        function falarParte() {{
+            if (idx >= partes.length) {{
+                document.getElementById('btn_play_{key}').style.display = 'inline-block';
+                document.getElementById('btn_pause_{key}').style.display = 'none';
+                document.getElementById('btn_stop_{key}').style.display = 'none';
+                document.getElementById('status_{key}').textContent = '✅ Concluído';
+                return;
+            }}
+            var u = new SpeechSynthesisUtterance(partes[idx]);
+            u.lang = 'pt-BR'; u.rate = 0.95; u.pitch = 1.0;
+            u.onend = function() {{ idx++; falarParte(); }};
+            window.speechSynthesis.speak(u);
+            _utterance_{key} = u;
+        }}
+        document.getElementById('btn_play_{key}').style.display = 'none';
+        document.getElementById('btn_pause_{key}').style.display = 'inline-block';
+        document.getElementById('btn_stop_{key}').style.display = 'inline-block';
+        document.getElementById('status_{key}').textContent = '▶ Reproduzindo...';
+        falarParte();
+    }}
+
+    function pausarTexto_{key}() {{
+        if (window.speechSynthesis.speaking && !_paused_{key}) {{
+            window.speechSynthesis.pause();
+            _paused_{key} = true;
+            document.getElementById('btn_pause_{key}').textContent = '▶ Retomar';
+            document.getElementById('status_{key}').textContent = '⏸ Pausado';
+        }} else if (_paused_{key}) {{
+            window.speechSynthesis.resume();
+            _paused_{key} = false;
+            document.getElementById('btn_pause_{key}').textContent = '⏸ Pausar';
+            document.getElementById('status_{key}').textContent = '▶ Reproduzindo...';
+        }}
+    }}
+
+    function pararTexto_{key}() {{
+        window.speechSynthesis.cancel();
+        _paused_{key} = false;
+        document.getElementById('btn_play_{key}').style.display = 'inline-block';
+        document.getElementById('btn_pause_{key}').style.display = 'none';
+        document.getElementById('btn_stop_{key}').style.display = 'none';
+        document.getElementById('status_{key}').textContent = '';
+    }}
+    </script>
+    """, height=60)
 
 # Inicialização segura do estado da sessão
 if 'lista_placas' not in st.session_state:
@@ -918,30 +1003,16 @@ if gerar_laudo:
     st.success("Laudo integrado gerado com sucesso!")
 
     # Visualização do laudo na própria página
+    texto_visualizacao = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
     if modo_saida in ["Somente Visualização", "Visualização + DOCX"]:
-        texto_visualizacao = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
         st.markdown("## 👁️ Visualização do Laudo")
         st.text_area(
             "Laudo Gerado",
             value=texto_visualizacao,
             height=700
         )
-        st.markdown("### 🔊 Leitura em Áudio do Laudo")
-        if st.button("▶️ Gerar Áudio do Laudo", key="audio_arterial"):
-            with st.spinner("Gerando áudio..."):
-                audio_buf = BytesIO()
-                gTTS(text=texto_visualizacao, lang='pt').write_to_fp(audio_buf)
-                audio_buf.seek(0)
-            st.audio(audio_buf, format='audio/mp3')
-    elif modo_saida == "Somente DOCX":
-        texto_visualizacao = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
-        st.markdown("### 🔊 Leitura em Áudio do Laudo")
-        if st.button("▶️ Gerar Áudio do Laudo", key="audio_arterial_docx"):
-            with st.spinner("Gerando áudio..."):
-                audio_buf = BytesIO()
-                gTTS(text=texto_visualizacao, lang='pt').write_to_fp(audio_buf)
-                audio_buf.seek(0)
-            st.audio(audio_buf, format='audio/mp3')
+    st.markdown("### 🔊 Leitura em Áudio do Laudo")
+    render_audio_player(texto_visualizacao, key="arterial")
 
     # Download DOCX
     if modo_saida in ["Somente DOCX", "Visualização + DOCX"]:

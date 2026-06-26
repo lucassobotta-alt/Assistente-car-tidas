@@ -2,4 +2,3 @@ streamlit
 python-docx
 matplotlib
 numpy
-gtts
