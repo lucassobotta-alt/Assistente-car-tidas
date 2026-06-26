@@ -2,3 +2,4 @@ streamlit
 python-docx
 matplotlib
 numpy
+streamlit-js-eval

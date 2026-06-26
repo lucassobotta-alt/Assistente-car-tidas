@@ -6,6 +6,170 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
 import streamlit.components.v1 as components
 import json
+import unicodedata
+from streamlit_js_eval import streamlit_js_eval
+
+def _normalizar(texto: str) -> str:
+    """Remove acentos e converte para minúsculas para facilitar matching."""
+    return ''.join(
+        c for c in unicodedata.normalize('NFD', texto.lower())
+        if unicodedata.category(c) != 'Mn'
+    )
+
+def parse_comando_voz(texto: str) -> dict:
+    """
+    Converte transcrição de voz em atualizações de session_state.
+    Retorna dict {chave_session_state: valor} pronto para aplicar.
+    """
+    t = _normalizar(texto)
+    updates = {}
+
+    # Extrai primeiro número encontrado (inteiro ou decimal)
+    nums = re.findall(r'\d+[,.]?\d*', t)
+    num = float(nums[0].replace(',', '.')) if nums else None
+
+    # Detecta lado
+    lado = None
+    if any(w in t for w in ['direita', 'direito', 'dir']):
+        lado = 'dir'
+    elif any(w in t for w in ['esquerda', 'esquerdo', 'esq']):
+        lado = 'esq'
+
+    # ── Nome do paciente ──────────────────────────────────────────
+    if t.startswith('nome ') or t.startswith('paciente '):
+        nome_val = texto.split(' ', 1)[1].strip().title()
+        updates['w_nome'] = nome_val
+        return updates
+
+    # ── CMI ──────────────────────────────────────────────────────
+    if any(w in t for w in ['cmi', 'medio-intimal', 'medio intimal', 'intimal']):
+        if lado and num is not None:
+            updates[f'w_cmi_{lado}'] = min(max(num, 0.0), 5.0)
+        return updates
+
+    # ── Oclusão / Suboclusão / Pérvia (estado ACI) ───────────────
+    if 'suboclusao' in t or 'suboclusão' in t or ('sub' in t and 'oclusao' in t):
+        alvos = [lado] if lado else ['dir', 'esq']
+        for ld in alvos:
+            updates[f'w_estado_aci_{ld}'] = 'Suboclusão'
+        return updates
+
+    if 'oclusao' in t or 'oclusão' in t:
+        alvos = [lado] if lado else ['dir', 'esq']
+        for ld in alvos:
+            updates[f'w_estado_aci_{ld}'] = 'Oclusão'
+        return updates
+
+    if 'pervia' in t or 'pérvia' in t:
+        alvos = [lado] if lado else ['dir', 'esq']
+        for ld in alvos:
+            updates[f'w_estado_aci_{ld}'] = 'Pérvia (Calcular por Velocidade)'
+        return updates
+
+    # ── Espectro vertebral ────────────────────────────────────────
+    if 'vertebral' in t or 'vert' in t:
+        espectro = None
+        if 'hipoplasia' in t:
+            espectro = 'Hipoplasia'
+        elif 'total' in t or 'retrogrado' in t:
+            espectro = 'Roubo Total (Fluxo Retrógrado)'
+        elif 'parcial' in t or 'alternante' in t:
+            espectro = 'Roubo Parcial (Fluxo Alternante)'
+        elif 'latente' in t:
+            espectro = 'Roubo Latente'
+        elif 'normal' in t or 'anterogrado' in t:
+            espectro = 'Normal (Fluxo Anterógrado)'
+
+        if espectro and lado:
+            updates[f'w_espectro_vert_{lado}'] = espectro
+        elif num is not None and lado:
+            # VPS vertebral sem palavra de espectro
+            updates[f'w_vps_vert_{lado}'] = num
+        return updates
+
+    # ── VPS (velocidade de pico sistólico) ────────────────────────
+    if any(w in t for w in ['vps', 'velocidade', 'pico', 'sistolico']):
+        if any(w in t for w in ['interna', 'aci']):
+            if lado and num is not None:
+                updates[f'w_vps_aci_{lado}'] = num
+        elif any(w in t for w in ['comum', 'acc']):
+            if lado and num is not None:
+                updates[f'w_vcc_{lado}'] = num
+        elif any(w in t for w in ['vertebral', 'vert']):
+            if lado and num is not None:
+                updates[f'w_vps_vert_{lado}'] = num
+        return updates
+
+    return updates
+
+
+_JS_SPEECH = """
+await new Promise((resolve) => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { resolve('__sem_suporte__'); return; }
+    const r = new SR();
+    r.lang = 'pt-BR';
+    r.interimResults = false;
+    r.maxAlternatives = 1;
+    r.onresult = (e) => resolve(e.results[0][0].transcript);
+    r.onerror  = ()  => resolve('__erro__');
+    r.onend    = ()  => {};
+    r.start();
+})
+"""
+
+def render_voice_input():
+    """Painel de entrada por voz com reconhecimento e aplicação automática."""
+    with st.expander("🎤 Ditado por Voz — Preenchimento Automático", expanded=False):
+        st.markdown(
+            "Clique em **Ouvir Comando**, dite o dado desejado e aguarde o reconhecimento. "
+            "O campo correspondente será preenchido automaticamente.\n\n"
+            "**Exemplos de comandos:**\n"
+            "- *\"nome João Silva\"*\n"
+            "- *\"VPS carótida interna direita 150\"*\n"
+            "- *\"VPS carótida comum esquerda 80\"*\n"
+            "- *\"CMI direita 0 vírgula 8\"*\n"
+            "- *\"oclusão direita\"* / *\"suboclusão esquerda\"* / *\"pérvia bilateral\"*\n"
+            "- *\"VPS vertebral direita 45\"*\n"
+            "- *\"vertebral esquerda hipoplasia\"* / *\"roubo latente esquerda\"*"
+        )
+
+        if 'stt_counter' not in st.session_state:
+            st.session_state.stt_counter = 0
+        if 'stt_ultimo' not in st.session_state:
+            st.session_state.stt_ultimo = ''
+        if 'stt_resultado' not in st.session_state:
+            st.session_state.stt_resultado = ''
+
+        col_btn, col_status = st.columns([1, 3])
+        with col_btn:
+            if st.button("🎙️ Ouvir Comando", use_container_width=True):
+                st.session_state.stt_counter += 1
+                st.session_state.stt_resultado = ''
+
+        # Executa reconhecimento de voz; novo key a cada clique força nova captura
+        transcript = streamlit_js_eval(
+            js_expressions=_JS_SPEECH,
+            key=f"stt_{st.session_state.stt_counter}"
+        )
+
+        with col_status:
+            if transcript and transcript not in ('__sem_suporte__', '__erro__', ''):
+                if transcript != st.session_state.stt_ultimo:
+                    st.session_state.stt_ultimo = transcript
+                    st.session_state.stt_resultado = transcript
+                    updates = parse_comando_voz(transcript)
+                    if updates:
+                        st.session_state.update(updates)
+                        st.rerun()
+
+            if st.session_state.stt_resultado:
+                st.success(f"🗣️ Reconhecido: *\"{st.session_state.stt_resultado}\"*")
+            elif transcript == '__sem_suporte__':
+                st.error("Navegador não suporta reconhecimento de voz. Use Chrome ou Edge.")
+            elif transcript == '__erro__':
+                st.warning("Não foi possível capturar o áudio. Verifique o microfone.")
+
 
 def render_audio_player(texto: str, key: str = "tts"):
     texto_js = json.dumps(texto)
@@ -317,6 +481,8 @@ with col_id1:
 with col_id2:
     opcao_selecionada = st.selectbox("Condições Técnicas do Exame:", list(opcoes_tecnicas.keys()), key="w_tecnica")
     texto_tecnica_final = opcoes_tecnicas[opcao_selecionada]
+
+render_voice_input()
 
 st.markdown("---")
 st.markdown("### 📊 Parâmetros Hemodinâmicos")
