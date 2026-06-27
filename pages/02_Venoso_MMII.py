@@ -1054,7 +1054,7 @@ def construir_laudo_word(membros_lista, dados_m_dict):
     doc.styles['Normal'].font.name = fonte_doc
     doc.styles['Normal'].font.size = Pt(tamanho_fonte)
     
-    def add_p(text, bold_pre=None, align=WD_ALIGN_PARAGRAPH.LEFT, space_before=0, space_after=4, bullet=False):
+    def add_p(text, bold_pre=None, align=WD_ALIGN_PARAGRAPH.LEFT, space_before=0, space_after=4, bullet=False, italic=False):
         p = doc.add_paragraph(style='List Bullet' if bullet else 'Normal')
         p.alignment = align
         p.paragraph_format.line_spacing = espacamento_linhas
@@ -1063,7 +1063,9 @@ def construir_laudo_word(membros_lista, dados_m_dict):
         if bold_pre:
             r_p = p.add_run(bold_pre)
             r_p.bold = True
-        p.add_run(text)
+        r = p.add_run(text)
+        if italic:
+            r.italic = True
 
     if nome_clinica.strip():
         p_cl = doc.add_paragraph()
@@ -1320,6 +1322,14 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                 else:
                     add_p(f"Identificam-se varizes extrassafênicas em {_ve_loc}, com origem em refluxo de origem pélvica.", space_before=6)
                     conclusoes_lista.append((m_nome, f"Varizes extrassafênicas em {_ve_loc} por refluxo pélvico."))
+                add_p(
+                    "O padrão de distribuição do refluxo nos membros inferiores sugere fortemente de origem "
+                    "pélvica, sustentado pela patência e competência das junções safeno-femorais e "
+                    "identificação dos pontos de escape descritos. Sugere-se correlação com propedêutica "
+                    "de imagem pélvica (Ultrassom transvaginal com Doppler ou Angiotomografia/Angioressonância "
+                    "de pelve).",
+                    space_before=4, italic=True
+                )
 
         # Pós-Operatório
         if "6.3" in dm["pos_op_opt"]:
