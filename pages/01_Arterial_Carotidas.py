@@ -1,5 +1,4 @@
 import re
-import os
 import json
 import unicodedata
 import streamlit as st
@@ -8,12 +7,6 @@ from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
-
-_VOICE_COMPONENT_DIR = os.path.join(os.path.dirname(__file__), "_voice_component")
-
-@st.cache_resource
-def _get_voice_component():
-    return components.declare_component("voice_input", path=_VOICE_COMPONENT_DIR)
 
 # ── Funções de Áudio e Voz ────────────────────────────────────────────────────
 
@@ -81,29 +74,36 @@ def parse_comando_voz(texto: str) -> dict:
 
 
 def render_voice_input():
-    st.markdown("#### 🎤 Ditado por Voz")
+    st.markdown("#### 🎤 Entrada por Voz / Texto")
     st.markdown(
-        "Clique em **Ouvir Comando** abaixo, dite o dado e aguarde. O campo será preenchido automaticamente.\n\n"
-        "Exemplos: *\"nome João Silva\"* · *\"VPS carótida interna direita 150\"* · "
+        "Digite ou use a **digitação por voz do seu sistema** e clique em ✅ Aplicar.\n\n"
+        "**💡 Ativar voz:** "
+        "Mac → `Fn Fn` · Windows → `Win + H` · Chrome/Android → microfone no teclado\n\n"
+        "**Exemplos de comandos:** "
+        "*\"nome João Silva\"* · *\"VPS carótida interna direita 150\"* · "
         "*\"CMI direita 0 vírgula 8\"* · *\"oclusão esquerda\"* · *\"vertebral direita hipoplasia\"*"
     )
-    if 'stt_ultimo' not in st.session_state:
-        st.session_state.stt_ultimo = ''
+    col_inp, col_btn = st.columns([4, 1])
+    with col_inp:
+        comando = st.text_input(
+            "Comando:",
+            key="stt_input",
+            label_visibility="collapsed",
+            placeholder='Ex: "VPS carótida interna direita 150"'
+        )
+    with col_btn:
+        aplicar = st.button("✅ Aplicar", use_container_width=True, key="stt_aplicar")
 
-    transcript = _get_voice_component()(key="voice_arterial", default=None)
-
-    if transcript and not str(transcript).startswith('__'):
-        transcript = str(transcript)
-        if transcript != st.session_state.stt_ultimo:
-            st.session_state.stt_ultimo = transcript
-            updates = parse_comando_voz(transcript)
-            if updates:
-                st.session_state.update(updates)
-                st.rerun()
-    elif transcript == '__sem_suporte__':
-        st.error("Navegador sem suporte. Use Chrome ou Edge.")
-    elif transcript and str(transcript).startswith('__erro__'):
-        st.warning(f"Microfone indisponível: {transcript}")
+    if aplicar and comando.strip():
+        updates = parse_comando_voz(comando.strip())
+        if updates:
+            campos = ', '.join(updates.keys())
+            st.success(f"✅ Aplicado: {comando.strip()}")
+            st.session_state.update(updates)
+            st.session_state['stt_input'] = ''
+            st.rerun()
+        else:
+            st.warning("Comando não reconhecido. Verifique os exemplos acima.")
 
 
 def render_audio_player(texto: str, key: str = "tts"):
