@@ -1,8 +1,205 @@
+import re
+import json
+import unicodedata
 import streamlit as st
+import streamlit.components.v1 as components
 from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
+from streamlit_js_eval import streamlit_js_eval
+
+# ── Funções de Áudio e Voz ────────────────────────────────────────────────────
+
+def _normalizar(texto: str) -> str:
+    return ''.join(
+        c for c in unicodedata.normalize('NFD', texto.lower())
+        if unicodedata.category(c) != 'Mn'
+    )
+
+def parse_comando_voz(texto: str) -> dict:
+    t = _normalizar(texto)
+    updates = {}
+    nums = re.findall(r'\d+[,.]?\d*', t)
+    num = float(nums[0].replace(',', '.')) if nums else None
+    lado = None
+    if any(w in t for w in ['direita', 'direito', 'dir']):
+        lado = 'dir'
+    elif any(w in t for w in ['esquerda', 'esquerdo', 'esq']):
+        lado = 'esq'
+
+    if t.startswith('nome ') or t.startswith('paciente '):
+        updates['w_nome'] = texto.split(' ', 1)[1].strip().title()
+        return updates
+    if any(w in t for w in ['cmi', 'medio-intimal', 'medio intimal', 'intimal']):
+        if lado and num is not None:
+            updates[f'w_cmi_{lado}'] = min(max(num, 0.0), 5.0)
+        return updates
+    if 'suboclusao' in t or ('sub' in t and 'oclusao' in t):
+        for ld in ([lado] if lado else ['dir', 'esq']):
+            updates[f'w_estado_aci_{ld}'] = 'Suboclusão'
+        return updates
+    if 'oclusao' in t:
+        for ld in ([lado] if lado else ['dir', 'esq']):
+            updates[f'w_estado_aci_{ld}'] = 'Oclusão'
+        return updates
+    if 'pervia' in t:
+        for ld in ([lado] if lado else ['dir', 'esq']):
+            updates[f'w_estado_aci_{ld}'] = 'Pérvia (Calcular por Velocidade)'
+        return updates
+    if 'vertebral' in t or 'vert' in t:
+        espectro = None
+        if 'hipoplasia' in t:
+            espectro = 'Hipoplasia'
+        elif 'total' in t or 'retrogrado' in t:
+            espectro = 'Roubo Total (Fluxo Retrógrado)'
+        elif 'parcial' in t or 'alternante' in t:
+            espectro = 'Roubo Parcial (Fluxo Alternante)'
+        elif 'latente' in t:
+            espectro = 'Roubo Latente'
+        elif 'normal' in t or 'anterogrado' in t:
+            espectro = 'Normal (Fluxo Anterógrado)'
+        if espectro and lado:
+            updates[f'w_espectro_vert_{lado}'] = espectro
+        elif num is not None and lado:
+            updates[f'w_vps_vert_{lado}'] = num
+        return updates
+    if any(w in t for w in ['vps', 'velocidade', 'pico', 'sistolico']):
+        if any(w in t for w in ['interna', 'aci']) and lado and num is not None:
+            updates[f'w_vps_aci_{lado}'] = num
+        elif any(w in t for w in ['comum', 'acc']) and lado and num is not None:
+            updates[f'w_vcc_{lado}'] = num
+        elif any(w in t for w in ['vertebral', 'vert']) and lado and num is not None:
+            updates[f'w_vps_vert_{lado}'] = num
+    return updates
+
+
+_JS_SPEECH = """
+await new Promise((resolve) => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { resolve('__sem_suporte__'); return; }
+    const r = new SR();
+    r.lang = 'pt-BR'; r.interimResults = false; r.maxAlternatives = 1;
+    r.onresult = (e) => resolve(e.results[0][0].transcript);
+    r.onerror  = ()  => resolve('__erro__');
+    r.start();
+})
+"""
+
+def render_voice_input():
+    st.markdown("#### 🎤 Ditado por Voz")
+    st.markdown(
+        "Clique em **Ouvir Comando**, dite o dado e aguarde. O campo será preenchido automaticamente.\n\n"
+        "Exemplos: *\"nome João Silva\"* · *\"VPS carótida interna direita 150\"* · "
+        "*\"CMI direita 0 vírgula 8\"* · *\"oclusão esquerda\"* · *\"vertebral direita hipoplasia\"*"
+    )
+    if 'stt_counter' not in st.session_state:
+        st.session_state.stt_counter = 0
+    if 'stt_ultimo' not in st.session_state:
+        st.session_state.stt_ultimo = ''
+    if 'stt_resultado' not in st.session_state:
+        st.session_state.stt_resultado = ''
+
+    col_btn, col_status = st.columns([1, 3])
+    with col_btn:
+        if st.button("🎙️ Ouvir Comando", use_container_width=True):
+            st.session_state.stt_counter += 1
+            st.session_state.stt_resultado = ''
+
+    transcript = streamlit_js_eval(
+        js_expressions=_JS_SPEECH,
+        key=f"stt_{st.session_state.stt_counter}"
+    )
+
+    with col_status:
+        if transcript and transcript not in ('__sem_suporte__', '__erro__', ''):
+            if transcript != st.session_state.stt_ultimo:
+                st.session_state.stt_ultimo = transcript
+                st.session_state.stt_resultado = transcript
+                updates = parse_comando_voz(transcript)
+                if updates:
+                    st.session_state.update(updates)
+                    st.rerun()
+        if st.session_state.stt_resultado:
+            st.success(f"🗣️ Reconhecido: *\"{st.session_state.stt_resultado}\"*")
+        elif transcript == '__sem_suporte__':
+            st.error("Navegador sem suporte. Use Chrome ou Edge.")
+        elif transcript == '__erro__':
+            st.warning("Não foi possível capturar o áudio. Verifique o microfone.")
+
+
+def render_audio_player(texto: str, key: str = "tts"):
+    texto_js = json.dumps(texto)
+    components.html(f"""
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:4px 0;">
+        <button id="btn_play_{key}" onclick="falarTexto_{key}()"
+            style="padding:8px 18px; background:#1a56db; color:#fff; border:none;
+                   border-radius:6px; cursor:pointer; font-size:14px;">
+            ▶️ Ouvir Laudo
+        </button>
+        <button id="btn_pause_{key}" onclick="pausarTexto_{key}()" style="display:none;
+            padding:8px 18px; background:#f59e0b; color:#fff; border:none;
+            border-radius:6px; cursor:pointer; font-size:14px;">
+            ⏸ Pausar
+        </button>
+        <button id="btn_stop_{key}" onclick="pararTexto_{key}()" style="display:none;
+            padding:8px 18px; background:#e02424; color:#fff; border:none;
+            border-radius:6px; cursor:pointer; font-size:14px;">
+            ⏹ Parar
+        </button>
+        <span id="status_{key}" style="font-size:13px; color:#555;"></span>
+    </div>
+    <script>
+    var _paused_{key} = false;
+    function falarTexto_{key}() {{
+        if (window.speechSynthesis.speaking && !_paused_{key}) return;
+        if (_paused_{key}) {{
+            window.speechSynthesis.resume(); _paused_{key} = false;
+            document.getElementById('btn_pause_{key}').textContent = '⏸ Pausar';
+            document.getElementById('status_{key}').textContent = '▶ Reproduzindo...'; return;
+        }}
+        window.speechSynthesis.cancel();
+        var partes = {texto_js}.match(/[\\s\\S]{{1,200}}(?=[.!?]|$)/g) || [{texto_js}];
+        var idx = 0;
+        function next() {{
+            if (idx >= partes.length) {{
+                document.getElementById('btn_play_{key}').style.display = 'inline-block';
+                document.getElementById('btn_pause_{key}').style.display = 'none';
+                document.getElementById('btn_stop_{key}').style.display = 'none';
+                document.getElementById('status_{key}').textContent = '✅ Concluído'; return;
+            }}
+            var u = new SpeechSynthesisUtterance(partes[idx]);
+            u.lang = 'pt-BR'; u.rate = 0.95;
+            u.onend = function() {{ idx++; next(); }};
+            window.speechSynthesis.speak(u);
+        }}
+        document.getElementById('btn_play_{key}').style.display = 'none';
+        document.getElementById('btn_pause_{key}').style.display = 'inline-block';
+        document.getElementById('btn_stop_{key}').style.display = 'inline-block';
+        document.getElementById('status_{key}').textContent = '▶ Reproduzindo...';
+        next();
+    }}
+    function pausarTexto_{key}() {{
+        if (window.speechSynthesis.speaking && !_paused_{key}) {{
+            window.speechSynthesis.pause(); _paused_{key} = true;
+            document.getElementById('btn_pause_{key}').textContent = '▶ Retomar';
+            document.getElementById('status_{key}').textContent = '⏸ Pausado';
+        }} else if (_paused_{key}) {{
+            window.speechSynthesis.resume(); _paused_{key} = false;
+            document.getElementById('btn_pause_{key}').textContent = '⏸ Pausar';
+            document.getElementById('status_{key}').textContent = '▶ Reproduzindo...';
+        }}
+    }}
+    function pararTexto_{key}() {{
+        window.speechSynthesis.cancel(); _paused_{key} = false;
+        document.getElementById('btn_play_{key}').style.display = 'inline-block';
+        document.getElementById('btn_pause_{key}').style.display = 'none';
+        document.getElementById('btn_stop_{key}').style.display = 'none';
+        document.getElementById('status_{key}').textContent = '';
+    }}
+    </script>
+    """, height=60)
+
 
 # Inicialização segura do estado da sessão
 if 'lista_placas' not in st.session_state:
@@ -153,11 +350,13 @@ opcoes_tecnicas = {
 
 col_id1, col_id2 = st.columns([2, 2])
 with col_id1:
-    nome = st.text_input("Nome do Paciente", "")
+    nome = st.text_input("Nome do Paciente", "", key="w_nome")
 with col_id2:
-    opcao_selecionada = st.selectbox("Condições Técnicas do Exame:", list(opcoes_tecnicas.keys()))
+    opcao_selecionada = st.selectbox("Condições Técnicas do Exame:", list(opcoes_tecnicas.keys()), key="w_tecnica")
     texto_tecnica_final = opcoes_tecnicas[opcao_selecionada]
 
+st.markdown("---")
+render_voice_input()
 st.markdown("---")
 st.markdown("### 📊 Parâmetros Hemodinâmicos")
 col_hemo_dir, col_hemo_esq = st.columns(2)
@@ -643,14 +842,12 @@ if gerar_laudo:
     st.success("Laudo integrado gerado com sucesso!")
 
     # Visualização do laudo na própria página
+    texto_visualizacao = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
     if modo_saida in ["Somente Visualização", "Visualização + DOCX"]:
-        texto_visualizacao = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
         st.markdown("## 👁️ Visualização do Laudo")
-        st.text_area(
-            "Laudo Gerado",
-            value=texto_visualizacao,
-            height=700
-        )
+        st.text_area("Laudo Gerado", value=texto_visualizacao, height=700)
+    st.markdown("### 🔊 Leitura em Áudio do Laudo")
+    render_audio_player(texto_visualizacao, key="arterial")
 
     # Download DOCX
     if modo_saida in ["Somente DOCX", "Visualização + DOCX"]:
