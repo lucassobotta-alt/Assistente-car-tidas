@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:6px;font-family:sans-serif;background:transparent;">
+
+<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+  <button id="btn"
+    style="padding:8px 18px;background:#1a56db;color:#fff;border:none;
+           border-radius:6px;cursor:pointer;font-size:14px;white-space:nowrap;">
+    🎙️ Ouvir Comando
+  </button>
+  <span id="status" style="font-size:13px;color:#555;"></span>
+</div>
+
+<script>
+  // Sinaliza ao Streamlit que o componente está pronto
+  window.parent.postMessage(
+    { isStreamlitMessage: true, type: "streamlit:componentReady", apiVersion: 1 },
+    "*"
+  );
+
+  function enviar(valor) {
+    window.parent.postMessage(
+      { isStreamlitMessage: true, type: "streamlit:setComponentValue",
+        value: valor, dataType: "json" },
+      "*"
+    );
+  }
+
+  document.getElementById("btn").addEventListener("click", function () {
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { enviar("__sem_suporte__"); return; }
+
+    var r = new SR();
+    r.lang = "pt-BR";
+    r.interimResults = false;
+    r.maxAlternatives = 1;
+
+    document.getElementById("status").textContent = "🎙️ Ouvindo…";
+    document.getElementById("btn").disabled = true;
+
+    r.onresult = function (e) {
+      var t = e.results[0][0].transcript;
+      document.getElementById("status").textContent = "✅ " + t;
+      document.getElementById("btn").disabled = false;
+      enviar(t);
+    };
+    r.onerror = function (e) {
+      document.getElementById("status").textContent = "❌ Erro: " + e.error;
+      document.getElementById("btn").disabled = false;
+      enviar("__erro__:" + e.error);
+    };
+    r.onend = function () {
+      document.getElementById("btn").disabled = false;
+    };
+    r.start();
+  });
+</script>
+</body>
+</html>

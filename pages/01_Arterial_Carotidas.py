@@ -1,4 +1,5 @@
 import re
+import os
 import json
 import unicodedata
 import streamlit as st
@@ -7,7 +8,9 @@ from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
-from streamlit_js_eval import streamlit_js_eval
+
+_VOICE_COMPONENT_DIR = os.path.join(os.path.dirname(__file__), "_voice_component")
+_voice_input_component = components.declare_component("voice_input", path=_VOICE_COMPONENT_DIR)
 
 # ── Funções de Áudio e Voz ────────────────────────────────────────────────────
 
@@ -74,58 +77,30 @@ def parse_comando_voz(texto: str) -> dict:
     return updates
 
 
-_JS_SPEECH = """
-await new Promise((resolve) => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { resolve('__sem_suporte__'); return; }
-    const r = new SR();
-    r.lang = 'pt-BR'; r.interimResults = false; r.maxAlternatives = 1;
-    r.onresult = (e) => resolve(e.results[0][0].transcript);
-    r.onerror  = ()  => resolve('__erro__');
-    r.start();
-})
-"""
-
 def render_voice_input():
     st.markdown("#### 🎤 Ditado por Voz")
     st.markdown(
-        "Clique em **Ouvir Comando**, dite o dado e aguarde. O campo será preenchido automaticamente.\n\n"
+        "Clique em **Ouvir Comando** abaixo, dite o dado e aguarde. O campo será preenchido automaticamente.\n\n"
         "Exemplos: *\"nome João Silva\"* · *\"VPS carótida interna direita 150\"* · "
         "*\"CMI direita 0 vírgula 8\"* · *\"oclusão esquerda\"* · *\"vertebral direita hipoplasia\"*"
     )
-    if 'stt_counter' not in st.session_state:
-        st.session_state.stt_counter = 0
     if 'stt_ultimo' not in st.session_state:
         st.session_state.stt_ultimo = ''
-    if 'stt_resultado' not in st.session_state:
-        st.session_state.stt_resultado = ''
 
-    col_btn, col_status = st.columns([1, 3])
-    with col_btn:
-        if st.button("🎙️ Ouvir Comando", use_container_width=True):
-            st.session_state.stt_counter += 1
-            st.session_state.stt_resultado = ''
+    transcript = _voice_input_component(key="voice_arterial", default=None)
 
-    transcript = streamlit_js_eval(
-        js_expressions=_JS_SPEECH,
-        key=f"stt_{st.session_state.stt_counter}"
-    )
-
-    with col_status:
-        if transcript and transcript not in ('__sem_suporte__', '__erro__', ''):
-            if transcript != st.session_state.stt_ultimo:
-                st.session_state.stt_ultimo = transcript
-                st.session_state.stt_resultado = transcript
-                updates = parse_comando_voz(transcript)
-                if updates:
-                    st.session_state.update(updates)
-                    st.rerun()
-        if st.session_state.stt_resultado:
-            st.success(f"🗣️ Reconhecido: *\"{st.session_state.stt_resultado}\"*")
-        elif transcript == '__sem_suporte__':
-            st.error("Navegador sem suporte. Use Chrome ou Edge.")
-        elif transcript == '__erro__':
-            st.warning("Não foi possível capturar o áudio. Verifique o microfone.")
+    if transcript and not str(transcript).startswith('__'):
+        transcript = str(transcript)
+        if transcript != st.session_state.stt_ultimo:
+            st.session_state.stt_ultimo = transcript
+            updates = parse_comando_voz(transcript)
+            if updates:
+                st.session_state.update(updates)
+                st.rerun()
+    elif transcript == '__sem_suporte__':
+        st.error("Navegador sem suporte. Use Chrome ou Edge.")
+    elif transcript and str(transcript).startswith('__erro__'):
+        st.warning(f"Microfone indisponível: {transcript}")
 
 
 def render_audio_player(texto: str, key: str = "tts"):
