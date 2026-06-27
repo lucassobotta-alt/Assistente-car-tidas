@@ -143,7 +143,7 @@ for idx, m_nome in enumerate(membros_para_processar):
         st.markdown("#### 2. Sistema Venoso Superficial (SVS)")
         st.markdown("##### 2.1 Veia Safena Magna (VSM)")
         
-        vsm_status_geral = st.selectbox("Status Geral da VSM:", ["Pérvia / Presente", "Ausente (Safenectomia Total)", "Ausente (Safenectomia Segmentar)"], key=f"vsm_status_geral_{m_nome}_{_rc}")
+        vsm_status_geral = st.selectbox("Status Geral da VSM:", ["Pérvia / Presente", "Pérvia, com segmento hipoplásico", "Ausente (Safenectomia Total)", "Ausente (Safenectomia Segmentar)"], key=f"vsm_status_geral_{m_nome}_{_rc}")
         vsm_dados_mapeamento = {"status_geral": vsm_status_geral}
 
         if "Ausente" in vsm_status_geral:
@@ -151,7 +151,7 @@ for idx, m_nome in enumerate(membros_para_processar):
         else:
             pos_op_opt = "Não se aplica"
 
-        if vsm_status_geral == "Pérvia / Presente":
+        if "Pérvia" in vsm_status_geral:
             st.markdown("**Avaliação da Junção Safenofemoral (JSF):**")
             jsf_status = st.radio("Status da JSF:", ["Competente", "Incompetente"], horizontal=True, key=f"jsf_status_{m_nome}_{_rc}")
             vsm_dados_mapeamento["jsf_status"] = jsf_status
@@ -291,6 +291,21 @@ for idx, m_nome in enumerate(membros_para_processar):
 
             vsm_dados_mapeamento["tronco_refluxo"] = bool(st.session_state["segmentos_vsm_reg"][m_nome])
             vsm_dados_mapeamento["segmentos_lista"] = st.session_state["segmentos_vsm_reg"][m_nome]
+
+        if "hipoplásico" in vsm_status_geral:
+            st.markdown("<sub style='color: #444;'>Detalhamento do segmento hipoplásico:</sub>", unsafe_allow_html=True)
+            _SEGS_VSM = [
+                "Terço proximal da coxa", "Terço médio da coxa", "Terço distal da coxa",
+                "Terço proximal da perna", "Terço médio da perna", "Terço distal da perna"
+            ]
+            vsm_dados_mapeamento["hipoplasico_segs"] = st.multiselect(
+                "Segmento(s) hipoplásico(s):", _SEGS_VSM,
+                key=f"vsm_hipo_segs_{m_nome}_{_rc}"
+            )
+            vsm_dados_mapeamento["hipoplasico_tributaria"] = st.toggle(
+                "Tributária superficial acompanhando o segmento hipoplásico",
+                key=f"vsm_hipo_trib_{m_nome}_{_rc}"
+            )
 
         # Mensurações da Veia Safena Magna
         if "Pérvia" in vsm_status_geral:
@@ -1137,6 +1152,13 @@ def construir_laudo_word(membros_lista, dados_m_dict):
         if "Ausente" in vm["status_geral"]:
             add_p(f"Veia safena magna ausente ({vm['status_geral']}).")
         else:
+            if "hipoplásico" in vm["status_geral"]:
+                _hipo_segs = vm.get("hipoplasico_segs", [])
+                _hipo_trib = vm.get("hipoplasico_tributaria", False)
+                _segs_txt = ", ".join(s.lower() for s in _hipo_segs) if _hipo_segs else "segmento não especificado"
+                _trib_txt = ", com tributária superficial acompanhando o segmento hipoplásico" if _hipo_trib else ""
+                add_p(f"A veia safena magna apresenta-se pérvia, identificando-se segmento hipoplásico em {_segs_txt}{_trib_txt}.")
+                conclusoes_lista.append((m_nome, f"Hipoplasia segmentar da veia safena magna {lado} ({_segs_txt})."))
             if vm["jsf_status"] == "Competente":
                 if vm.get("tronco_refluxo") and vm.get("segmentos_lista"):
                     add_p("A junção safenofemoral apresenta-se competente, sem evidências de refluxo valvar patológico.")
