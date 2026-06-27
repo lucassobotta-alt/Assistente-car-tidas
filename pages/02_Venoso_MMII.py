@@ -59,6 +59,7 @@ with st.sidebar:
         st.session_state["lista_varic_reg"] = {}
         st.session_state["_vsm_seg_fc"] = {}
         st.session_state["_vsp_fc"] = {}
+        st.session_state["lista_varext_reg"] = {}
         st.toast("🔄 Todos os dados foram limpos!")
         st.rerun()
 
@@ -94,6 +95,8 @@ if "_vsm_seg_fc" not in st.session_state:
     st.session_state["_vsm_seg_fc"] = {}
 if "_vsp_fc" not in st.session_state:
     st.session_state["_vsp_fc"] = {}
+if "lista_varext_reg" not in st.session_state:
+    st.session_state["lista_varext_reg"] = {}
 
 _rc = st.session_state["_reset_count"]
 
@@ -117,6 +120,8 @@ for idx, m_nome in enumerate(membros_para_processar):
         st.session_state["_vsm_seg_fc"][m_nome] = 0
     if m_nome not in st.session_state["_vsp_fc"]:
         st.session_state["_vsp_fc"][m_nome] = 0
+    if m_nome not in st.session_state["lista_varext_reg"]:
+        st.session_state["lista_varext_reg"][m_nome] = []
     _sfc = st.session_state["_vsm_seg_fc"][m_nome]
     _vfc = st.session_state["_vsp_fc"][m_nome]
 
@@ -538,28 +543,56 @@ for idx, m_nome in enumerate(membros_para_processar):
 
         # --- 2.5 VARIZES EXTRASSAFÊNICAS ---
         st.markdown("#### 2.5 Varizes Extrassafênicas")
-        possui_varizes_extrassaf = st.checkbox("Identificar varizes extrassafênicas neste membro?", key=f"has_varext_{m_nome}_{_rc}")
-        varizes_extrassaf_dados = {"possui": possui_varizes_extrassaf}
-        if possui_varizes_extrassaf:
-            varizes_extrassaf_dados["localizacao"] = st.text_input("Localização das varizes extrassafênicas:", "", key=f"varext_loc_{m_nome}_{_rc}")
-            varizes_extrassaf_dados["origem"] = st.selectbox(
-                "Origem das varizes extrassafênicas:",
-                ["Tributária incompetente", "Refluxo de origem ciática", "Refluxo pélvico"],
-                key=f"varext_origem_{m_nome}_{_rc}"
+
+        _varext_saved = st.session_state["lista_varext_reg"][m_nome]
+        if _varext_saved:
+            st.markdown(f"**{len(_varext_saved)} registro(s) de varizes extrassafênicas:**")
+            for _vei, _veitem in enumerate(_varext_saved):
+                _vec1, _vec2 = st.columns([6, 1])
+                with _vec1:
+                    _ve_lbl = f"{_veitem['origem']} — {_veitem['localizacao']}"
+                    if _veitem.get("ciatica_subtipo"):
+                        _ve_lbl += f" ({_veitem['ciatica_subtipo']})"
+                    if _veitem.get("pelvico_pontos"):
+                        _ve_lbl += f" [{', '.join(_veitem['pelvico_pontos'])}]"
+                    st.markdown(f"• {_ve_lbl}")
+                with _vec2:
+                    if st.button("❌", key=f"rem_varext_{m_nome}_{_vei}_{_rc}"):
+                        st.session_state["lista_varext_reg"][m_nome].pop(_vei)
+                        st.rerun()
+
+        st.markdown("<sub style='color: #444;'>Adicionar nova entrada:</sub>", unsafe_allow_html=True)
+        _varext_loc = st.text_input("Localização:", "", key=f"varext_loc_{m_nome}_{_rc}")
+        _varext_origem = st.selectbox(
+            "Origem:",
+            ["Tributária incompetente", "Refluxo de origem ciática", "Refluxo pélvico"],
+            key=f"varext_origem_{m_nome}_{_rc}"
+        )
+        _varext_ciatica = ""
+        _varext_pelvico = []
+        if _varext_origem == "Refluxo de origem ciática":
+            _varext_ciatica = st.radio(
+                "Tipo de refluxo ciático:",
+                ["Varizes acompanhando o trajeto do nervo ciático", "Veia ciática persistente"],
+                horizontal=True,
+                key=f"varext_ciatica_{m_nome}_{_rc}"
             )
-            if varizes_extrassaf_dados["origem"] == "Refluxo de origem ciática":
-                varizes_extrassaf_dados["ciatica_subtipo"] = st.radio(
-                    "Tipo de refluxo ciático:",
-                    ["Varizes acompanhando o trajeto do nervo ciático", "Veia ciática persistente"],
-                    horizontal=True,
-                    key=f"varext_ciatica_{m_nome}_{_rc}"
-                )
-            if varizes_extrassaf_dados["origem"] == "Refluxo pélvico":
-                varizes_extrassaf_dados["pelvico_pontos"] = st.multiselect(
-                    "Ponto(s) de escape do refluxo pélvico:",
-                    ["Ponto inguinal", "Ponto perineal", "Ponto obturatório", "Ponto glúteo"],
-                    key=f"varext_pelvico_{m_nome}_{_rc}"
-                )
+        if _varext_origem == "Refluxo pélvico":
+            _varext_pelvico = st.multiselect(
+                "Ponto(s) de escape do refluxo pélvico:",
+                ["Ponto inguinal", "Ponto perineal", "Ponto obturatório", "Ponto glúteo"],
+                key=f"varext_pelvico_{m_nome}_{_rc}"
+            )
+        if st.button("💾 Salvar Varizes Extrassafênicas", key=f"save_varext_{m_nome}_{_rc}"):
+            st.session_state["lista_varext_reg"][m_nome].append({
+                "localizacao": _varext_loc,
+                "origem": _varext_origem,
+                "ciatica_subtipo": _varext_ciatica,
+                "pelvico_pontos": _varext_pelvico,
+            })
+            st.rerun()
+
+        varizes_extrassaf_dados = {"lista": _varext_saved}
 
         st.markdown("---")
 
@@ -1235,15 +1268,41 @@ def construir_laudo_word(membros_lista, dados_m_dict):
             add_p(f"Presença de {_t}{_loc_txt}.", space_before=6)
 
         # 2.5 VARIZES EXTRASSAFÊNICAS
+        _PELVICO_TXTS = {
+            "Ponto inguinal": (
+                "Observa-se fluxo retrógrado originado em topografia de anel inguinal superficial "
+                "(Ponto de Escape Inguinal - Ponto I). O referido refluxo estende-se caudalmente "
+                "para a raiz da coxa, atuando como fonte nutridora para varizes em região inguinal "
+                "anterior e para a face anterior da coxa."
+            ),
+            "Ponto perineal": (
+                "Identificado ponto de escape de origem pélvica em região perineal/vulvar (Ponto P), "
+                "secundário ao refluxo de ramos da veia pudenda interna. O fluxo retrógrado calibroso "
+                "estende-se para a face medial superior da coxa, alimentando tributárias varicosas superficiais."
+            ),
+            "Ponto obturatório": (
+                "Evidenciado refluxo venoso emergindo pelo forame obturatório (Ponto de Escape "
+                "Obturatório - Ponto O), direcionando fluxo retrógrado para a face medial e profunda "
+                "do terço superior da coxa. Nota-se conexão deste ponto com feixe de varizes isoladas "
+                "e não-safênicas neste compartimento, sem sinais de comunicação direta com o tronco "
+                "da veia safena magna."
+            ),
+            "Ponto glúteo": (
+                "Demonstrado ponto de fuga venoso trans-pélvico emergindo através do forame isquiático "
+                "(Ponto de Escape Glúteo - Ponto G). O refluxo manifesta-se em região infra-glútea e "
+                "direciona-se para a face posterior da coxa, atuando como fonte hemodinâmica para varizes "
+                "locais e propagando-se em direção à extensão posterior de coxa."
+            ),
+        }
         ved = dm.get("varizes_extrassaf_dados", {})
-        if ved.get("possui", False):
-            _ve_loc    = ved.get("localizacao", "")
-            _ve_origem = ved.get("origem", "Tributária incompetente")
+        for _veitem in ved.get("lista", []):
+            _ve_loc    = _veitem.get("localizacao", "")
+            _ve_origem = _veitem.get("origem", "Tributária incompetente")
             if _ve_origem == "Tributária incompetente":
                 add_p(f"Identificam-se varizes extrassafênicas em {_ve_loc}, com ponto de escape hemodinâmico em tributária incompetente.", space_before=6)
                 conclusoes_lista.append((m_nome, f"Varizes extrassafênicas em {_ve_loc} por tributária incompetente."))
             elif _ve_origem == "Refluxo de origem ciática":
-                _subtipo = ved.get("ciatica_subtipo", "Varizes acompanhando o trajeto do nervo ciático")
+                _subtipo = _veitem.get("ciatica_subtipo", "Varizes acompanhando o trajeto do nervo ciático")
                 if _subtipo == "Veia ciática persistente":
                     add_p(f"Identificam-se varizes extrassafênicas em {_ve_loc}, originadas a partir de veia ciática persistente.", space_before=6)
                     conclusoes_lista.append((m_nome, f"Varizes extrassafênicas em {_ve_loc} por veia ciática persistente."))
@@ -1251,33 +1310,7 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                     add_p(f"Identificam-se varizes extrassafênicas em {_ve_loc}, acompanhando o trajeto do nervo ciático, compatíveis com refluxo de origem ciática.", space_before=6)
                     conclusoes_lista.append((m_nome, f"Varizes extrassafênicas em {_ve_loc} acompanhando o trajeto do nervo ciático."))
             else:
-                _pontos = ved.get("pelvico_pontos", [])
-                _PELVICO_TXTS = {
-                    "Ponto inguinal": (
-                        "Observa-se fluxo retrógrado originado em topografia de anel inguinal superficial "
-                        "(Ponto de Escape Inguinal - Ponto I). O referido refluxo estende-se caudalmente "
-                        "para a raiz da coxa, atuando como fonte nutridora para varizes em região inguinal "
-                        "anterior e para a face anterior da coxa."
-                    ),
-                    "Ponto perineal": (
-                        "Identificado ponto de escape de origem pélvica em região perineal/vulvar (Ponto P), "
-                        "secundário ao refluxo de ramos da veia pudenda interna. O fluxo retrógrado calibroso "
-                        "estende-se para a face medial superior da coxa, alimentando tributárias varicosas superficiais."
-                    ),
-                    "Ponto obturatório": (
-                        "Evidenciado refluxo venoso emergindo pelo forame obturatório (Ponto de Escape "
-                        "Obturatório - Ponto O), direcionando fluxo retrógrado para a face medial e profunda "
-                        "do terço superior da coxa. Nota-se conexão deste ponto com feixe de varizes isoladas "
-                        "e não-safênicas neste compartimento, sem sinais de comunicação direta com o tronco "
-                        "da veia safena magna."
-                    ),
-                    "Ponto glúteo": (
-                        "Demonstrado ponto de fuga venoso trans-pélvico emergindo através do forame isquiático "
-                        "(Ponto de Escape Glúteo - Ponto G). O refluxo manifesta-se em região infra-glútea e "
-                        "direciona-se para a face posterior da coxa, atuando como fonte hemodinâmica para varizes "
-                        "locais e propagando-se em direção à extensão posterior de coxa."
-                    ),
-                }
+                _pontos = _veitem.get("pelvico_pontos", [])
                 if _pontos:
                     for _pt in _pontos:
                         _pt_txt = _PELVICO_TXTS.get(_pt)
