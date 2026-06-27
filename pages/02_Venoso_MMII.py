@@ -550,7 +550,12 @@ for idx, m_nome in enumerate(membros_para_processar):
             for _vei, _veitem in enumerate(_varext_saved):
                 _vec1, _vec2 = st.columns([6, 1])
                 with _vec1:
-                    _ve_lbl = f"{_veitem['origem']} — {_veitem['localizacao']}"
+                    _ve_lbl = _veitem['origem']
+                    if _veitem.get("localizacao"):
+                        _ve_lbl += f" — {_veitem['localizacao']}"
+                    if _veitem.get("trib_cm"):
+                        _pos = f" {_veitem['trib_pos']}" if _veitem.get("trib_pos") else ""
+                        _ve_lbl += f" ({_veitem['trib_cm']} cm{_pos} da {_veitem.get('trib_ref','')})"
                     if _veitem.get("ciatica_subtipo"):
                         _ve_lbl += f" ({_veitem['ciatica_subtipo']})"
                     if _veitem.get("pelvico_pontos"):
@@ -562,22 +567,42 @@ for idx, m_nome in enumerate(membros_para_processar):
                         st.rerun()
 
         st.markdown("<sub style='color: #444;'>Adicionar nova entrada:</sub>", unsafe_allow_html=True)
-        _varext_loc = st.text_input("Localização:", "", key=f"varext_loc_{m_nome}_{_rc}")
         _varext_origem = st.selectbox(
             "Origem:",
             ["Tributária incompetente", "Refluxo de origem ciática", "Refluxo pélvico"],
             key=f"varext_origem_{m_nome}_{_rc}"
         )
+        _varext_loc = ""
+        _varext_trib_ref = ""
+        _varext_trib_pos = ""
+        _varext_trib_cm = ""
         _varext_ciatica = ""
         _varext_pelvico = []
-        if _varext_origem == "Refluxo de origem ciática":
+        if _varext_origem == "Tributária incompetente":
+            _varext_loc = st.text_input("Localização:", "", key=f"varext_loc_{m_nome}_{_rc}")
+            _vt1, _vt2, _vt3 = st.columns(3)
+            with _vt1:
+                _varext_trib_ref = st.selectbox(
+                    "Referência de altura:",
+                    ["Junção Safenofemoral", "Interlinha do Joelho", "Face Plantar"],
+                    key=f"varext_trib_ref_{m_nome}_{_rc}"
+                )
+            with _vt2:
+                if _varext_trib_ref == "Interlinha do Joelho":
+                    _varext_trib_pos = st.radio("Posição:", ["acima", "abaixo"], horizontal=True, key=f"varext_trib_pos_{m_nome}_{_rc}")
+                else:
+                    _varext_trib_pos = ""
+                    st.empty()
+            with _vt3:
+                _varext_trib_cm = st.text_input("Distância (cm):", "", key=f"varext_trib_cm_{m_nome}_{_rc}")
+        elif _varext_origem == "Refluxo de origem ciática":
             _varext_ciatica = st.radio(
                 "Tipo de refluxo ciático:",
                 ["Varizes acompanhando o trajeto do nervo ciático", "Veia ciática persistente"],
                 horizontal=True,
                 key=f"varext_ciatica_{m_nome}_{_rc}"
             )
-        if _varext_origem == "Refluxo pélvico":
+        elif _varext_origem == "Refluxo pélvico":
             _varext_pelvico = st.multiselect(
                 "Ponto(s) de escape do refluxo pélvico:",
                 ["Ponto inguinal", "Ponto perineal", "Ponto obturatório", "Ponto glúteo"],
@@ -587,6 +612,9 @@ for idx, m_nome in enumerate(membros_para_processar):
             st.session_state["lista_varext_reg"][m_nome].append({
                 "localizacao": _varext_loc,
                 "origem": _varext_origem,
+                "trib_ref": _varext_trib_ref,
+                "trib_pos": _varext_trib_pos,
+                "trib_cm": _varext_trib_cm,
                 "ciatica_subtipo": _varext_ciatica,
                 "pelvico_pontos": _varext_pelvico,
             })
@@ -1301,8 +1329,23 @@ def construir_laudo_word(membros_lista, dados_m_dict):
             _ve_loc    = _veitem.get("localizacao", "")
             _ve_origem = _veitem.get("origem", "Tributária incompetente")
             if _ve_origem == "Tributária incompetente":
-                add_p(f"Identificam-se varizes extrassafênicas em {_ve_loc}, com ponto de escape hemodinâmico em tributária incompetente.", space_before=6)
-                conclusoes_lista.append((m_nome, f"Varizes extrassafênicas em {_ve_loc} por tributária incompetente."))
+                _trib_ref = _veitem.get("trib_ref", "")
+                _trib_pos = _veitem.get("trib_pos", "")
+                _trib_cm  = _veitem.get("trib_cm", "")
+                if _trib_cm and _trib_ref:
+                    if _trib_ref == "Interlinha do Joelho" and _trib_pos:
+                        _altura_txt = f", localizada a {_trib_cm} cm {_trib_pos} da interlinha do joelho"
+                    elif _trib_ref == "Junção Safenofemoral":
+                        _altura_txt = f", localizada a {_trib_cm} cm da junção safenofemoral"
+                    elif _trib_ref == "Face Plantar":
+                        _altura_txt = f", localizada a {_trib_cm} cm da face plantar"
+                    else:
+                        _altura_txt = f", localizada a {_trib_cm} cm da interlinha do joelho"
+                else:
+                    _altura_txt = ""
+                _loc_txt = f" em {_ve_loc}" if _ve_loc else ""
+                add_p(f"Identificam-se varizes extrassafênicas{_loc_txt}, com ponto de escape hemodinâmico em tributária incompetente{_altura_txt}.", space_before=6)
+                conclusoes_lista.append((m_nome, f"Varizes extrassafênicas{_loc_txt} por tributária incompetente."))
             elif _ve_origem == "Refluxo de origem ciática":
                 _subtipo = _veitem.get("ciatica_subtipo", "Varizes acompanhando o trajeto do nervo ciático")
                 if _subtipo == "Veia ciática persistente":
