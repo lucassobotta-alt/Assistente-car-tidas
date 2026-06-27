@@ -306,6 +306,11 @@ for idx, m_nome in enumerate(membros_para_processar):
                 "Tributária superficial acompanhando o segmento hipoplásico",
                 key=f"vsm_hipo_trib_{m_nome}_{_rc}"
             )
+            if vsm_dados_mapeamento["hipoplasico_tributaria"]:
+                vsm_dados_mapeamento["hipoplasico_trib_calibre"] = st.text_input(
+                    "Maior calibre da tributária (mm):", "",
+                    key=f"vsm_hipo_trib_cal_{m_nome}_{_rc}"
+                )
 
         # Mensurações da Veia Safena Magna
         if "Pérvia" in vsm_status_geral:
@@ -1156,7 +1161,13 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                 _hipo_segs = vm.get("hipoplasico_segs", [])
                 _hipo_trib = vm.get("hipoplasico_tributaria", False)
                 _segs_txt = ", ".join(s.lower() for s in _hipo_segs) if _hipo_segs else "segmento não especificado"
-                _trib_txt = ", com tributária superficial acompanhando o segmento hipoplásico" if _hipo_trib else ""
+                _hipo_cal = vm.get("hipoplasico_trib_calibre", "")
+                if _hipo_trib and _hipo_cal:
+                    _trib_txt = f", com tributária superficial acompanhando o segmento hipoplásico (maior calibre de {_hipo_cal} mm)"
+                elif _hipo_trib:
+                    _trib_txt = ", com tributária superficial acompanhando o segmento hipoplásico"
+                else:
+                    _trib_txt = ""
                 add_p(f"A veia safena magna apresenta-se pérvia, identificando-se segmento hipoplásico em {_segs_txt}{_trib_txt}.")
                 conclusoes_lista.append((m_nome, f"Hipoplasia segmentar da veia safena magna {lado} ({_segs_txt})."))
             if vm["jsf_status"] == "Competente":
