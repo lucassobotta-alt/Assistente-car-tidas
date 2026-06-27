@@ -10,7 +10,10 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
 
 _VOICE_COMPONENT_DIR = os.path.join(os.path.dirname(__file__), "_voice_component")
-_voice_input_component = components.declare_component("voice_input", path=_VOICE_COMPONENT_DIR)
+
+@st.cache_resource
+def _get_voice_component():
+    return components.declare_component("voice_input", path=_VOICE_COMPONENT_DIR)
 
 # ── Funções de Áudio e Voz ────────────────────────────────────────────────────
 
@@ -87,7 +90,7 @@ def render_voice_input():
     if 'stt_ultimo' not in st.session_state:
         st.session_state.stt_ultimo = ''
 
-    transcript = _voice_input_component(key="voice_arterial", default=None)
+    transcript = _get_voice_component()(key="voice_arterial", default=None)
 
     if transcript and not str(transcript).startswith('__'):
         transcript = str(transcript)
