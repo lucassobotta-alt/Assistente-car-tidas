@@ -584,6 +584,14 @@ with st.expander("4. Mapeamento de Placas Ateroscleróticas (Consolidadas ≥ 2.
         for idx, p in enumerate(st.session_state.lista_placas):
             pr_tag = f" | {p['plaque_rads']}" if p['plaque_rads'] else ""
             st.write(f"`Item {idx+1:02d}` **{p['vaso']}** ({p['localizacao']}) — {p['composicao_texto']} | {p['espessura']} mm ({p['superficie_texto'].lower()}){pr_tag}.")
+        _placas_alerta = [p for p in st.session_state.lista_placas
+                         if p['composicao_texto'] != "Placa calcificada" and p['espessura'] >= 3.0]
+        for _pa in _placas_alerta:
+            st.warning(
+                f"⚠️ **Placa de risco elevado — {_pa['vaso']} ({_pa['localizacao']}):** "
+                f"placa não completamente calcificada com espessura de {_pa['espessura']} mm (≥ 3 mm). "
+                f"Característica associada a maior risco de instabilidade plaqueária."
+            )
         if st.button("❌ Limpar Lista de Placas"):
             st.session_state.lista_placas = []
             st.rerun()
@@ -982,6 +990,15 @@ if gerar_laudo:
                 "complementar ao grau de estenose na estratificação do risco de eventos cerebrovasculares.\" Referências: "
                 "Plaque-RADS™ Consensus Statement (2023); recomendações da Society of Radiologists in Ultrasound para "
                 "avaliação ultrassonográfica da doença carotídea."
+            )
+        _placas_alerta_obs = [p for p in st.session_state.lista_placas
+                              if p['composicao_texto'] != "Placa calcificada" and p['espessura'] >= 3.0]
+        if _placas_alerta_obs:
+            obs_ativas.append(
+                "\"Identifica-se placa aterosclerótica não completamente calcificada com espessura ≥ 3 mm, "
+                "característica associada a maior risco de instabilidade e de eventos cerebrovasculares isquêmicos. "
+                "Recomenda-se otimização do tratamento das dislipidemias e dos demais fatores de risco cardiovascular, "
+                "além de acompanhamento ultrassonográfico periódico.\""
             )
 
     # Monta texto de obs para marcador
