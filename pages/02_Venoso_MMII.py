@@ -1182,6 +1182,7 @@ def construir_laudo_word(membros_lista, dados_m_dict):
             _tipo_saf = "total" if "Total" in vm["status_geral"] else "segmentar"
             add_p(f"Veia safena magna ausente, tendo sido submetida a safenectomia {_tipo_saf}.")
             if vm.get("ligadura_jsf"):
+                add_p("Sinais de manipulação cirúrgica na junção safenofemoral.")
                 _coto_st = vm.get("coto_status", "Competente")
                 if _coto_st == "Incompetente":
                     _coto_tipo = vm.get("coto_incomp_tipo", "")
@@ -1202,6 +1203,7 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                     else:
                         add_p("O coto da junção safenofemoral encontra-se competente. Identificam-se varizes superficiais com origem inguinocrural, transferindo refluxo para a veia safena magna remanescente na perna.")
                         conclusoes_lista.append((m_nome, f"Recidiva varicosa {lado} por varizes inguinocrurais com transferência de refluxo para a VSM remanescente."))
+                conclusoes_lista.append((m_nome, f"Recidiva de varizes no território da veia safena magna {lado}."))
         else:
             if vm.get("hipoplasico"):
                 _hipo_segs = vm.get("hipoplasico_segs", [])
