@@ -147,9 +147,31 @@ for idx, m_nome in enumerate(membros_para_processar):
         vsm_dados_mapeamento = {"status_geral": vsm_status_geral}
 
         if "Ausente" in vsm_status_geral:
-            pos_op_opt = st.selectbox("Pós-Operatório / Recidiva:", ["Não se aplica", "6.3 Sinais de neovascularização adjacentes"], key=f"pos_op_{m_nome}_{_rc}")
-        else:
-            pos_op_opt = "Não se aplica"
+            ligadura_jsf = st.toggle("Houve ligadura da junção safenofemoral?", key=f"ligadura_jsf_{m_nome}_{_rc}")
+            vsm_dados_mapeamento["ligadura_jsf"] = ligadura_jsf
+            if ligadura_jsf:
+                coto_status = st.radio("Status do coto da JSF:", ["Competente", "Incompetente"], horizontal=True, key=f"coto_status_{m_nome}_{_rc}")
+                vsm_dados_mapeamento["coto_status"] = coto_status
+                if coto_status == "Incompetente":
+                    vsm_dados_mapeamento["coto_incomp_tipo"] = st.radio(
+                        "Padrão de recidiva — coto incompetente:",
+                        [
+                            "Conexão do coto à veia safena acessória anterior, com deságue para veias varicosas anteromediais na coxa",
+                            "Veias tortuosas incompetentes na face medial da coxa"
+                        ],
+                        key=f"coto_incomp_tipo_{m_nome}_{_rc}"
+                    )
+                else:
+                    vsm_dados_mapeamento["coto_comp_tipo"] = st.radio(
+                        "Padrão de recidiva — coto competente:",
+                        [
+                            "Neovascularização: veias varicosas enoveladas adjacentes à topografia da junção, com tributárias mediais incompetentes no compartimento safênico da coxa",
+                            "Veias tortuosas incompetentes originárias de varizes linfonodais, com trajeto no compartimento safênico",
+                            "Varizes superficiais com origem inguinocrural, transferindo refluxo para a VSM remanescente na perna"
+                        ],
+                        key=f"coto_comp_tipo_{m_nome}_{_rc}"
+                    )
+        pos_op_opt = "Não se aplica"
 
         if "Pérvia" in vsm_status_geral:
             st.markdown("**Avaliação da Junção Safenofemoral (JSF):**")
@@ -1157,7 +1179,29 @@ def construir_laudo_word(membros_lista, dados_m_dict):
         vm = dm["vsm_mapeamento"]
         
         if "Ausente" in vm["status_geral"]:
-            add_p(f"Veia safena magna ausente ({vm['status_geral']}).")
+            _tipo_saf = "total" if "Total" in vm["status_geral"] else "segmentar"
+            add_p(f"Veia safena magna ausente, tendo sido submetida a safenectomia {_tipo_saf}.")
+            if vm.get("ligadura_jsf"):
+                _coto_st = vm.get("coto_status", "Competente")
+                if _coto_st == "Incompetente":
+                    _coto_tipo = vm.get("coto_incomp_tipo", "")
+                    if "acessória anterior" in _coto_tipo:
+                        add_p("O coto da junção safenofemoral encontra-se incompetente, identificando-se conexão com a veia safena acessória anterior e deságue do refluxo para veias varicosas anteromediais na coxa.")
+                        conclusoes_lista.append((m_nome, f"Recidiva varicosa {lado} por incompetência do coto da JSF com conexão à veia safena acessória anterior."))
+                    else:
+                        add_p("O coto da junção safenofemoral encontra-se incompetente, com presença de veias tortuosas incompetentes na face medial da coxa.")
+                        conclusoes_lista.append((m_nome, f"Recidiva varicosa {lado} por incompetência do coto da JSF com veias tortuosas na face medial da coxa."))
+                else:
+                    _coto_tipo = vm.get("coto_comp_tipo", "")
+                    if "Neovascularização" in _coto_tipo:
+                        add_p("O coto da junção safenofemoral encontra-se competente. Identificam-se sinais de neovascularização caracterizados pela presença de veias varicosas enoveladas adjacentes à topografia da junção, as quais conectam-se com tributárias mediais incompetentes que acompanham o compartimento safênico na coxa.")
+                        conclusoes_lista.append((m_nome, f"Recidiva varicosa {lado} por neovascularização adjacente à topografia da JSF."))
+                    elif "linfonodais" in _coto_tipo:
+                        add_p("O coto da junção safenofemoral encontra-se competente. Identificam-se veias tortuosas e incompetentes na face medial da coxa originárias de varizes linfonodais, com trajeto acompanhando o compartimento safênico.")
+                        conclusoes_lista.append((m_nome, f"Recidiva varicosa {lado} por veias tortuosas de origem linfonodal no compartimento safênico."))
+                    else:
+                        add_p("O coto da junção safenofemoral encontra-se competente. Identificam-se varizes superficiais com origem inguinocrural, transferindo refluxo para a veia safena magna remanescente na perna.")
+                        conclusoes_lista.append((m_nome, f"Recidiva varicosa {lado} por varizes inguinocrurais com transferência de refluxo para a VSM remanescente."))
         else:
             if vm.get("hipoplasico"):
                 _hipo_segs = vm.get("hipoplasico_segs", [])
