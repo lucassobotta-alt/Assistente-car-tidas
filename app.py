@@ -27,6 +27,11 @@ def retirar_prefixo_numerico(opcao_texto):
         return opcao_texto.split(". ", 1)[1]
     return opcao_texto
 
+def loc_placa(localizacao):
+    if not localizacao or "total" in localizacao or "bifurcação" in localizacao:
+        return ""
+    return f" no {localizacao}"
+
 def estimar_plaque_rads(opcao_texto):
     if opcao_texto.startswith("1."):
         return "Classificação: Plaque-RADS 1"
@@ -565,7 +570,7 @@ if gerar_laudo:
     for p in [x for x in st.session_state.lista_placas if "carótida comum direita" in x['vaso'].lower()]:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
         comp_dir = p['composicao_texto'].lower().removeprefix("placa ")
-        txt_comum_dir += f" Identifica-se na parede uma placa de ateroma {comp_dir}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
+        txt_comum_dir += f" Apresenta placa de ateroma {comp_dir}{loc_placa(p['localizacao'])}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
     for c in st.session_state.calcificacoes_isoladas:
         if c['lado'] == "Direito" and "comum" in c['topografia']:
             txt_comum_dir += " Identificam-se calcificações parietais isoladas sem repercussão hemodinâmica."
@@ -585,7 +590,7 @@ if gerar_laudo:
     for p in [x for x in st.session_state.lista_placas if "bulbo carotídeo direito" in x['vaso'].lower()]:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
         comp = p['composicao_texto'].lower().removeprefix("placa ")
-        txt_bulbo_dir += f" Apresenta na parede uma placa de ateroma {comp}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
+        txt_bulbo_dir += f" Apresenta placa de ateroma {comp}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
         tem_achado_bulbo_dir = True
     for c in st.session_state.calcificacoes_isoladas:
         if c['lado'] == "Direito" and "bulbo" in c['topografia']:
@@ -604,7 +609,7 @@ if gerar_laudo:
             p = placas_aci_dir[0]
             suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
             comp_aci_dir = p['composicao_texto'].lower().removeprefix("placa ")
-            txt_aci_dir = f"Artéria carótida interna direita apresentando na parede uma placa de ateroma {comp_aci_dir}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_dir}"
+            txt_aci_dir = f"Artéria carótida interna direita com placa de ateroma {comp_aci_dir}{loc_placa(p['localizacao'])}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_dir}"
         else:
             txt_aci_dir = f"Artéria carótida interna direita {sufixo_hemo_aci_dir}"
     elif placas_aci_dir:
@@ -612,9 +617,9 @@ if gerar_laudo:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
         comp_aci_dir = p['composicao_texto'].lower().removeprefix("placa ")
         if vps_aci_dir == 0.0 and not tort_hemo_aci_dir:
-            txt_aci_dir = f"Artéria carótida interna direita pérvia. Apresenta na parede uma placa de ateroma {comp_aci_dir}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, sem repercussão hemodinâmica. Mantém {txt_fluxo_normal_aci}"
+            txt_aci_dir = f"Artéria carótida interna direita pérvia. Apresenta placa de ateroma {comp_aci_dir}{loc_placa(p['localizacao'])}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, sem repercussão hemodinâmica. Mantém {txt_fluxo_normal_aci}"
         else:
-            txt_aci_dir = f"Artéria carótida interna direita pérvia, apresentando na parede uma placa de ateroma {comp_aci_dir}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_dir}"
+            txt_aci_dir = f"Artéria carótida interna direita pérvia, apresentando placa de ateroma {comp_aci_dir}{loc_placa(p['localizacao'])}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_dir}"
     else:
         txt_aci_dir = f"Artéria carótida interna direita pérvia, {sufixo_hemo_aci_dir}"
     for inc in incs_aci_dir:
@@ -642,7 +647,7 @@ if gerar_laudo:
     for p in [x for x in st.session_state.lista_placas if "carótida comum esquerda" in x['vaso'].lower()]:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
         comp = p['composicao_texto'].lower().removeprefix("placa ")
-        txt_comum_esq += f" Identifica-se na parede uma placa de ateroma {comp}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
+        txt_comum_esq += f" Apresenta placa de ateroma {comp}{loc_placa(p['localizacao'])}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
     for c in st.session_state.calcificacoes_isoladas:
         if c['lado'] == "Esquerdo" and "comum" in c['topografia']:
             txt_comum_esq += " Identificam-se calcificações parietais isoladas sem repercussão hemodinâmica."
@@ -662,7 +667,7 @@ if gerar_laudo:
     for p in [x for x in st.session_state.lista_placas if "bulbo carotídeo esquerdo" in x['vaso'].lower()]:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
         comp = p['composicao_texto'].lower().removeprefix("placa ")
-        txt_bulbo_esq += f" Apresenta na parede uma placa de ateroma {comp}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
+        txt_bulbo_esq += f" Apresenta placa de ateroma {comp}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
         tem_achado_bulbo_esq = True
     for c in st.session_state.calcificacoes_isoladas:
         if c['lado'] == "Esquerdo" and "bulbo" in c['topografia']:
@@ -681,7 +686,7 @@ if gerar_laudo:
             p = placas_aci_esq[0]
             suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
             comp_aci_esq = p['composicao_texto'].lower().removeprefix("placa ")
-            txt_aci_esq = f"Artéria carótida interna esquerda apresentando na parede uma placa de ateroma {comp_aci_esq}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_esq}"
+            txt_aci_esq = f"Artéria carótida interna esquerda com placa de ateroma {comp_aci_esq}{loc_placa(p['localizacao'])}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_esq}"
         else:
             txt_aci_esq = f"Artéria carótida interna esquerda {sufixo_hemo_aci_esq}"
     elif placas_aci_esq:
@@ -689,9 +694,9 @@ if gerar_laudo:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
         comp_aci_esq = p['composicao_texto'].lower().removeprefix("placa ")
         if vps_aci_esq == 0.0 and not tort_hemo_aci_esq:
-            txt_aci_esq = f"Artéria carótida interna esquerda pérvia. Apresenta na parede uma placa de ateroma {comp_aci_esq}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, sem repercussão hemodinâmica. Mantém {txt_fluxo_normal_aci}"
+            txt_aci_esq = f"Artéria carótida interna esquerda pérvia. Apresenta placa de ateroma {comp_aci_esq}{loc_placa(p['localizacao'])}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, sem repercussão hemodinâmica. Mantém {txt_fluxo_normal_aci}"
         else:
-            txt_aci_esq = f"Artéria carótida interna esquerda pérvia, apresentando na parede uma placa de ateroma {comp_aci_esq}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_esq}"
+            txt_aci_esq = f"Artéria carótida interna esquerda pérvia, apresentando placa de ateroma {comp_aci_esq}{loc_placa(p['localizacao'])}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_esq}"
     else:
         txt_aci_esq = f"Artéria carótida interna esquerda pérvia, {sufixo_hemo_aci_esq}"
     for inc in incs_aci_esq:
