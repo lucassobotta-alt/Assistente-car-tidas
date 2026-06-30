@@ -7,7 +7,6 @@ from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
-from streamlit_js_eval import streamlit_js_eval
 
 # ── Funções de Áudio e Voz ────────────────────────────────────────────────────
 
@@ -27,6 +26,7 @@ def parse_comando_voz(texto: str) -> dict:
         lado = 'dir'
     elif any(w in t for w in ['esquerda', 'esquerdo', 'esq']):
         lado = 'esq'
+
     if t.startswith('nome ') or t.startswith('paciente '):
         updates['w_nome'] = texto.split(' ', 1)[1].strip().title()
         return updates
@@ -72,55 +72,39 @@ def parse_comando_voz(texto: str) -> dict:
             updates[f'w_vps_vert_{lado}'] = num
     return updates
 
-_JS_SPEECH = """
-await new Promise((resolve) => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { resolve('__sem_suporte__'); return; }
-    const r = new SR();
-    r.lang = 'pt-BR'; r.interimResults = false; r.maxAlternatives = 1;
-    r.onresult = (e) => resolve(e.results[0][0].transcript);
-    r.onerror  = ()  => resolve('__erro__');
-    r.start();
-})
-"""
 
 def render_voice_input():
-    st.markdown("#### 🎤 Ditado por Voz")
+    st.markdown("#### 🎤 Entrada por Voz / Texto")
     st.markdown(
-        "Clique em **Ouvir Comando**, dite o dado e aguarde. O campo será preenchido automaticamente.\n\n"
-        "Exemplos: *\"nome João Silva\"* · *\"VPS carótida interna direita 150\"* · "
+        "Digite ou use a **digitação por voz do seu sistema** e clique em ✅ Aplicar.\n\n"
+        "**💡 Ativar voz:** "
+        "Mac → `Fn Fn` · Windows → `Win + H` · Chrome/Android → microfone no teclado\n\n"
+        "**Exemplos de comandos:** "
+        "*\"nome João Silva\"* · *\"VPS carótida interna direita 150\"* · "
         "*\"CMI direita 0 vírgula 8\"* · *\"oclusão esquerda\"* · *\"vertebral direita hipoplasia\"*"
     )
-    if 'stt_counter' not in st.session_state:
-        st.session_state.stt_counter = 0
-    if 'stt_ultimo' not in st.session_state:
-        st.session_state.stt_ultimo = ''
-    if 'stt_resultado' not in st.session_state:
-        st.session_state.stt_resultado = ''
-    col_btn, col_status = st.columns([1, 3])
+    col_inp, col_btn = st.columns([4, 1])
+    with col_inp:
+        comando = st.text_input(
+            "Comando:",
+            key="stt_input",
+            label_visibility="collapsed",
+            placeholder='Ex: "VPS carótida interna direita 150"'
+        )
     with col_btn:
-        if st.button("🎙️ Ouvir Comando", use_container_width=True):
-            st.session_state.stt_counter += 1
-            st.session_state.stt_resultado = ''
-    transcript = streamlit_js_eval(
-        js_expressions=_JS_SPEECH,
-        key=f"stt_{st.session_state.stt_counter}"
-    )
-    with col_status:
-        if transcript and transcript not in ('__sem_suporte__', '__erro__', ''):
-            if transcript != st.session_state.stt_ultimo:
-                st.session_state.stt_ultimo = transcript
-                st.session_state.stt_resultado = transcript
-                updates = parse_comando_voz(transcript)
-                if updates:
-                    st.session_state.update(updates)
-                    st.rerun()
-        if st.session_state.stt_resultado:
-            st.success(f"🗣️ Reconhecido: *\"{st.session_state.stt_resultado}\"*")
-        elif transcript == '__sem_suporte__':
-            st.error("Navegador sem suporte. Use Chrome ou Edge.")
-        elif transcript == '__erro__':
-            st.warning("Não foi possível capturar o áudio. Verifique o microfone.")
+        aplicar = st.button("✅ Aplicar", use_container_width=True, key="stt_aplicar")
+
+    if aplicar and comando.strip():
+        updates = parse_comando_voz(comando.strip())
+        if updates:
+            campos = ', '.join(updates.keys())
+            st.success(f"✅ Aplicado: {comando.strip()}")
+            st.session_state.update(updates)
+            st.session_state['stt_input'] = ''
+            st.rerun()
+        else:
+            st.warning("Comando não reconhecido. Verifique os exemplos acima.")
+
 
 def render_audio_player(texto: str, key: str = "tts"):
     texto_js = json.dumps(texto)
@@ -128,13 +112,19 @@ def render_audio_player(texto: str, key: str = "tts"):
     <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:4px 0;">
         <button id="btn_play_{key}" onclick="falarTexto_{key}()"
             style="padding:8px 18px; background:#1a56db; color:#fff; border:none;
-                   border-radius:6px; cursor:pointer; font-size:14px;">▶️ Ouvir Laudo</button>
+                   border-radius:6px; cursor:pointer; font-size:14px;">
+            ▶️ Ouvir Laudo
+        </button>
         <button id="btn_pause_{key}" onclick="pausarTexto_{key}()" style="display:none;
             padding:8px 18px; background:#f59e0b; color:#fff; border:none;
-            border-radius:6px; cursor:pointer; font-size:14px;">⏸ Pausar</button>
+            border-radius:6px; cursor:pointer; font-size:14px;">
+            ⏸ Pausar
+        </button>
         <button id="btn_stop_{key}" onclick="pararTexto_{key}()" style="display:none;
             padding:8px 18px; background:#e02424; color:#fff; border:none;
-            border-radius:6px; cursor:pointer; font-size:14px;">⏹ Parar</button>
+            border-radius:6px; cursor:pointer; font-size:14px;">
+            ⏹ Parar
+        </button>
         <span id="status_{key}" style="font-size:13px; color:#555;"></span>
     </div>
     <script>
@@ -188,6 +178,7 @@ def render_audio_player(texto: str, key: str = "tts"):
     </script>
     """, height=60)
 
+
 # Inicialização segura do estado da sessão
 if 'lista_placas' not in st.session_state:
     st.session_state.lista_placas = []
@@ -209,11 +200,6 @@ def retirar_prefixo_numerico(opcao_texto):
     if ". " in opcao_texto:
         return opcao_texto.split(". ", 1)[1]
     return opcao_texto
-
-def loc_placa(localizacao):
-    if not localizacao or "total" in localizacao or "bifurcação" in localizacao:
-        return ""
-    return f" no {localizacao}"
 
 def estimar_plaque_rads(opcao_texto):
     if opcao_texto.startswith("1."):
@@ -324,8 +310,7 @@ def avaliar_vertebral(espectro, vps_vert):
     return "Alterada", f"Artéria vertebral com alterações inespecíficas do padrão de fluxo. VPS: {vps_vert} cm/s."
 
 # --- CONFIGURAÇÃO DA INTERFACE STREAMLIT ---
-st.set_page_config(page_title="Laudo Neurovascular Avançado", layout="wide")
-st.title("⚕️ Assistente de Laudos Vascular Completo")
+st.title("⚕️ Assistente de Laudos: Duplex Scan Arterial Carotídeo")
 
 # ==========================================
 #       PAINEL DE CONTROLE LATERAL
@@ -420,6 +405,8 @@ with col_id2:
     opcao_selecionada = st.selectbox("Condições Técnicas do Exame:", list(opcoes_tecnicas.keys()), key="w_tecnica")
     texto_tecnica_final = opcoes_tecnicas[opcao_selecionada]
 
+st.markdown("---")
+render_voice_input()
 st.markdown("---")
 st.markdown("### 📊 Parâmetros Hemodinâmicos")
 col_hemo_dir, col_hemo_esq = st.columns(2)
@@ -597,6 +584,14 @@ with st.expander("4. Mapeamento de Placas Ateroscleróticas (Consolidadas ≥ 2.
         for idx, p in enumerate(st.session_state.lista_placas):
             pr_tag = f" | {p['plaque_rads']}" if p['plaque_rads'] else ""
             st.write(f"`Item {idx+1:02d}` **{p['vaso']}** ({p['localizacao']}) — {p['composicao_texto']} | {p['espessura']} mm ({p['superficie_texto'].lower()}){pr_tag}.")
+        _placas_alerta = [p for p in st.session_state.lista_placas
+                         if p['composicao_texto'] != "Placa calcificada" and p['espessura'] >= 3.0]
+        for _pa in _placas_alerta:
+            st.warning(
+                f"⚠️ **Placa de risco elevado — {_pa['vaso']} ({_pa['localizacao']}):** "
+                f"placa não completamente calcificada com espessura de {_pa['espessura']} mm (≥ 3 mm). "
+                f"Característica associada a maior risco de instabilidade plaqueária."
+            )
         if st.button("❌ Limpar Lista de Placas"):
             st.session_state.lista_placas = []
             st.rerun()
@@ -753,7 +748,7 @@ if gerar_laudo:
     for p in [x for x in st.session_state.lista_placas if "carótida comum direita" in x['vaso'].lower()]:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
         comp_dir = p['composicao_texto'].lower().removeprefix("placa ")
-        txt_comum_dir += f" Apresenta placa de ateroma {comp_dir}{loc_placa(p['localizacao'])}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
+        txt_comum_dir += f" Identifica-se na parede uma placa de ateroma {comp_dir}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
     for c in st.session_state.calcificacoes_isoladas:
         if c['lado'] == "Direito" and "comum" in c['topografia']:
             txt_comum_dir += " Identificam-se calcificações parietais isoladas sem repercussão hemodinâmica."
@@ -773,7 +768,7 @@ if gerar_laudo:
     for p in [x for x in st.session_state.lista_placas if "bulbo carotídeo direito" in x['vaso'].lower()]:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
         comp = p['composicao_texto'].lower().removeprefix("placa ")
-        txt_bulbo_dir += f" Apresenta placa de ateroma {comp}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
+        txt_bulbo_dir += f" Apresenta na parede uma placa de ateroma {comp}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
         tem_achado_bulbo_dir = True
     for c in st.session_state.calcificacoes_isoladas:
         if c['lado'] == "Direito" and "bulbo" in c['topografia']:
@@ -792,7 +787,7 @@ if gerar_laudo:
             p = placas_aci_dir[0]
             suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
             comp_aci_dir = p['composicao_texto'].lower().removeprefix("placa ")
-            txt_aci_dir = f"Artéria carótida interna direita com placa de ateroma {comp_aci_dir}{loc_placa(p['localizacao'])}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_dir}"
+            txt_aci_dir = f"Artéria carótida interna direita apresentando na parede uma placa de ateroma {comp_aci_dir}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_dir}"
         else:
             txt_aci_dir = f"Artéria carótida interna direita {sufixo_hemo_aci_dir}"
     elif placas_aci_dir:
@@ -800,9 +795,9 @@ if gerar_laudo:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
         comp_aci_dir = p['composicao_texto'].lower().removeprefix("placa ")
         if vps_aci_dir == 0.0 and not tort_hemo_aci_dir:
-            txt_aci_dir = f"Artéria carótida interna direita pérvia. Apresenta placa de ateroma {comp_aci_dir}{loc_placa(p['localizacao'])}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, sem repercussão hemodinâmica. Mantém {txt_fluxo_normal_aci}"
+            txt_aci_dir = f"Artéria carótida interna direita pérvia. Apresenta na parede uma placa de ateroma {comp_aci_dir}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, sem repercussão hemodinâmica. Mantém {txt_fluxo_normal_aci}"
         else:
-            txt_aci_dir = f"Artéria carótida interna direita pérvia, apresentando placa de ateroma {comp_aci_dir}{loc_placa(p['localizacao'])}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_dir}"
+            txt_aci_dir = f"Artéria carótida interna direita pérvia, apresentando na parede uma placa de ateroma {comp_aci_dir}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_dir}"
     else:
         txt_aci_dir = f"Artéria carótida interna direita pérvia, {sufixo_hemo_aci_dir}"
     for inc in incs_aci_dir:
@@ -830,7 +825,7 @@ if gerar_laudo:
     for p in [x for x in st.session_state.lista_placas if "carótida comum esquerda" in x['vaso'].lower()]:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
         comp = p['composicao_texto'].lower().removeprefix("placa ")
-        txt_comum_esq += f" Apresenta placa de ateroma {comp}{loc_placa(p['localizacao'])}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
+        txt_comum_esq += f" Identifica-se na parede uma placa de ateroma {comp}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
     for c in st.session_state.calcificacoes_isoladas:
         if c['lado'] == "Esquerdo" and "comum" in c['topografia']:
             txt_comum_esq += " Identificam-se calcificações parietais isoladas sem repercussão hemodinâmica."
@@ -850,7 +845,7 @@ if gerar_laudo:
     for p in [x for x in st.session_state.lista_placas if "bulbo carotídeo esquerdo" in x['vaso'].lower()]:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
         comp = p['composicao_texto'].lower().removeprefix("placa ")
-        txt_bulbo_esq += f" Apresenta placa de ateroma {comp}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
+        txt_bulbo_esq += f" Apresenta na parede uma placa de ateroma {comp}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}."
         tem_achado_bulbo_esq = True
     for c in st.session_state.calcificacoes_isoladas:
         if c['lado'] == "Esquerdo" and "bulbo" in c['topografia']:
@@ -869,7 +864,7 @@ if gerar_laudo:
             p = placas_aci_esq[0]
             suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
             comp_aci_esq = p['composicao_texto'].lower().removeprefix("placa ")
-            txt_aci_esq = f"Artéria carótida interna esquerda com placa de ateroma {comp_aci_esq}{loc_placa(p['localizacao'])}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_esq}"
+            txt_aci_esq = f"Artéria carótida interna esquerda apresentando na parede uma placa de ateroma {comp_aci_esq}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_esq}"
         else:
             txt_aci_esq = f"Artéria carótida interna esquerda {sufixo_hemo_aci_esq}"
     elif placas_aci_esq:
@@ -877,9 +872,9 @@ if gerar_laudo:
         suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
         comp_aci_esq = p['composicao_texto'].lower().removeprefix("placa ")
         if vps_aci_esq == 0.0 and not tort_hemo_aci_esq:
-            txt_aci_esq = f"Artéria carótida interna esquerda pérvia. Apresenta placa de ateroma {comp_aci_esq}{loc_placa(p['localizacao'])}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, sem repercussão hemodinâmica. Mantém {txt_fluxo_normal_aci}"
+            txt_aci_esq = f"Artéria carótida interna esquerda pérvia. Apresenta na parede uma placa de ateroma {comp_aci_esq}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, sem repercussão hemodinâmica. Mantém {txt_fluxo_normal_aci}"
         else:
-            txt_aci_esq = f"Artéria carótida interna esquerda pérvia, apresentando placa de ateroma {comp_aci_esq}{loc_placa(p['localizacao'])}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_esq}"
+            txt_aci_esq = f"Artéria carótida interna esquerda pérvia, apresentando na parede uma placa de ateroma {comp_aci_esq}, medindo {p['espessura']} mm de espessura máxima, com superfície {p['superficie_texto'].lower()}{suffix_pr}, {sufixo_hemo_aci_esq}"
     else:
         txt_aci_esq = f"Artéria carótida interna esquerda pérvia, {sufixo_hemo_aci_esq}"
     for inc in incs_aci_esq:
@@ -969,32 +964,41 @@ if gerar_laudo:
     if incluir_observacoes:
         if cmi_alterado:
             obs_ativas.append(
-                "O espessamento do complexo médio-intimal carotídeo é considerado marcador de aterosclerose subclínica "
+                "\"O espessamento do complexo médio-intimal carotídeo é considerado marcador de aterosclerose subclínica "
                 "e associa-se a aumento do risco de eventos cardiovasculares, devendo sua interpretação ser integrada ao "
-                "contexto clínico e aos demais fatores de risco do paciente. Referências: Mannheim Carotid Intima-Media "
+                "contexto clínico e aos demais fatores de risco do paciente.\" Referências: Mannheim Carotid Intima-Media "
                 "Thickness Consensus (2004–2006); ESC/EAS Guidelines for the Management of Dyslipidaemias (2021)."
             )
         if st.session_state.lesoes_incipientes:
             obs_ativas.append(
-                "A presença de lesão ateromatosa incipiente, embora sem repercussão hemodinâmica significativa, "
+                "\"A presença de lesão ateromatosa incipiente, embora sem repercussão hemodinâmica significativa, "
                 "constitui marcador de aterosclerose subclínica e possui relevância na estratificação do risco "
                 "cardiovascular global, devendo ser considerada em conjunto com os demais fatores de risco e "
-                "achados clínicos do paciente."
+                "achados clínicos do paciente.\""
             )
         if tem_placa:
             obs_ativas.append(
-                f"A presença de placa aterosclerótica carotídea, independentemente do grau de estenose, caracteriza "
+                f"\"A presença de placa aterosclerótica carotídea, independentemente do grau de estenose, caracteriza "
                 f"aterosclerose subclínica e constitui fator agravante de risco cardiovascular, devendo ser considerada "
                 f"na estratificação global do risco cardiovascular, conforme a Diretriz Brasileira de Dislipidemias e "
-                f"Prevenção da Aterosclerose – {ano_dislipidemia}."
+                f"Prevenção da Aterosclerose – {ano_dislipidemia}.\""
             )
-        if any(p['plaque_rads'] is not None for p in st.session_state.lista_placas):
+        if maior_que_plaque_rads_2 or any(p['plaque_rads'] is not None for p in st.session_state.lista_placas):
             obs_ativas.append(
-                "A classificação Plaque-RADS padroniza a caracterização ultrassonográfica das placas carotídeas, "
+                "\"A classificação Plaque-RADS padroniza a caracterização ultrassonográfica das placas carotídeas, "
                 "incorporando aspectos morfológicos relacionados à vulnerabilidade da placa e fornecendo informação "
-                "complementar ao grau de estenose na estratificação do risco de eventos cerebrovasculares. Referências: "
+                "complementar ao grau de estenose na estratificação do risco de eventos cerebrovasculares.\" Referências: "
                 "Plaque-RADS™ Consensus Statement (2023); recomendações da Society of Radiologists in Ultrasound para "
                 "avaliação ultrassonográfica da doença carotídea."
+            )
+        _placas_alerta_obs = [p for p in st.session_state.lista_placas
+                              if p['composicao_texto'] != "Placa calcificada" and p['espessura'] >= 3.0]
+        if _placas_alerta_obs:
+            obs_ativas.append(
+                "\"Identifica-se placa aterosclerótica não completamente calcificada com espessura ≥ 3 mm, "
+                "característica associada a maior risco de instabilidade e de eventos cerebrovasculares isquêmicos. "
+                "Recomenda-se otimização do tratamento das dislipidemias e dos demais fatores de risco cardiovascular, "
+                "além de acompanhamento ultrassonográfico periódico.\""
             )
 
     # Monta texto de obs para marcador
@@ -1105,14 +1109,12 @@ if gerar_laudo:
     st.success("Laudo integrado gerado com sucesso!")
 
     # Visualização do laudo na própria página
+    texto_visualizacao = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
     if modo_saida in ["Somente Visualização", "Visualização + DOCX"]:
-        texto_visualizacao = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
         st.markdown("## 👁️ Visualização do Laudo")
-        st.text_area(
-            "Laudo Gerado",
-            value=texto_visualizacao,
-            height=700
-        )
+        st.text_area("Laudo Gerado", value=texto_visualizacao, height=700)
+    st.markdown("### 🔊 Leitura em Áudio do Laudo")
+    render_audio_player(texto_visualizacao, key="arterial")
 
     # Download DOCX
     if modo_saida in ["Somente DOCX", "Visualização + DOCX"]:
