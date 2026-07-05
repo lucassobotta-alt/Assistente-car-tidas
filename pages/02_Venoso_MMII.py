@@ -147,6 +147,15 @@ for idx, m_nome in enumerate(membros_para_processar):
         vsm_dados_mapeamento = {"status_geral": vsm_status_geral}
 
         if "Ausente" in vsm_status_geral:
+            if "Segmentar" in vsm_status_geral:
+                _SEGS_VSM_SAF = [
+                    "Terço proximal da coxa", "Terço médio da coxa", "Terço distal da coxa",
+                    "Terço proximal da perna", "Terço médio da perna", "Terço distal da perna"
+                ]
+                vsm_dados_mapeamento["segs_ausentes"] = st.multiselect(
+                    "Segmento(s) ressecado(s):", _SEGS_VSM_SAF,
+                    key=f"vsm_segs_ausentes_{m_nome}_{_rc}"
+                )
             ligadura_jsf = st.toggle("Houve ligadura da junção safenofemoral?", key=f"ligadura_jsf_{m_nome}_{_rc}")
             vsm_dados_mapeamento["ligadura_jsf"] = ligadura_jsf
             if ligadura_jsf:
@@ -1180,7 +1189,12 @@ def construir_laudo_word(membros_lista, dados_m_dict):
         
         if "Ausente" in vm["status_geral"]:
             _tipo_saf = "total" if "Total" in vm["status_geral"] else "segmentar"
-            add_p(f"Veia safena magna ausente, tendo sido submetida a safenectomia {_tipo_saf}.")
+            _segs_aus = vm.get("segs_ausentes", [])
+            if _tipo_saf == "segmentar" and _segs_aus:
+                _segs_txt_aus = ", ".join(s.lower() for s in _segs_aus)
+                add_p(f"Veia safena magna parcialmente ausente por safenectomia segmentar ({_segs_txt_aus}).")
+            else:
+                add_p(f"Veia safena magna ausente, tendo sido submetida a safenectomia {_tipo_saf}.")
             if vm.get("ligadura_jsf"):
                 add_p("Sinais de manipulação cirúrgica na junção safenofemoral.")
                 _coto_st = vm.get("coto_status", "Competente")
