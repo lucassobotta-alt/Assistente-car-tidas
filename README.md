@@ -6,6 +6,7 @@ Aplicativo Streamlit para geração de laudos médicos em formato Word (.docx) p
 
 - **Duplex Scan de Carótidas e Vertebrais** — avaliação do sistema arterial cervical
 - **Duplex Scan Venoso de MMII** — mapeamento do sistema venoso superficial e profundo dos membros inferiores
+- **Duplex Scan Arterial de MMII** — mapeamento arterial dos membros inferiores, da artéria femoral comum à fibular
 
 ## Como executar localmente
 

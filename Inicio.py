@@ -47,7 +47,7 @@ st.markdown(
 # ── Módulos disponíveis ───────────────────────────────────────────────────────
 st.markdown("### Módulos disponíveis")
 
-col1, col2 = st.columns(2, gap="large")
+col1, col2, col3 = st.columns(3, gap="large")
 
 with col1:
     st.markdown(
@@ -94,6 +94,29 @@ with col2:
         unsafe_allow_html=True,
     )
     st.page_link("pages/02_Venoso_MMII.py", label="Acessar módulo venoso →", icon="🌀")
+
+with col3:
+    st.markdown(
+        """
+        <div style="
+            border: 1px solid #dde3f0;
+            border-radius: 8px;
+            padding: 1.2rem 1.4rem 0.8rem 1.4rem;
+            background: #fff;
+            min-height: 170px;
+        ">
+            <h4 style="margin-top: 0;">🫀 Duplex Scan Arterial de MMII</h4>
+            <ul style="padding-left: 1.1rem; color: #444; font-size: 0.92rem;">
+                <li>Mapeamento arterial de AFC até A. Fibular</li>
+                <li>Classificação de estenose por razão de velocidades (PVS)</li>
+                <li>Propagação hemodinâmica em cascata para vasos distais</li>
+                <li>Suporte a exame unilateral e bilateral</li>
+            </ul>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.page_link("pages/03_Arterial_MMII.py", label="Acessar módulo arterial MMII →", icon="🫀")
 
 st.markdown("---")
 st.caption("Use o menu lateral para navegar entre os módulos.")
