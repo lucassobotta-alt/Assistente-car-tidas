@@ -1,0 +1,364 @@
+# arterial.py
+import streamlit as st
+from docx import Document
+from docx.shared import Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from io import BytesIO
+
+# --- CONFIGURACAO DA PAGINA ---
+st.title("🫀 Assistente de Laudos: Duplex Scan Arterial de MMII")
+
+# --- SIDEBAR: CONFIGURACOES ---
+with st.sidebar:
+    st.markdown("## ⚙️ Painel de Controle")
+    fonte_doc = st.selectbox("Fonte do Documento:", ["Arial", "Calibri", "Times New Roman"])
+    tamanho_fonte = st.slider("Tamanho Texto (pt):", 10, 14, 11)
+    espacamento_linhas = st.slider("Espaçamento:", 1.0, 1.5, 1.15)
+
+    st.markdown("---")
+    nome_medico = st.text_input("Médico:", "Lucas Santos Guimarães")
+    crm_medico = st.text_input("CRM:", "4061")
+
+# --- IDENTIFICACAO DO PACIENTE ---
+nome_paciente = st.text_input("Nome do Paciente:", "Paciente Exemplo Arterial")
+formato_exame = st.selectbox("Tipo de Exame:", ["Unilateral", "Bilateral (Laudo Único)"])
+
+if formato_exame == "Unilateral":
+    lado_sel = st.selectbox("Selecione o Lado Avaliado:", ["DIREITO", "ESQUERDO"])
+    membros_para_processar = [lado_sel]
+else:
+    membros_para_processar = ["DIREITO", "ESQUERDO"]
+
+# --- LISTA E ORDEM ANATOMICA DAS ARTERIAS ---
+ARTERIAS_LISTA = [
+    ("A. Femoral Comum", "AFC"),
+    ("A. Femoral Profunda", "AFP"),
+    ("A. Femoral Superficial", "AFS"),
+    ("A. Poplítea", "APOP"),
+    ("A. Tibial Anterior", "ATA"),
+    ("A. Tibial Posterior", "ATP"),
+    ("A. Fibular", "AFIB")
+]
+
+# Dicionário de ordem anatômica para guiar a propagação distal em cascata
+ORDEM_ANATOMICA = ["AFC", "AFP", "AFS", "APOP", "ATA", "ATP", "AFIB"]
+
+PADROES_ONDA_SITIO = [
+    "Trifásico",
+    "Bifásico",
+    "Monofásico de alta resistência",
+    "Monofásico de baixa resistência",
+]
+
+PADROES_POS_ESTENOTICO = [
+    "Trifásico",
+    "Bifásico",
+    "Monofásico sem diástole",
+    "Monofásico tardus parvus"
+]
+
+SEGMENTOS_ARTERIA = ["Segmento Proximal", "Segmento Médio", "Segmento Distal", "Todo o trajeto"]
+
+dados_membros = {}
+
+# --- INTERFACE DE ENTRADA DE DADOS ---
+if len(membros_para_processar) > 1:
+    abas = st.tabs(["🔴 Membro Inferior Direito (MID)", "🔵 Membro Inferior Esquerdo (MIE)"])
+else:
+    abas = [st.container()]
+
+for idx, m_nome in enumerate(membros_para_processar):
+    with abas[idx]:
+        st.markdown(f"### 📋 Mapeamento Arterial - Membro {m_nome}")
+
+        # Primeiro passo: Coleta e armazenamento inicial de inputs de forma limpa
+        dados_brutos_membro = {}
+
+        # Estrutura auxiliar para rastrear se alguma artéria proximal disparou propagação em cascata
+        propagacoes_ativas = {}
+
+        for art_nome, art_id in ARTERIAS_LISTA:
+            st.markdown(f"**📍 {art_nome}**")
+
+            c1, c2, c3, c4 = st.columns([1.5, 1.5, 1.8, 2.2])
+
+            with c1:
+                status = st.selectbox(
+                    "Status da Artéria:",
+                    ["Normal", "Com Estenose", "Ocluído"],
+                    key=f"status_{art_id}_{m_nome}"
+                )
+
+                # Input de Ateromatose Difusa (Parietal)
+                tem_ateromatose = st.checkbox("Ateromatose difusa?", value=False, key=f"ateroma_{art_id}_{m_nome}")
+                desc_ateromatose = ""
+                if tem_ateromatose:
+                    desc_ateromatose = st.radio(
+                        "Padrão da ateromatose:",
+                        ["calcificações parietais multissegmentares", "placas de ateroma calcificadas multissegmentares"],
+                        key=f"tipo_ateroma_{art_id}_{m_nome}"
+                    )
+
+            is_estenose = status == "Com Estenose"
+            is_ocluido = status == "Ocluído"
+
+            pvs_pre = 0.0
+            pvs_max = 0.0
+            pvs_distal = 0.0
+            razao_v = 0.0
+
+            with c2:
+                if is_estenose:
+                    pvs_pre = st.number_input("PVS Pré-Estenótico (cm/s):", min_value=1.0, max_value=600.0, value=60.0, step=5.0, key=f"pvs_pre_{art_id}_{m_nome}")
+                    pvs_max = st.number_input("PVS Maior Estreitamento (cm/s):", min_value=1.0, max_value=600.0, value=150.0, step=5.0, key=f"pvs_max_{art_id}_{m_nome}")
+                    pvs_distal = st.number_input("PVS Distal à Estenose (cm/s):", min_value=0.0, max_value=600.0, value=40.0, step=5.0, key=f"pvs_distal_{art_id}_{m_nome}")
+                elif not is_ocluido:
+                    val_sugerido = 90.0 if "Femoral" in art_nome else 60.0
+                    pvs_max = st.number_input("PVS (cm/s):", min_value=0.0, max_value=600.0, value=val_sugerido, key=f"pvs_max_{art_id}_{m_nome}")
+                else:
+                    st.markdown("<p style='color:red; margin-top:20px; font-weight:bold;'>Oclusão Luminal</p>", unsafe_allow_html=True)
+
+            with c3:
+                seg_afetado = ""
+                onda_pos = ""
+                origem_reenchimento = ""
+                direcao_fluxo = ""
+                onda_reenchimento = ""
+                reenchimento_colat = False
+
+                if is_estenose:
+                    seg_afetado = st.selectbox(
+                        "Localização da Estenose:",
+                        SEGMENTOS_ARTERIA,
+                        key=f"seg_{art_id}_{m_nome}"
+                    )
+
+                    onda_pos = st.selectbox(
+                        "Fluxo Distal (Pós-Estenótico):",
+                        PADROES_POS_ESTENOTICO,
+                        key=f"ondapos_{art_id}_{m_nome}"
+                    )
+                elif is_ocluido:
+                    reenchimento_colat = st.checkbox("Há reenchimento distal?", value=True, key=f"colat_{art_id}_{m_nome}")
+                    if reenchimento_colat:
+                        origem_reenchimento = st.selectbox(
+                            "Origem do Reenchimento:",
+                            ["por artéria colateral", "por fluxo retrógrado de ramo arterial"],
+                            key=f"orig_reench_{art_id}_{m_nome}"
+                        )
+                        direcao_fluxo = st.selectbox(
+                            "Direção do Fluxo:",
+                            ["anterógrada", "retrógrada"],
+                            key=f"dir_fluxo_{art_id}_{m_nome}"
+                        )
+                        onda_reenchimento = st.selectbox(
+                            "Padrão de Onda no Reenchimento:",
+                            ["Trifásico", "Bifásico", "Monofásico"],
+                            key=f"onda_reench_{art_id}_{m_nome}"
+                        )
+                else:
+                    onda_sitio = st.selectbox("Padrão de Onda:", PADROES_ONDA_SITIO, key=f"onda_{art_id}_{m_nome}")
+
+            with c4:
+                comp_placa = ""
+                grau_estenose_estimado = ""
+                propagar_fluxo_distal = False
+
+                if is_estenose:
+                    if pvs_pre > 0:
+                        razao_v = pvs_max / pvs_pre
+
+                    if razao_v < 2.0:
+                        grau_estenose_estimado = "Estenose leve (< 50%)"
+                    elif 2.0 <= razao_v <= 4.0:
+                        grau_estenose_estimado = "Estenose moderada (50-70%)"
+                    else:
+                        grau_estenose_estimado = "Estenose severa (> 70%)"
+
+                    st.markdown(f"""
+                    <div style='background-color:#fff3cd; padding:6px; border-radius:5px; border-left:4px solid #ffc107; font-size:13px;'>
+                        <b>Razão:</b> {razao_v:.2f} | <b>{grau_estenose_estimado}</b>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    # Tipo histológico/composição da placa causadora
+                    comp_placa = st.radio(
+                        "Composição da Placa:",
+                        ["Placa calcificada", "Placa não calcificada"],
+                        key=f"comp_placa_{art_id}_{m_nome}"
+                    )
+
+                    # Caixa para cascata hemodinâmica total se a estenose for de moderada a severa (Razão >= 2)
+                    if razao_v >= 2.0:
+                        propagar_fluxo_distal = st.checkbox(
+                            "🛒 Propagar fluxo alterado para todas as artérias distais?",
+                            value=False,
+                            key=f"prop_distal_{art_id}_{m_nome}"
+                        )
+                        if propagar_fluxo_distal:
+                            propagacoes_ativas[art_id] = onda_pos
+
+                elif is_ocluido:
+                    if reenchimento_colat:
+                        st.info(f"Reenchimento ativo {origem_reenchimento}.")
+                    else:
+                        st.warning("Ausência completa de fluxo.")
+                else:
+                    st.write("")
+
+                # Alocando dados coletados na memória temporária do loop
+                dados_brutos_membro[art_id] = {
+                    "nome": art_nome,
+                    "status": status,
+                    "tem_ateromatose": tem_ateromatose,
+                    "desc_ateromatose": desc_ateromatose,
+                    "pvs_pre": pvs_pre,
+                    "pvs_max": pvs_max,
+                    "pvs_distal": pvs_distal,
+                    "razao_v": razao_v,
+                    "seg_afetado": seg_afetado,
+                    "grau_estenose": grau_estenose_estimado,
+                    "comp_placa": comp_placa,
+                    "onda_sitio": onda_sitio if not is_estenose and not is_ocluido else "",
+                    "onda_pos": onda_pos,
+                    "reenchimento_colat": reenchimento_colat,
+                    "origem_reenchimento": origem_reenchimento,
+                    "direcao_fluxo": direcao_fluxo,
+                    "onda_reenchimento": onda_reenchimento,
+                    "propagar_fluxo_distal": propagar_fluxo_distal
+                }
+            st.markdown("<hr style='margin: 8px 0px; border-top: 1px dashed #ddd;' />", unsafe_allow_html=True)
+
+        # SEGUNDO PASSO: Processamento pós-interatividade para aplicar a cascata hemodinâmica distal
+        dados_finais_membro = {}
+        for art_id in ORDEM_ANATOMICA:
+            info_vaso = dados_brutos_membro[art_id]
+
+            # Varre se alguma artéria acima na árvore anatômica exigiu propagação forçada
+            idx_atual = ORDEM_ANATOMICA.index(art_id)
+            for vaso_prop_id, padrao_forcado in propagacoes_ativas.items():
+                idx_prop = ORDEM_ANATOMICA.index(vaso_prop_id)
+                # Se o vaso atual está abaixo (distal) do vaso causador da cascata e está como "Normal"
+                if idx_atual > idx_prop and info_vaso["status"] == "Normal":
+                    info_vaso["onda_sitio"] = padrao_forcado  # Altera dinamicamente o fluxo livre
+                    info_vaso["detalhes_cascata"] = f"Apresenta padrão de fluxo modificado secundário à lesão proximal na {dados_brutos_membro[vaso_prop_id]['nome']}."
+
+            dados_finais_membro[art_id] = info_vaso
+
+        dados_membros[m_nome] = dados_finais_membro
+
+st.markdown("---")
+
+# --- FUNCAO DE MONTAGEM DO DOCUMENTO WORD ---
+def construir_laudo_arterial_word(membros_lista, dados_m_dict):
+    doc = Document()
+    doc.styles['Normal'].font.name = fonte_doc
+    doc.styles['Normal'].font.size = Pt(tamanho_fonte)
+
+    def add_p(text, bold_pre=None, align=WD_ALIGN_PARAGRAPH.LEFT, space_before=0, space_after=4, bullet=False):
+        p = doc.add_paragraph(style='List Bullet' if bullet else 'Normal')
+        p.alignment = align
+        p.paragraph_format.line_spacing = espacamento_linhas
+        p.paragraph_format.space_before = Pt(space_before)
+        p.paragraph_format.space_after = Pt(space_after)
+        if bold_pre:
+            r_p = p.add_run(bold_pre)
+            r_p.bold = True
+        p.add_run(text)
+
+    sufixo_exame = "DOS MEMBROS INFERIORES" if formato_exame == "Bilateral (Laudo Único)" else f"DO MEMBRO INFERIOR {membros_lista[0]}"
+    titulo_exame = f"DUPLEX SCAN ARTERIAL {sufixo_exame}"
+    add_p("", bold_pre=titulo_exame, space_after=12)
+    add_p(f" {nome_paciente}", bold_pre="Paciente:")
+
+    add_p("TÉCNICA", space_before=12, space_after=6)
+    add_p("Exame realizado com mapeamento duplex colorido e análise espectral das velocidades sistólicas, utilizando transdutor linear de alta frequência. Paciente avaliado em decúbito dorsal horizontal.", space_after=12)
+
+    conclusoes_lista = []
+
+    for m_nome in membros_lista:
+        add_p("⸻", space_after=12)
+        if formato_exame == "Bilateral (Laudo Único)":
+            add_p(f"RELATÓRIO TÉCNICO – MEMBRO INFERIOR {m_nome}", space_after=12)
+        else:
+            add_p("RELATÓRIO TÉCNICO", space_after=12)
+
+        m_dados = dados_m_dict[m_nome]
+
+        for art_id, info in m_dados.items():
+            txt_art = f"A {info['nome']} apresenta-se "
+
+            # Injeção de texto base sobre a parede (Ateromatose difusa) se ativa
+            prefixo_parede = ""
+            if info["tem_ateromatose"]:
+                prefixo_parede = f"com evidências de ateromatose difusa caracterizada por {info['desc_ateromatose']}, "
+
+            if info["status"] == "Normal":
+                txt_art += f"{prefixo_parede}pérvia, com paredes regulares e exibindo padrão de fluxo {info['onda_sitio'].lower()}, sem estenoses localizadas focalmente."
+                if "detalhes_cascata" in info:
+                    txt_art += f" {info['detalhes_cascata']}"
+
+            elif info["status"] == "Ocluído":
+                txt_art += f"{prefixo_parede}OCLUIDA, com completa ausência de sinal ao mapeamento Doppler colorido e espectral no segmento avaliado."
+                if info["reenchimento_colat"]:
+                    txt_art += (f" Nota-se reenchimento no leito distal alimentado {info['origem_reenchimento']}, "
+                                f"apresentando direção de fluxo {info['direcao_fluxo']} e padrão de onda {info['onda_reenchimento'].lower()}.")
+                    conclusoes_lista.append((m_nome, f"Oclusão da {info['nome']} com reenchimento distal {info['origem_reenchimento']} ({info['direcao_fluxo']}/{info['onda_reenchimento']})."))
+                else:
+                    txt_art += " Não há sinais de reenchimento arterial distal evidente por circulação colateral significativa."
+                    conclusoes_lista.append((m_nome, f"Oclusão da {info['nome']} sem sinais de reenchimento distal."))
+
+            else:
+                # Caso seja ESTENOSE
+                loc_texto = info['seg_afetado'].lower()
+                txt_art += (f"{prefixo_parede}pérvia, identificando-se lesão estenosante focal causada por uma {info['comp_placa'].lower()} localizada no {loc_texto}, caracterizando {info['grau_estenose'].lower()}. "
+                            f"Ao Doppler espectral, registra-se PVS pré-estenótica de {info['pvs_pre']:.1f} cm/s, PVS no ponto de maior estreitamento de {info['pvs_max']:.1f} cm/s "
+                            f"(Razão de Velocidades: {info['razao_v']:.2f}) e PVS distal de {info['pvs_distal']:.1f} cm/s.")
+
+                if info["onda_pos"]:
+                    txt_art += f" O padrão de fluxo no segmento imediatamente pós-estenótico exibe morfologia {info['onda_pos'].lower()}."
+
+                sufixo_concl = " com repercussão em cascata nos vasos distais" if info["propagar_fluxo_distal"] else ""
+                conclusoes_lista.append((m_nome, f"{info['grau_estenose']} por {info['comp_placa'].lower()} na {info['nome']} ({loc_texto}) - Fluxo pós-lesão: {info['onda_pos'].lower()}{sufixo_concl}."))
+
+            add_p(txt_art, space_after=6)
+
+    # IMPRESSÃO DIAGNÓSTICA (CONCLUSÃO)
+    add_p("⸻", space_before=12, space_after=6)
+    add_p("IMPRESSÃO DIAGNÓSTICA", space_after=6)
+
+    # Processa se há relato de ateromatose geral no exame para enriquecer a conclusão
+    tem_qualquer_ateroma = any(dados_m_dict[m][art_id]["tem_ateromatose"] for m in membros_lista for _, art_id in ARTERIAS_LISTA)
+
+    if not conclusoes_lista:
+        msg_normal = "Exame dentro dos padrões da normalidade. Sistema arterial dos membros inferiores pérvio, com fluxos trifásicos preservados."
+        if tem_qualquer_ateroma:
+            msg_normal += " Sinais de ateromatose difusa parietal sem repercussão luminal estrutural."
+        add_p(msg_normal, bullet=True)
+    else:
+        if tem_qualquer_ateroma:
+            add_p("Sinais macroscópicos de ateromatose arterial difusa de padrão parietal nos segmentos examinados.", bullet=True)
+        for m_origem, conclusao_txt in conclusoes_lista:
+            prefixo = f"[{m_origem}] " if formato_exame == "Bilateral (Laudo Único)" else ""
+            add_p(f"{prefixo}{conclusao_txt}", bullet=True)
+
+    doc.add_paragraph().paragraph_format.space_before = Pt(25)
+    add_p(f"{nome_medico}\nCRM {crm_medico}", align=WD_ALIGN_PARAGRAPH.CENTER)
+
+    return doc
+
+# --- PROCESSAMENTO DO BOTAO DE EMISSAO ---
+if st.button("🚀 Gerar Laudo Arterial Completo", use_container_width=True):
+    doc_gerado = construir_laudo_arterial_word(membros_para_processar, dados_membros)
+    buf = BytesIO()
+    doc_gerado.save(buf)
+    buf.seek(0)
+
+    st.success("Laudo Arterial estruturado e atualizado com sucesso!")
+    st.download_button(
+        label="📥 Baixar Laudo Arterial (.docx)",
+        data=buf,
+        file_name="Laudo_Doppler_Arterial_MMII.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        use_container_width=True
+    )

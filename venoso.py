@@ -10,5 +10,6 @@ pg = st.navigation([
     st.Page("Inicio.py",                          title="Início",             icon="🏠"),
     st.Page("pages/01_Arterial_Carotidas.py",     title="Arterial Carótidas", icon="⚕️"),
     st.Page("pages/02_Venoso_MMII.py",            title="Venoso MMII",        icon="🌀"),
+    st.Page("pages/03_Arterial_MMII.py",          title="Arterial MMII",      icon="🫀"),
 ])
 pg.run()
