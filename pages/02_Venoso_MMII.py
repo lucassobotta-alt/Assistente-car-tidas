@@ -1313,6 +1313,7 @@ def construir_laudo_word(membros_lista, dados_m_dict):
             medidas_vsm = [("Junção safenofemoral:", dm['jsf_mm']), ("Terço proximal da coxa:", dm['vsm_prox_coxa']), ("Terço médio da coxa:", dm['vsm_med_coxa']), ("Terço distal da coxa:", dm['vsm_dist_coxa']), ("Terço proximal da perna:", dm['vsm_prox_perna']), ("Terço médio da perna:", dm['vsm_med_perna']), ("Terço distal da perna:", dm['vsm_dist_perna'])]
             medidas_vsm_ativas = [(lbl, val) for lbl, val in medidas_vsm if str(val).strip()]
             if medidas_vsm_ativas:
+                add_p("Medidas da veia safena magna", space_before=6, space_after=4)
                 for lbl, val in medidas_vsm_ativas: add_p(f" {val} mm", bold_pre=lbl, bullet=True)
 
         # 2.2 VEIA SAFENA PARVA (VSP)
@@ -1358,6 +1359,7 @@ def construir_laudo_word(membros_lista, dados_m_dict):
             ]
             medidas_vsp_ativas = [(lbl, val) for lbl, val in medidas_vsp if str(val).strip()]
             if medidas_vsp_ativas:
+                add_p("Medidas da veia safena parva", space_before=6, space_after=4)
                 for lbl, val in medidas_vsp_ativas: add_p(f" {val} mm", bold_pre=lbl, bullet=True)
 
         # 2.3 VEIAS PERFURANTES INCOMPETENTES RELEVANTES
