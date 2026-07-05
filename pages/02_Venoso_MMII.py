@@ -1430,11 +1430,10 @@ def construir_laudo_word(membros_lista, dados_m_dict):
             elif _ve_origem == "Refluxo de origem ciática":
                 _subtipo = _veitem.get("ciatica_subtipo", "Varizes acompanhando o trajeto do nervo ciático")
                 if _subtipo == "Veia ciática persistente":
-                    add_p(f"Identificam-se varizes extrassafênicas em {_ve_loc}, originadas a partir de veia ciática persistente.", space_before=6)
-                    conclusoes_lista.append((m_nome, f"Varizes extrassafênicas em {_ve_loc} por veia ciática persistente."))
+                    add_p("Veia ciática persistente, com trajeto acompanhando o nervo ciático na face posterior da coxa e com deságue para veias varicosas na face posterior da perna.", space_before=6)
                 else:
-                    add_p(f"Identificam-se varizes extrassafênicas em {_ve_loc}, acompanhando o trajeto do nervo ciático, compatíveis com refluxo de origem ciática.", space_before=6)
-                    conclusoes_lista.append((m_nome, f"Varizes extrassafênicas em {_ve_loc} acompanhando o trajeto do nervo ciático."))
+                    add_p("Redes varicosas acompanhando o trajeto do nervo ciático na face posterior da coxa, notando-se contiguidade com varizes na face posterolateral de perna.", space_before=6)
+                conclusoes_lista.append((m_nome, f"Varizes de face posterior com refluxo originado em veias profundas no compartimento ciático da coxa."))
             else:
                 _pontos = _veitem.get("pelvico_pontos", [])
                 if _pontos:
