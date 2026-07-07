@@ -31,13 +31,13 @@ else:
 
 # --- LISTA E ORDEM ANATOMICA DAS ARTERIAS ---
 ARTERIAS_LISTA = [
-    ("A. Femoral Comum", "AFC"),
-    ("A. Femoral Profunda", "AFP"),
-    ("A. Femoral Superficial", "AFS"),
-    ("A. Poplítea", "APOP"),
-    ("A. Tibial Anterior", "ATA"),
-    ("A. Tibial Posterior", "ATP"),
-    ("A. Fibular", "AFIB")
+    ("femoral comum", "AFC"),
+    ("femoral profunda", "AFP"),
+    ("femoral superficial", "AFS"),
+    ("poplítea", "APOP"),
+    ("tibial anterior", "ATA"),
+    ("tibial posterior", "ATP"),
+    ("fibular", "AFIB")
 ]
 
 # Dicionário de ordem anatômica para guiar a propagação distal em cascata
@@ -56,6 +56,19 @@ PADROES_POS_ESTENOTICO = [
     "Monofásico sem diástole",
     "Monofásico tardus parvus"
 ]
+
+# Descrição padronizada do padrão de fluxo para o texto do laudo (todas as artérias seguem o mesmo modelo)
+DESCRICOES_FLUXO = {
+    "Trifásico": "anterógrado, hiperresistente, com onda espectral multifásica",
+    "Bifásico": "anterógrado, de resistência intermediária, com onda espectral bifásica",
+    "Monofásico de alta resistência": "anterógrado, hiperresistente, com onda espectral monofásica",
+    "Monofásico de baixa resistência": "anterógrado, de baixa resistência, com onda espectral monofásica",
+    "Monofásico sem diástole": "anterógrado, com onda espectral monofásica, sem componente diastólico",
+    "Monofásico tardus parvus": "anterógrado, com onda espectral monofásica de morfologia tardus parvus",
+}
+
+def descrever_fluxo(padrao_onda):
+    return DESCRICOES_FLUXO.get(padrao_onda, DESCRICOES_FLUXO["Trifásico"])
 
 SEGMENTOS_ARTERIA = ["Segmento Proximal", "Segmento Médio", "Segmento Distal", "Todo o trajeto"]
 
@@ -78,7 +91,7 @@ for idx, m_nome in enumerate(membros_para_processar):
         propagacoes_ativas = {}
 
         for art_nome, art_id in ARTERIAS_LISTA:
-            st.markdown(f"**📍 {art_nome}**")
+            st.markdown(f"**📍 Artéria {art_nome.title()}**")
 
             c1, c2, c3, c4 = st.columns([1.5, 1.5, 1.8, 2.2])
 
@@ -113,7 +126,7 @@ for idx, m_nome in enumerate(membros_para_processar):
                     pvs_max = st.number_input("PVS Maior Estreitamento (cm/s):", min_value=1.0, max_value=600.0, value=150.0, step=5.0, key=f"pvs_max_{art_id}_{m_nome}")
                     pvs_distal = st.number_input("PVS Distal à Estenose (cm/s):", min_value=0.0, max_value=600.0, value=40.0, step=5.0, key=f"pvs_distal_{art_id}_{m_nome}")
                 elif not is_ocluido:
-                    val_sugerido = 90.0 if "Femoral" in art_nome else 60.0
+                    val_sugerido = 90.0 if "femoral" in art_nome else 60.0
                     pvs_max = st.number_input("PVS (cm/s):", min_value=0.0, max_value=600.0, value=val_sugerido, key=f"pvs_max_{art_id}_{m_nome}")
                 else:
                     st.markdown("<p style='color:red; margin-top:20px; font-weight:bold;'>Oclusão Luminal</p>", unsafe_allow_html=True)
@@ -241,7 +254,7 @@ for idx, m_nome in enumerate(membros_para_processar):
                 # Se o vaso atual está abaixo (distal) do vaso causador da cascata e está como "Normal"
                 if idx_atual > idx_prop and info_vaso["status"] == "Normal":
                     info_vaso["onda_sitio"] = padrao_forcado  # Altera dinamicamente o fluxo livre
-                    info_vaso["detalhes_cascata"] = f"Apresenta padrão de fluxo modificado secundário à lesão proximal na {dados_brutos_membro[vaso_prop_id]['nome']}."
+                    info_vaso["detalhes_cascata"] = f"Apresenta padrão de fluxo modificado secundário à lesão proximal na artéria {dados_brutos_membro[vaso_prop_id]['nome']}."
 
             dados_finais_membro[art_id] = info_vaso
 
@@ -286,7 +299,7 @@ def construir_laudo_arterial_word(membros_lista, dados_m_dict):
         m_dados = dados_m_dict[m_nome]
 
         for art_id, info in m_dados.items():
-            txt_art = f"A {info['nome']} apresenta-se "
+            txt_art = f"Artéria {info['nome']}, "
 
             # Injeção de texto base sobre a parede (Ateromatose difusa) se ativa
             prefixo_parede = ""
@@ -294,7 +307,7 @@ def construir_laudo_arterial_word(membros_lista, dados_m_dict):
                 prefixo_parede = f"com evidências de ateromatose difusa caracterizada por {info['desc_ateromatose']}, "
 
             if info["status"] == "Normal":
-                txt_art += f"{prefixo_parede}pérvia, com paredes regulares e exibindo padrão de fluxo {info['onda_sitio'].lower()}, sem estenoses localizadas focalmente."
+                txt_art += f"{prefixo_parede}pérvia, com trajeto regular, apresentando fluxo {descrever_fluxo(info['onda_sitio'])}."
                 if "detalhes_cascata" in info:
                     txt_art += f" {info['detalhes_cascata']}"
 
@@ -303,10 +316,10 @@ def construir_laudo_arterial_word(membros_lista, dados_m_dict):
                 if info["reenchimento_colat"]:
                     txt_art += (f" Nota-se reenchimento no leito distal alimentado {info['origem_reenchimento']}, "
                                 f"apresentando direção de fluxo {info['direcao_fluxo']} e padrão de onda {info['onda_reenchimento'].lower()}.")
-                    conclusoes_lista.append((m_nome, f"Oclusão da {info['nome']} com reenchimento distal {info['origem_reenchimento']} ({info['direcao_fluxo']}/{info['onda_reenchimento']})."))
+                    conclusoes_lista.append((m_nome, f"Oclusão da artéria {info['nome']} com reenchimento distal {info['origem_reenchimento']} ({info['direcao_fluxo']}/{info['onda_reenchimento']})."))
                 else:
                     txt_art += " Não há sinais de reenchimento arterial distal evidente por circulação colateral significativa."
-                    conclusoes_lista.append((m_nome, f"Oclusão da {info['nome']} sem sinais de reenchimento distal."))
+                    conclusoes_lista.append((m_nome, f"Oclusão da artéria {info['nome']} sem sinais de reenchimento distal."))
 
             else:
                 # Caso seja ESTENOSE
@@ -319,7 +332,7 @@ def construir_laudo_arterial_word(membros_lista, dados_m_dict):
                     txt_art += f" O padrão de fluxo no segmento imediatamente pós-estenótico exibe morfologia {info['onda_pos'].lower()}."
 
                 sufixo_concl = " com repercussão em cascata nos vasos distais" if info["propagar_fluxo_distal"] else ""
-                conclusoes_lista.append((m_nome, f"{info['grau_estenose']} por {info['comp_placa'].lower()} na {info['nome']} ({loc_texto}) - Fluxo pós-lesão: {info['onda_pos'].lower()}{sufixo_concl}."))
+                conclusoes_lista.append((m_nome, f"{info['grau_estenose']} por {info['comp_placa'].lower()} na artéria {info['nome']} ({loc_texto}) - Fluxo pós-lesão: {info['onda_pos'].lower()}{sufixo_concl}."))
 
             add_p(txt_art, space_after=6)
 
