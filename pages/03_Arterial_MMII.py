@@ -331,8 +331,11 @@ def construir_laudo_arterial_word(membros_lista, dados_m_dict):
 
             if info["status"] == "Normal":
                 txt_art += f"{prefixo_parede}pérvia, com trajeto regular, apresentando fluxo {descrever_fluxo(info['onda_sitio'])}."
-                if "detalhes_cascata" in info:
+                tem_cascata = "detalhes_cascata" in info
+                if tem_cascata:
                     txt_art += f" {info['detalhes_cascata']}"
+                if not tem_cascata and info["onda_sitio"] != "Trifásico":
+                    conclusoes_lista.append((m_nome, f"Padrão de fluxo {info['onda_sitio'].lower()} na artéria {info['nome']}, sem lesão estenosante focal identificada."))
 
             elif info["status"] == "Ocluído":
                 txt_art += f"{prefixo_parede}OCLUIDA, com completa ausência de sinal ao mapeamento Doppler colorido e espectral no segmento avaliado."
@@ -354,8 +357,9 @@ def construir_laudo_arterial_word(membros_lista, dados_m_dict):
                 if info["onda_pos"]:
                     txt_art += f" O padrão de fluxo no segmento imediatamente pós-estenótico exibe morfologia {info['onda_pos'].lower()}."
 
-                sufixo_concl = " com repercussão em cascata nos vasos distais" if info["propagar_fluxo_distal"] else ""
-                conclusoes_lista.append((m_nome, f"{info['grau_estenose']} por {info['comp_placa'].lower()} na artéria {info['nome']} ({loc_texto}) - Fluxo pós-lesão: {info['onda_pos'].lower()}{sufixo_concl}."))
+                if info["grau_estenose"] != "Estenose leve (< 50%)":
+                    sufixo_concl = " com repercussão em cascata nos vasos distais" if info["propagar_fluxo_distal"] else ""
+                    conclusoes_lista.append((m_nome, f"{info['grau_estenose']} por {info['comp_placa'].lower()} na artéria {info['nome']} ({loc_texto}) - Fluxo pós-lesão: {info['onda_pos'].lower()}{sufixo_concl}."))
 
             add_p(txt_art, space_after=6)
 
@@ -367,7 +371,9 @@ def construir_laudo_arterial_word(membros_lista, dados_m_dict):
     tem_qualquer_ateroma = any(dados_m_dict[m][art_id]["tem_ateromatose"] for m in membros_lista for _, art_id in ARTERIAS_LISTA)
 
     if not conclusoes_lista:
-        msg_normal = "Exame dentro dos padrões da normalidade. Sistema arterial dos membros inferiores pérvio, com fluxos trifásicos preservados."
+        msg_normal = ("Sistema arterial fêmoro-poplíteo-tibial livre de espessamentos parietais significativos, "
+                      "tortuosidades e dilatações. Padrão e velocidades de fluxo compatíveis com ausência de "
+                      "obstruções, lesões estenosantes significativas e comunicações artério-venosas.")
         if tem_qualquer_ateroma:
             msg_normal += " Sinais de ateromatose difusa parietal sem repercussão luminal estrutural."
         add_p(msg_normal, bullet=True)
