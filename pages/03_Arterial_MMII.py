@@ -14,14 +14,27 @@ with st.sidebar:
     fonte_doc = st.selectbox("Fonte do Documento:", ["Arial", "Calibri", "Times New Roman"])
     tamanho_fonte = st.slider("Tamanho Texto (pt):", 10, 14, 11)
     espacamento_linhas = st.slider("Espaçamento:", 1.0, 1.5, 1.15)
+    modo_saida = st.radio(
+        "Modo de saída do laudo:",
+        ["Somente DOCX", "Somente Visualização", "Visualização + DOCX"],
+        index=2
+    )
 
     st.markdown("---")
-    nome_medico = st.text_input("Médico:", "Lucas Santos Guimarães")
-    crm_medico = st.text_input("CRM:", "4061")
+    st.markdown("### ✍️ Identidade & Assinatura")
+    incluir_identidade = st.toggle("Incluir identidade no laudo", value=False)
+    nome_clinica = st.text_input("Cabeçalho / Nome da Clínica:", placeholder="Ex: Instituto de Diagnóstico Vascular")
+    nome_medico = st.text_input("Nome do Médico:", "Lucas Santos Guimarães")
+    colcrm1, colcrm2 = st.columns([2, 1])
+    with colcrm1:
+        crm_medico = st.text_input("CRM:", "4061")
+    with colcrm2:
+        crm_uf = st.selectbox("UF", ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"], index=25)
+    rqe_medico = st.text_input("RQE:", "")
 
 # --- IDENTIFICACAO DO PACIENTE ---
-nome_paciente = st.text_input("Nome do Paciente:", "Paciente Exemplo Arterial")
-formato_exame = st.selectbox("Tipo de Exame:", ["Unilateral", "Bilateral (Laudo Único)"])
+nome_paciente = st.text_input("Nome do Paciente:", "")
+formato_exame = st.selectbox("Tipo de Exame:", ["Unilateral", "Bilateral (Laudos Separados)", "Bilateral (Laudo Único)"])
 
 if formato_exame == "Unilateral":
     lado_sel = st.selectbox("Selecione o Lado Avaliado:", ["DIREITO", "ESQUERDO"])
@@ -279,10 +292,20 @@ def construir_laudo_arterial_word(membros_lista, dados_m_dict):
             r_p.bold = True
         p.add_run(text)
 
+    if nome_clinica.strip():
+        p_cl = doc.add_paragraph()
+        p_cl.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r_cl = p_cl.add_run(nome_clinica.upper())
+        r_cl.bold = True
+        r_cl.font.name = fonte_doc
+        r_cl.font.size = Pt(tamanho_fonte + 2)
+        doc.add_paragraph().paragraph_format.space_after = Pt(8)
+
     sufixo_exame = "DOS MEMBROS INFERIORES" if formato_exame == "Bilateral (Laudo Único)" else f"DO MEMBRO INFERIOR {membros_lista[0]}"
     titulo_exame = f"DUPLEX SCAN ARTERIAL {sufixo_exame}"
     add_p("", bold_pre=titulo_exame, space_after=12)
-    add_p(f" {nome_paciente}", bold_pre="Paciente:")
+    if nome_paciente.strip():
+        add_p(f" {nome_paciente}", bold_pre="Paciente:")
 
     add_p("TÉCNICA", space_before=12, space_after=6)
     add_p("Exame realizado com mapeamento duplex colorido e análise espectral das velocidades sistólicas, utilizando transdutor linear de alta frequência. Paciente avaliado em decúbito dorsal horizontal.", space_after=12)
@@ -355,23 +378,49 @@ def construir_laudo_arterial_word(membros_lista, dados_m_dict):
             prefixo = f"[{m_origem}] " if formato_exame == "Bilateral (Laudo Único)" else ""
             add_p(f"{prefixo}{conclusao_txt}", bullet=True)
 
-    doc.add_paragraph().paragraph_format.space_before = Pt(25)
-    add_p(f"{nome_medico}\nCRM {crm_medico}", align=WD_ALIGN_PARAGRAPH.CENTER)
+    if incluir_identidade and (nome_medico or crm_medico):
+        doc.add_paragraph().paragraph_format.space_before = Pt(25)
+        p_assin = doc.add_paragraph()
+        p_assin.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_assin.paragraph_format.line_spacing = espacamento_linhas
+        if nome_medico:
+            r = p_assin.add_run(f"{nome_medico}\n")
+            r.bold = True
+        if crm_medico:
+            p_assin.add_run(f"CRM-{crm_uf} {crm_medico}\n")
+        if rqe_medico.strip():
+            p_assin.add_run(f"RQE {rqe_medico}")
 
     return doc
 
 # --- PROCESSAMENTO DO BOTAO DE EMISSAO ---
-if st.button("🚀 Gerar Laudo Arterial Completo", use_container_width=True):
-    doc_gerado = construir_laudo_arterial_word(membros_para_processar, dados_membros)
-    buf = BytesIO()
-    doc_gerado.save(buf)
-    buf.seek(0)
-
+def _exibir_doc(doc, buf, nome_arquivo, label_download):
     st.success("Laudo Arterial estruturado e atualizado com sucesso!")
-    st.download_button(
-        label="📥 Baixar Laudo Arterial (.docx)",
-        data=buf,
-        file_name="Laudo_Doppler_Arterial_MMII.docx",
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        use_container_width=True
-    )
+    if modo_saida in ["Somente Visualização", "Visualização + DOCX"]:
+        texto_viz = "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+        st.markdown("## 👁️ Visualização do Laudo")
+        st.text_area("Laudo Gerado", value=texto_viz, height=600)
+    if modo_saida in ["Somente DOCX", "Visualização + DOCX"]:
+        st.download_button(
+            label_download,
+            buf,
+            nome_arquivo,
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True
+        )
+
+if st.button("🚀 Gerar Laudo Arterial Completo", use_container_width=True):
+    if formato_exame == "Bilateral (Laudos Separados)":
+        for m_nome in ["DIREITO", "ESQUERDO"]:
+            doc_sep = construir_laudo_arterial_word([m_nome], dados_membros)
+            buf = BytesIO()
+            doc_sep.save(buf)
+            buf.seek(0)
+            _exibir_doc(doc_sep, buf, f"Laudo_Doppler_Arterial_MMII_{m_nome}.docx",
+                        f"📥 Baixar Laudo Membro {m_nome} (.docx)")
+    else:
+        doc_gerado = construir_laudo_arterial_word(membros_para_processar, dados_membros)
+        buf = BytesIO()
+        doc_gerado.save(buf)
+        buf.seek(0)
+        _exibir_doc(doc_gerado, buf, "Laudo_Doppler_Arterial_MMII.docx", "📥 Baixar Laudo Arterial (.docx)")
