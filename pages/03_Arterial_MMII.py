@@ -61,14 +61,13 @@ PADROES_ONDA_SITIO = [
     "Bifásico",
     "Monofásico de alta resistência",
     "Monofásico de baixa resistência",
+    "Monofásico sem diástole",
+    "Monofásico tardus parvus",
 ]
 
-PADROES_POS_ESTENOTICO = [
-    "Trifásico",
-    "Bifásico",
-    "Monofásico sem diástole",
-    "Monofásico tardus parvus"
-]
+# Mesma lista de padrões: garante que qualquer valor propagado por cascata
+# hemodinâmica seja sempre uma opção válida no seletor "Padrão de Onda" das artérias distais
+PADROES_POS_ESTENOTICO = PADROES_ONDA_SITIO
 
 # Descrição padronizada do padrão de fluxo para o texto do laudo (todas as artérias seguem o mesmo modelo)
 DESCRICOES_FLUXO = {
@@ -82,6 +81,14 @@ DESCRICOES_FLUXO = {
 
 def descrever_fluxo(padrao_onda):
     return DESCRICOES_FLUXO.get(padrao_onda, DESCRICOES_FLUXO["Trifásico"])
+
+def formatar_segmentos(segmentos):
+    nomes = [s.replace("Terço ", "").lower() for s in segmentos]
+    if not nomes:
+        return "segmento avaliado"
+    if len(nomes) == 1:
+        return f"terço {nomes[0]}"
+    return f"terços {', '.join(nomes[:-1])} e {nomes[-1]}"
 
 SEGMENTOS_ARTERIA = ["Segmento Proximal", "Segmento Médio", "Segmento Distal", "Todo o trajeto"]
 
@@ -151,6 +158,8 @@ for idx, m_nome in enumerate(membros_para_processar):
                 direcao_fluxo = ""
                 onda_reenchimento = ""
                 reenchimento_colat = False
+                segs_ocluidos = []
+                seg_revasc = ""
 
                 if is_estenose:
                     seg_afetado = st.selectbox(
@@ -165,8 +174,19 @@ for idx, m_nome in enumerate(membros_para_processar):
                         key=f"ondapos_{art_id}_{m_nome}"
                     )
                 elif is_ocluido:
+                    segs_ocluidos = st.multiselect(
+                        "Segmento(s) Ocluído(s):",
+                        ["Terço Proximal", "Terço Médio", "Terço Distal"],
+                        default=["Terço Proximal", "Terço Médio", "Terço Distal"],
+                        key=f"segs_ocl_{art_id}_{m_nome}"
+                    )
                     reenchimento_colat = st.checkbox("Há reenchimento distal?", value=True, key=f"colat_{art_id}_{m_nome}")
                     if reenchimento_colat:
+                        seg_revasc = st.selectbox(
+                            "Segmento da Revascularização:",
+                            ["Terço Proximal", "Terço Médio", "Terço Distal"],
+                            key=f"seg_revasc_{art_id}_{m_nome}"
+                        )
                         origem_reenchimento = st.selectbox(
                             "Origem do Reenchimento:",
                             ["por artéria colateral", "por fluxo retrógrado de ramo arterial"],
@@ -183,6 +203,15 @@ for idx, m_nome in enumerate(membros_para_processar):
                             key=f"onda_reench_{art_id}_{m_nome}"
                         )
                 else:
+                    # Se alguma artéria proximal propagou fluxo alterado em cascata, força
+                    # o valor deste seletor antes de renderizá-lo para refletir automaticamente
+                    idx_atual_onda = ORDEM_ANATOMICA.index(art_id)
+                    onda_forcada = None
+                    for vaso_prop_id, padrao_forcado in propagacoes_ativas.items():
+                        if ORDEM_ANATOMICA.index(vaso_prop_id) < idx_atual_onda:
+                            onda_forcada = padrao_forcado
+                    if onda_forcada:
+                        st.session_state[f"onda_{art_id}_{m_nome}"] = onda_forcada
                     onda_sitio = st.selectbox("Padrão de Onda:", PADROES_ONDA_SITIO, key=f"onda_{art_id}_{m_nome}")
 
             with c4:
@@ -251,7 +280,9 @@ for idx, m_nome in enumerate(membros_para_processar):
                     "origem_reenchimento": origem_reenchimento,
                     "direcao_fluxo": direcao_fluxo,
                     "onda_reenchimento": onda_reenchimento,
-                    "propagar_fluxo_distal": propagar_fluxo_distal
+                    "propagar_fluxo_distal": propagar_fluxo_distal,
+                    "segs_ocluidos": segs_ocluidos,
+                    "seg_revasc": seg_revasc
                 }
             st.markdown("<hr style='margin: 8px 0px; border-top: 1px dashed #ddd;' />", unsafe_allow_html=True)
 
@@ -338,14 +369,16 @@ def construir_laudo_arterial_word(membros_lista, dados_m_dict):
                     conclusoes_lista.append((m_nome, f"Padrão de fluxo {info['onda_sitio'].lower()} na artéria {info['nome']}, sem lesão estenosante focal identificada."))
 
             elif info["status"] == "Ocluído":
-                txt_art += f"{prefixo_parede}OCLUIDA, com completa ausência de sinal ao mapeamento Doppler colorido e espectral no segmento avaliado."
+                segs_ocl_texto = formatar_segmentos(info["segs_ocluidos"])
+                txt_art += f"{prefixo_parede}OCLUIDA no {segs_ocl_texto}, com completa ausência de sinal ao mapeamento Doppler colorido e espectral."
                 if info["reenchimento_colat"]:
-                    txt_art += (f" Nota-se reenchimento no leito distal alimentado {info['origem_reenchimento']}, "
+                    seg_revasc_texto = info["seg_revasc"].lower()
+                    txt_art += (f" Nota-se reenchimento no {seg_revasc_texto}, alimentado {info['origem_reenchimento']}, "
                                 f"apresentando direção de fluxo {info['direcao_fluxo']} e padrão de onda {info['onda_reenchimento'].lower()}.")
-                    conclusoes_lista.append((m_nome, f"Oclusão da artéria {info['nome']} com reenchimento distal {info['origem_reenchimento']} ({info['direcao_fluxo']}/{info['onda_reenchimento']})."))
+                    conclusoes_lista.append((m_nome, f"Oclusão do {segs_ocl_texto} da artéria {info['nome']} com reenchimento no {seg_revasc_texto}, alimentado {info['origem_reenchimento']} ({info['direcao_fluxo']}/{info['onda_reenchimento']})."))
                 else:
                     txt_art += " Não há sinais de reenchimento arterial distal evidente por circulação colateral significativa."
-                    conclusoes_lista.append((m_nome, f"Oclusão da artéria {info['nome']} sem sinais de reenchimento distal."))
+                    conclusoes_lista.append((m_nome, f"Oclusão do {segs_ocl_texto} da artéria {info['nome']} sem sinais de reenchimento distal."))
 
             else:
                 # Caso seja ESTENOSE
