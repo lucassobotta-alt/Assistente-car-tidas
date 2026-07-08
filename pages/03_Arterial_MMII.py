@@ -56,6 +56,9 @@ ARTERIAS_LISTA = [
 # Dicionário de ordem anatômica para guiar a propagação distal em cascata
 ORDEM_ANATOMICA = ["AFC", "AFP", "AFS", "APOP", "ATA", "ATP", "AFIB"]
 
+# Artérias tibiais e fibular não propagam fluxo alterado (não há vasos distais mapeados)
+PODE_PROPAGAR = {"AFC", "AFP", "AFS", "APOP"}
+
 PADROES_ONDA_SITIO = [
     "Trifásico",
     "Bifásico",
@@ -83,14 +86,40 @@ def descrever_fluxo(padrao_onda):
     return DESCRICOES_FLUXO.get(padrao_onda, DESCRICOES_FLUXO["Trifásico"])
 
 def formatar_segmentos(segmentos):
-    nomes = [s.replace("Terço ", "").lower() for s in segmentos]
-    if not nomes:
+    if not segmentos:
         return "segmento avaliado"
+    nomes = [s.lower() for s in segmentos]
     if len(nomes) == 1:
-        return f"terço {nomes[0]}"
-    return f"terços {', '.join(nomes[:-1])} e {nomes[-1]}"
+        return nomes[0]
+    return f"{', '.join(nomes[:-1])} e {nomes[-1]}"
 
-SEGMENTOS_ARTERIA = ["Segmento Proximal", "Segmento Médio", "Segmento Distal", "Todo o trajeto"]
+SEGMENTOS_ARTERIA_PADRAO = ["Segmento Proximal", "Segmento Médio", "Segmento Distal", "Todo o trajeto"]
+SEGMENTOS_ARTERIA_POPLITEA = [
+    "Segmento Supra-articular",
+    "Segmento Médio (Nível da Interlinha Articular)",
+    "Segmento Distal (Infra-articular)",
+    "Todo o trajeto"
+]
+
+def obter_segmentos_estenose(art_id):
+    if art_id == "APOP":
+        return SEGMENTOS_ARTERIA_POPLITEA
+    return SEGMENTOS_ARTERIA_PADRAO
+
+TERCOS_OCLUSAO_PADRAO = ["Terço Proximal", "Terço Médio", "Terço Distal"]
+TERCOS_OCLUSAO_AFS = ["Terço Proximal", "Terço Médio", "Terço Distal (Canal dos Adutores)"]
+SEGMENTOS_OCLUSAO_POPLITEA = [
+    "Segmento Supra-articular",
+    "Segmento Médio (Nível da Interlinha Articular)",
+    "Segmento Distal (Infra-articular)"
+]
+
+def obter_segmentos_oclusao(art_id):
+    if art_id == "AFS":
+        return TERCOS_OCLUSAO_AFS
+    if art_id == "APOP":
+        return SEGMENTOS_OCLUSAO_POPLITEA
+    return TERCOS_OCLUSAO_PADRAO
 
 dados_membros = {}
 
@@ -164,7 +193,7 @@ for idx, m_nome in enumerate(membros_para_processar):
                 if is_estenose:
                     seg_afetado = st.selectbox(
                         "Localização da Estenose:",
-                        SEGMENTOS_ARTERIA,
+                        obter_segmentos_estenose(art_id),
                         key=f"seg_{art_id}_{m_nome}"
                     )
 
@@ -174,17 +203,18 @@ for idx, m_nome in enumerate(membros_para_processar):
                         key=f"ondapos_{art_id}_{m_nome}"
                     )
                 elif is_ocluido:
+                    segmentos_oclusao_opcoes = obter_segmentos_oclusao(art_id)
                     segs_ocluidos = st.multiselect(
                         "Segmento(s) Ocluído(s):",
-                        ["Terço Proximal", "Terço Médio", "Terço Distal"],
-                        default=["Terço Proximal", "Terço Médio", "Terço Distal"],
+                        segmentos_oclusao_opcoes,
+                        default=segmentos_oclusao_opcoes,
                         key=f"segs_ocl_{art_id}_{m_nome}"
                     )
                     reenchimento_colat = st.checkbox("Há reenchimento distal?", value=True, key=f"colat_{art_id}_{m_nome}")
                     if reenchimento_colat:
                         seg_revasc = st.selectbox(
                             "Segmento da Revascularização:",
-                            ["Terço Proximal", "Terço Médio", "Terço Distal"],
+                            segmentos_oclusao_opcoes,
                             key=f"seg_revasc_{art_id}_{m_nome}"
                         )
                         origem_reenchimento = st.selectbox(
@@ -199,7 +229,7 @@ for idx, m_nome in enumerate(membros_para_processar):
                         )
                         onda_reenchimento = st.selectbox(
                             "Padrão de Onda no Reenchimento:",
-                            ["Trifásico", "Bifásico", "Monofásico"],
+                            PADROES_ONDA_SITIO,
                             key=f"onda_reench_{art_id}_{m_nome}"
                         )
                 else:
@@ -244,7 +274,7 @@ for idx, m_nome in enumerate(membros_para_processar):
                     )
 
                     # Caixa para cascata hemodinâmica total se a estenose for de moderada a severa (Razão >= 2)
-                    if razao_v >= 2.0:
+                    if razao_v >= 2.0 and art_id in PODE_PROPAGAR:
                         propagar_fluxo_distal = st.checkbox(
                             "🛒 Propagar fluxo alterado para todas as artérias distais?",
                             value=False,
@@ -256,6 +286,14 @@ for idx, m_nome in enumerate(membros_para_processar):
                 elif is_ocluido:
                     if reenchimento_colat:
                         st.info(f"Reenchimento ativo {origem_reenchimento}.")
+                        if art_id in PODE_PROPAGAR and onda_reenchimento != "Trifásico":
+                            propagar_fluxo_distal = st.checkbox(
+                                "🛒 Propagar fluxo alterado para todas as artérias distais?",
+                                value=False,
+                                key=f"prop_distal_reench_{art_id}_{m_nome}"
+                            )
+                            if propagar_fluxo_distal:
+                                propagacoes_ativas[art_id] = onda_reenchimento
                     else:
                         st.warning("Ausência completa de fluxo.")
                 else:
@@ -370,7 +408,7 @@ def construir_laudo_arterial_word(membros_lista, dados_m_dict):
 
             elif info["status"] == "Ocluído":
                 segs_ocl_texto = formatar_segmentos(info["segs_ocluidos"])
-                txt_art += f"{prefixo_parede}OCLUIDA no {segs_ocl_texto}, com completa ausência de sinal ao mapeamento Doppler colorido e espectral."
+                txt_art += f"{prefixo_parede}ocluída no {segs_ocl_texto}, com completa ausência de sinal ao mapeamento Doppler colorido e espectral."
                 if info["reenchimento_colat"]:
                     seg_revasc_texto = info["seg_revasc"].lower()
                     txt_art += (f" Nota-se reenchimento no {seg_revasc_texto}, alimentado {info['origem_reenchimento']}, "
