@@ -85,6 +85,22 @@ DESCRICOES_FLUXO = {
 def descrever_fluxo(padrao_onda):
     return DESCRICOES_FLUXO.get(padrao_onda, DESCRICOES_FLUXO["Trifásico"])
 
+# Ordem crescente de gravidade hemodinâmica, usada para apurar a lesão mais
+# alterada dentro de uma série de estenoses consecutivas (em tandem)
+ORDEM_GRAVIDADE_FLUXO = {
+    "Trifásico": 0,
+    "Bifásico": 1,
+    "Monofásico de alta resistência": 2,
+    "Monofásico de baixa resistência": 3,
+    "Monofásico sem diástole": 4,
+    "Monofásico tardus parvus": 4,
+}
+
+def pior_padrao_fluxo(padroes):
+    if not padroes:
+        return "Trifásico"
+    return max(padroes, key=lambda p: ORDEM_GRAVIDADE_FLUXO.get(p, 0))
+
 def formatar_segmentos(segmentos):
     if not segmentos:
         return "segmento avaliado"
@@ -147,7 +163,7 @@ for idx, m_nome in enumerate(membros_para_processar):
             with c1:
                 status = st.selectbox(
                     "Status da Artéria:",
-                    ["Normal", "Com Estenose", "Ocluído"],
+                    ["Normal", "Estenose Focal", "Estenoses Consecutivas", "Ocluído"],
                     key=f"status_{art_id}_{m_nome}"
                 )
 
@@ -161,7 +177,8 @@ for idx, m_nome in enumerate(membros_para_processar):
                         key=f"tipo_ateroma_{art_id}_{m_nome}"
                     )
 
-            is_estenose = status == "Com Estenose"
+            is_estenose_focal = status == "Estenose Focal"
+            is_estenose_consecutiva = status == "Estenoses Consecutivas"
             is_ocluido = status == "Ocluído"
 
             pvs_pre = 0.0
@@ -170,10 +187,12 @@ for idx, m_nome in enumerate(membros_para_processar):
             razao_v = 0.0
 
             with c2:
-                if is_estenose:
+                if is_estenose_focal:
                     pvs_pre = st.number_input("PVS Pré-Estenótico (cm/s):", min_value=1.0, max_value=600.0, value=60.0, step=5.0, key=f"pvs_pre_{art_id}_{m_nome}")
                     pvs_max = st.number_input("PVS Maior Estreitamento (cm/s):", min_value=1.0, max_value=600.0, value=150.0, step=5.0, key=f"pvs_max_{art_id}_{m_nome}")
                     pvs_distal = st.number_input("PVS Distal à Estenose (cm/s):", min_value=0.0, max_value=600.0, value=40.0, step=5.0, key=f"pvs_distal_{art_id}_{m_nome}")
+                elif is_estenose_consecutiva:
+                    st.caption("Defina cada lesão da série na coluna ao lado →")
                 elif not is_ocluido:
                     val_sugerido = 90.0 if "femoral" in art_nome else 60.0
                     pvs_max = st.number_input("PVS (cm/s):", min_value=0.0, max_value=600.0, value=val_sugerido, key=f"pvs_max_{art_id}_{m_nome}")
@@ -189,8 +208,9 @@ for idx, m_nome in enumerate(membros_para_processar):
                 reenchimento_colat = False
                 segs_ocluidos = []
                 seg_revasc = ""
+                lesoes_consecutivas = []
 
-                if is_estenose:
+                if is_estenose_focal:
                     seg_afetado = st.selectbox(
                         "Localização da Estenose:",
                         obter_segmentos_estenose(art_id),
@@ -202,6 +222,33 @@ for idx, m_nome in enumerate(membros_para_processar):
                         PADROES_POS_ESTENOTICO,
                         key=f"ondapos_{art_id}_{m_nome}"
                     )
+                elif is_estenose_consecutiva:
+                    lesoes_key = f"lesoes_consec_{art_id}_{m_nome}"
+                    if lesoes_key not in st.session_state:
+                        st.session_state[lesoes_key] = []
+                    if st.session_state[lesoes_key]:
+                        for li, lesao in enumerate(st.session_state[lesoes_key]):
+                            lc1, lc2 = st.columns([5, 1])
+                            with lc1:
+                                st.caption(f"`{li+1:02d}` {lesao['segmento']} — fluxo distal {lesao['fluxo'].lower()}")
+                            with lc2:
+                                if st.button("❌", key=f"rem_lesao_{art_id}_{m_nome}_{li}"):
+                                    st.session_state[lesoes_key].pop(li)
+                                    st.rerun()
+                    novo_seg_lesao = st.selectbox(
+                        "Segmento da Lesão:",
+                        obter_segmentos_estenose(art_id),
+                        key=f"novo_seg_lesao_{art_id}_{m_nome}"
+                    )
+                    novo_fluxo_lesao = st.selectbox(
+                        "Padrão de Fluxo Distal:",
+                        PADROES_ONDA_SITIO,
+                        key=f"novo_fluxo_lesao_{art_id}_{m_nome}"
+                    )
+                    if st.button("💾 Adicionar Lesão", key=f"add_lesao_{art_id}_{m_nome}"):
+                        st.session_state[lesoes_key].append({"segmento": novo_seg_lesao, "fluxo": novo_fluxo_lesao})
+                        st.rerun()
+                    lesoes_consecutivas = st.session_state[lesoes_key]
                 elif is_ocluido:
                     segmentos_oclusao_opcoes = obter_segmentos_oclusao(art_id)
                     segs_ocluidos = st.multiselect(
@@ -249,7 +296,7 @@ for idx, m_nome in enumerate(membros_para_processar):
                 grau_estenose_estimado = ""
                 propagar_fluxo_distal = False
 
-                if is_estenose:
+                if is_estenose_focal:
                     if pvs_pre > 0:
                         razao_v = pvs_max / pvs_pre
 
@@ -283,6 +330,20 @@ for idx, m_nome in enumerate(membros_para_processar):
                         if propagar_fluxo_distal:
                             propagacoes_ativas[art_id] = onda_pos
 
+                elif is_estenose_consecutiva:
+                    if lesoes_consecutivas:
+                        pior_padrao = pior_padrao_fluxo([l["fluxo"] for l in lesoes_consecutivas])
+                        if art_id in PODE_PROPAGAR and pior_padrao != "Trifásico":
+                            propagar_fluxo_distal = st.checkbox(
+                                "🛒 Propagar fluxo alterado para todas as artérias distais?",
+                                value=False,
+                                key=f"prop_distal_consec_{art_id}_{m_nome}"
+                            )
+                            if propagar_fluxo_distal:
+                                propagacoes_ativas[art_id] = pior_padrao
+                    else:
+                        st.info("Adicione ao menos uma lesão da série.")
+
                 elif is_ocluido:
                     if reenchimento_colat:
                         st.info(f"Reenchimento ativo {origem_reenchimento}.")
@@ -312,7 +373,7 @@ for idx, m_nome in enumerate(membros_para_processar):
                     "seg_afetado": seg_afetado,
                     "grau_estenose": grau_estenose_estimado,
                     "comp_placa": comp_placa,
-                    "onda_sitio": onda_sitio if not is_estenose and not is_ocluido else "",
+                    "onda_sitio": onda_sitio if status == "Normal" else "",
                     "onda_pos": onda_pos,
                     "reenchimento_colat": reenchimento_colat,
                     "origem_reenchimento": origem_reenchimento,
@@ -320,7 +381,8 @@ for idx, m_nome in enumerate(membros_para_processar):
                     "onda_reenchimento": onda_reenchimento,
                     "propagar_fluxo_distal": propagar_fluxo_distal,
                     "segs_ocluidos": segs_ocluidos,
-                    "seg_revasc": seg_revasc
+                    "seg_revasc": seg_revasc,
+                    "lesoes_consecutivas": lesoes_consecutivas
                 }
             st.markdown("<hr style='margin: 8px 0px; border-top: 1px dashed #ddd;' />", unsafe_allow_html=True)
 
@@ -418,8 +480,7 @@ def construir_laudo_arterial_word(membros_lista, dados_m_dict):
                     txt_art += " Não há sinais de reenchimento arterial distal evidente por circulação colateral significativa."
                     conclusoes_lista.append((m_nome, f"Oclusão do {segs_ocl_texto} da artéria {info['nome']} sem sinais de reenchimento distal."))
 
-            else:
-                # Caso seja ESTENOSE
+            elif info["status"] == "Estenose Focal":
                 loc_texto = info['seg_afetado'].lower()
                 txt_art += (f"{prefixo_parede}pérvia, identificando-se lesão estenosante focal causada por uma {info['comp_placa'].lower()} localizada no {loc_texto}, caracterizando {info['grau_estenose'].lower()}. "
                             f"Ao Doppler espectral, registra-se PVS pré-estenótica de {info['pvs_pre']:.1f} cm/s, PVS no ponto de maior estreitamento de {info['pvs_max']:.1f} cm/s "
@@ -431,6 +492,24 @@ def construir_laudo_arterial_word(membros_lista, dados_m_dict):
                 if info["grau_estenose"] != "Estenose leve (< 50%)":
                     sufixo_concl = " com repercussão em cascata nos vasos distais" if info["propagar_fluxo_distal"] else ""
                     conclusoes_lista.append((m_nome, f"{info['grau_estenose']} por {info['comp_placa'].lower()} na artéria {info['nome']} ({loc_texto}) - Fluxo pós-lesão: {info['onda_pos'].lower()}{sufixo_concl}."))
+
+            else:
+                # Estenoses Consecutivas (em tandem)
+                lesoes = info["lesoes_consecutivas"]
+                if not lesoes:
+                    txt_art += f"{prefixo_parede}pérvia, sem lesões estenosantes cadastradas na série."
+                else:
+                    partes_lesoes = [f"{l['segmento'].lower()} (fluxo distal {l['fluxo'].lower()})" for l in lesoes]
+                    if len(partes_lesoes) == 1:
+                        desc_lesoes = partes_lesoes[0]
+                    else:
+                        desc_lesoes = ", ".join(partes_lesoes[:-1]) + " e " + partes_lesoes[-1]
+                    txt_art += f"{prefixo_parede}pérvia, identificando-se estenoses consecutivas (em tandem) no {desc_lesoes}."
+
+                    pior_padrao = pior_padrao_fluxo([l["fluxo"] for l in lesoes])
+                    sufixo_concl = " com repercussão em cascata nos vasos distais" if info["propagar_fluxo_distal"] else ""
+                    segs_texto = formatar_segmentos([l["segmento"] for l in lesoes])
+                    conclusoes_lista.append((m_nome, f"Estenoses consecutivas na artéria {info['nome']} ({segs_texto}) - Fluxo pós-lesão mais alterado: {pior_padrao.lower()}{sufixo_concl}."))
 
             add_p(txt_art, space_after=6)
 
