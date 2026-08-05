@@ -453,7 +453,7 @@ def construir_laudo_arterial_word(membros_lista, dados_m_dict):
         m_dados = dados_m_dict[m_nome]
 
         for art_id, info in m_dados.items():
-            txt_art = f"Artéria {info['nome']}, "
+            txt_art = f"Artéria {info['nome']} "
 
             # Injeção de texto base sobre a parede (Ateromatose difusa) se ativa
             prefixo_parede = ""
