@@ -12,7 +12,7 @@ Aplicativo Streamlit para geração de laudos médicos em formato Word (.docx) p
 
 ```bash
 pip install -r requirements.txt
-streamlit run Home.py
+streamlit run venoso.py
 ```
 
 ## Deploy
