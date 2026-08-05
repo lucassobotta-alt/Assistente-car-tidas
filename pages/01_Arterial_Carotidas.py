@@ -234,7 +234,10 @@ def obter_texto_hemo_continuo(estado, vps_aci, vcc, tem_placa=False, diretriz="D
                 det = f", caracterizada por velocidade de pico sistólico na artéria carótida interna{vel_aci}" if incluir_vel else ""
                 return "Estenose < 50%", f"determinando estenose leve (<50% pelos critérios da Diretriz SBC 2023){det}."
             else:
-                return "Normal", "com fluxo bifásico anterógrado de baixa resistência, caracterizado por diástole sustentada e velocidades dentro da normalidade, compatível com irrigação de leito encefálico de baixa impedância. Não há sinais de estenose ou turbulência."
+                texto_normal = "com fluxo bifásico anterógrado de baixa resistência, caracterizado por diástole sustentada e velocidades dentro da normalidade, compatível com irrigação de leito encefálico de baixa impedância. Não há sinais de estenose ou turbulência."
+                if incluir_vel and vps_aci > 0:
+                    texto_normal += f" VPS na artéria carótida interna de {vps_aci} cm/s."
+                return "Normal", texto_normal
 
         if vps_aci > 400 or relacao > 5.0:
             det = f", caracterizada por acentuada elevação das velocidades de fluxo com VPS na artéria carótida interna{vel_aci}{vel_rel}" if incluir_vel else ""
@@ -255,7 +258,10 @@ def obter_texto_hemo_continuo(estado, vps_aci, vcc, tem_placa=False, diretriz="D
                 det = f", com VPS na artéria carótida interna{vel_aci}" if incluir_vel else ""
                 return "Estenose < 50%", f"determinando estenose leve (<50% pelos critérios do Consenso NASCET){det}."
             else:
-                return "Normal", "apresentando padrão de velocidades normais ao estudo Doppler, sem critérios para estenose hemodinâmica pelo Consenso NASCET."
+                texto_normal = "apresentando padrão de velocidades normais ao estudo Doppler, sem critérios para estenose hemodinâmica pelo Consenso NASCET."
+                if incluir_vel and vps_aci > 0:
+                    texto_normal += f" VPS na artéria carótida interna de {vps_aci} cm/s."
+                return "Normal", texto_normal
 
         if vps_aci >= 230 or relacao >= 4.0:
             det = f", caracterizada por VPS na artéria carótida interna{vel_aci}{vel_rel2}" if incluir_vel else ""
