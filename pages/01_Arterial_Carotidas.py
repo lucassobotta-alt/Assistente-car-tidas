@@ -1,183 +1,9 @@
 import re
-import json
-import unicodedata
 import streamlit as st
-import streamlit.components.v1 as components
 from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
-
-# ── Funções de Áudio e Voz ────────────────────────────────────────────────────
-
-def _normalizar(texto: str) -> str:
-    return ''.join(
-        c for c in unicodedata.normalize('NFD', texto.lower())
-        if unicodedata.category(c) != 'Mn'
-    )
-
-def parse_comando_voz(texto: str) -> dict:
-    t = _normalizar(texto)
-    updates = {}
-    nums = re.findall(r'\d+[,.]?\d*', t)
-    num = float(nums[0].replace(',', '.')) if nums else None
-    lado = None
-    if any(w in t for w in ['direita', 'direito', 'dir']):
-        lado = 'dir'
-    elif any(w in t for w in ['esquerda', 'esquerdo', 'esq']):
-        lado = 'esq'
-
-    if t.startswith('nome ') or t.startswith('paciente '):
-        updates['w_nome'] = texto.split(' ', 1)[1].strip().title()
-        return updates
-    if any(w in t for w in ['cmi', 'medio-intimal', 'medio intimal', 'intimal']):
-        if lado and num is not None:
-            updates[f'w_cmi_{lado}'] = min(max(num, 0.0), 5.0)
-        return updates
-    if 'suboclusao' in t or ('sub' in t and 'oclusao' in t):
-        for ld in ([lado] if lado else ['dir', 'esq']):
-            updates[f'w_estado_aci_{ld}'] = 'Suboclusão'
-        return updates
-    if 'oclusao' in t:
-        for ld in ([lado] if lado else ['dir', 'esq']):
-            updates[f'w_estado_aci_{ld}'] = 'Oclusão'
-        return updates
-    if 'pervia' in t:
-        for ld in ([lado] if lado else ['dir', 'esq']):
-            updates[f'w_estado_aci_{ld}'] = 'Pérvia (Calcular por Velocidade)'
-        return updates
-    if 'vertebral' in t or 'vert' in t:
-        espectro = None
-        if 'hipoplasia' in t:
-            espectro = 'Hipoplasia'
-        elif 'total' in t or 'retrogrado' in t:
-            espectro = 'Roubo Total (Fluxo Retrógrado)'
-        elif 'parcial' in t or 'alternante' in t:
-            espectro = 'Roubo Parcial (Fluxo Alternante)'
-        elif 'latente' in t:
-            espectro = 'Roubo Latente'
-        elif 'normal' in t or 'anterogrado' in t:
-            espectro = 'Normal (Fluxo Anterógrado)'
-        if espectro and lado:
-            updates[f'w_espectro_vert_{lado}'] = espectro
-        elif num is not None and lado:
-            updates[f'w_vps_vert_{lado}'] = num
-        return updates
-    if any(w in t for w in ['vps', 'velocidade', 'pico', 'sistolico']):
-        if any(w in t for w in ['interna', 'aci']) and lado and num is not None:
-            updates[f'w_vps_aci_{lado}'] = num
-        elif any(w in t for w in ['comum', 'acc']) and lado and num is not None:
-            updates[f'w_vcc_{lado}'] = num
-        elif any(w in t for w in ['vertebral', 'vert']) and lado and num is not None:
-            updates[f'w_vps_vert_{lado}'] = num
-    return updates
-
-
-def render_voice_input():
-    st.markdown("#### 🎤 Entrada por Voz / Texto")
-    st.markdown(
-        "Digite ou use a **digitação por voz do seu sistema** e clique em ✅ Aplicar.\n\n"
-        "**💡 Ativar voz:** "
-        "Mac → `Fn Fn` · Windows → `Win + H` · Chrome/Android → microfone no teclado\n\n"
-        "**Exemplos de comandos:** "
-        "*\"nome João Silva\"* · *\"VPS carótida interna direita 150\"* · "
-        "*\"CMI direita 0 vírgula 8\"* · *\"oclusão esquerda\"* · *\"vertebral direita hipoplasia\"*"
-    )
-    col_inp, col_btn = st.columns([4, 1])
-    with col_inp:
-        comando = st.text_input(
-            "Comando:",
-            key="stt_input",
-            label_visibility="collapsed",
-            placeholder='Ex: "VPS carótida interna direita 150"'
-        )
-    with col_btn:
-        aplicar = st.button("✅ Aplicar", use_container_width=True, key="stt_aplicar")
-
-    if aplicar and comando.strip():
-        updates = parse_comando_voz(comando.strip())
-        if updates:
-            campos = ', '.join(updates.keys())
-            st.success(f"✅ Aplicado: {comando.strip()}")
-            st.session_state.update(updates)
-            st.session_state['stt_input'] = ''
-            st.rerun()
-        else:
-            st.warning("Comando não reconhecido. Verifique os exemplos acima.")
-
-
-def render_audio_player(texto: str, key: str = "tts"):
-    texto_js = json.dumps(texto)
-    components.html(f"""
-    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:4px 0;">
-        <button id="btn_play_{key}" onclick="falarTexto_{key}()"
-            style="padding:8px 18px; background:#1a56db; color:#fff; border:none;
-                   border-radius:6px; cursor:pointer; font-size:14px;">
-            ▶️ Ouvir Laudo
-        </button>
-        <button id="btn_pause_{key}" onclick="pausarTexto_{key}()" style="display:none;
-            padding:8px 18px; background:#f59e0b; color:#fff; border:none;
-            border-radius:6px; cursor:pointer; font-size:14px;">
-            ⏸ Pausar
-        </button>
-        <button id="btn_stop_{key}" onclick="pararTexto_{key}()" style="display:none;
-            padding:8px 18px; background:#e02424; color:#fff; border:none;
-            border-radius:6px; cursor:pointer; font-size:14px;">
-            ⏹ Parar
-        </button>
-        <span id="status_{key}" style="font-size:13px; color:#555;"></span>
-    </div>
-    <script>
-    var _paused_{key} = false;
-    function falarTexto_{key}() {{
-        if (window.speechSynthesis.speaking && !_paused_{key}) return;
-        if (_paused_{key}) {{
-            window.speechSynthesis.resume(); _paused_{key} = false;
-            document.getElementById('btn_pause_{key}').textContent = '⏸ Pausar';
-            document.getElementById('status_{key}').textContent = '▶ Reproduzindo...'; return;
-        }}
-        window.speechSynthesis.cancel();
-        var partes = {texto_js}.match(/[\\s\\S]{{1,200}}(?=[.!?]|$)/g) || [{texto_js}];
-        var idx = 0;
-        function next() {{
-            if (idx >= partes.length) {{
-                document.getElementById('btn_play_{key}').style.display = 'inline-block';
-                document.getElementById('btn_pause_{key}').style.display = 'none';
-                document.getElementById('btn_stop_{key}').style.display = 'none';
-                document.getElementById('status_{key}').textContent = '✅ Concluído'; return;
-            }}
-            var u = new SpeechSynthesisUtterance(partes[idx]);
-            u.lang = 'pt-BR'; u.rate = 0.95;
-            u.onend = function() {{ idx++; next(); }};
-            window.speechSynthesis.speak(u);
-        }}
-        document.getElementById('btn_play_{key}').style.display = 'none';
-        document.getElementById('btn_pause_{key}').style.display = 'inline-block';
-        document.getElementById('btn_stop_{key}').style.display = 'inline-block';
-        document.getElementById('status_{key}').textContent = '▶ Reproduzindo...';
-        next();
-    }}
-    function pausarTexto_{key}() {{
-        if (window.speechSynthesis.speaking && !_paused_{key}) {{
-            window.speechSynthesis.pause(); _paused_{key} = true;
-            document.getElementById('btn_pause_{key}').textContent = '▶ Retomar';
-            document.getElementById('status_{key}').textContent = '⏸ Pausado';
-        }} else if (_paused_{key}) {{
-            window.speechSynthesis.resume(); _paused_{key} = false;
-            document.getElementById('btn_pause_{key}').textContent = '⏸ Pausar';
-            document.getElementById('status_{key}').textContent = '▶ Reproduzindo...';
-        }}
-    }}
-    function pararTexto_{key}() {{
-        window.speechSynthesis.cancel(); _paused_{key} = false;
-        document.getElementById('btn_play_{key}').style.display = 'inline-block';
-        document.getElementById('btn_pause_{key}').style.display = 'none';
-        document.getElementById('btn_stop_{key}').style.display = 'none';
-        document.getElementById('status_{key}').textContent = '';
-    }}
-    </script>
-    """, height=60)
-
 
 # Inicialização segura do estado da sessão
 if 'lista_placas' not in st.session_state:
@@ -234,10 +60,7 @@ def obter_texto_hemo_continuo(estado, vps_aci, vcc, tem_placa=False, diretriz="D
                 det = f", caracterizada por velocidade de pico sistólico na artéria carótida interna{vel_aci}" if incluir_vel else ""
                 return "Estenose < 50%", f"determinando estenose leve (<50% pelos critérios da Diretriz SBC 2023){det}."
             else:
-                texto_normal = "com fluxo bifásico anterógrado de baixa resistência, caracterizado por diástole sustentada e velocidades dentro da normalidade, compatível com irrigação de leito encefálico de baixa impedância. Não há sinais de estenose ou turbulência."
-                if incluir_vel and vps_aci > 0:
-                    texto_normal += f" VPS na artéria carótida interna de {vps_aci} cm/s."
-                return "Normal", texto_normal
+                return "Normal", "com fluxo bifásico anterógrado de baixa resistência, caracterizado por diástole sustentada e velocidades dentro da normalidade, compatível com irrigação de leito encefálico de baixa impedância. Não há sinais de estenose ou turbulência."
 
         if vps_aci > 400 or relacao > 5.0:
             det = f", caracterizada por acentuada elevação das velocidades de fluxo com VPS na artéria carótida interna{vel_aci}{vel_rel}" if incluir_vel else ""
@@ -258,10 +81,7 @@ def obter_texto_hemo_continuo(estado, vps_aci, vcc, tem_placa=False, diretriz="D
                 det = f", com VPS na artéria carótida interna{vel_aci}" if incluir_vel else ""
                 return "Estenose < 50%", f"determinando estenose leve (<50% pelos critérios do Consenso NASCET){det}."
             else:
-                texto_normal = "apresentando padrão de velocidades normais ao estudo Doppler, sem critérios para estenose hemodinâmica pelo Consenso NASCET."
-                if incluir_vel and vps_aci > 0:
-                    texto_normal += f" VPS na artéria carótida interna de {vps_aci} cm/s."
-                return "Normal", texto_normal
+                return "Normal", "apresentando padrão de velocidades normais ao estudo Doppler, sem critérios para estenose hemodinâmica pelo Consenso NASCET."
 
         if vps_aci >= 230 or relacao >= 4.0:
             det = f", caracterizada por VPS na artéria carótida interna{vel_aci}{vel_rel2}" if incluir_vel else ""
@@ -411,8 +231,6 @@ with col_id2:
     opcao_selecionada = st.selectbox("Condições Técnicas do Exame:", list(opcoes_tecnicas.keys()), key="w_tecnica")
     texto_tecnica_final = opcoes_tecnicas[opcao_selecionada]
 
-st.markdown("---")
-render_voice_input()
 st.markdown("---")
 st.markdown("### 📊 Parâmetros Hemodinâmicos")
 col_hemo_dir, col_hemo_esq = st.columns(2)
@@ -590,14 +408,6 @@ with st.expander("4. Mapeamento de Placas Ateroscleróticas (Consolidadas ≥ 2.
         for idx, p in enumerate(st.session_state.lista_placas):
             pr_tag = f" | {p['plaque_rads']}" if p['plaque_rads'] else ""
             st.write(f"`Item {idx+1:02d}` **{p['vaso']}** ({p['localizacao']}) — {p['composicao_texto']} | {p['espessura']} mm ({p['superficie_texto'].lower()}){pr_tag}.")
-        _placas_alerta = [p for p in st.session_state.lista_placas
-                         if p['composicao_texto'] != "Placa calcificada" and p['espessura'] >= 3.0]
-        for _pa in _placas_alerta:
-            st.warning(
-                f"⚠️ **Placa de risco elevado — {_pa['vaso']} ({_pa['localizacao']}):** "
-                f"placa não completamente calcificada com espessura de {_pa['espessura']} mm (≥ 3 mm). "
-                f"Característica associada a maior risco de instabilidade plaqueária."
-            )
         if st.button("❌ Limpar Lista de Placas"):
             st.session_state.lista_placas = []
             st.rerun()
@@ -965,7 +775,27 @@ if gerar_laudo:
     if not tem_achado:
         impressao_linhas.append("– Artérias carótidas e vertebrais pérvias, com trajetos e padrões de fluxo normais, dentro dos limites da normalidade.")
 
-    # --- COLETA DAS OBSERVAÇÕES ---
+    _STATUS_HEMO_SIG = {
+        "Oclusão", "Suboclusão",
+        "Estenose de 50-59%", "Estenose de 60-69%", "Estenose de 70-89%", "Estenose > 90%",
+        "Estenose ≥ 70%",
+        "Tortuosidade com Repercussão Hemodinâmica",
+        "Sinal de Roubo Latente da Subclávia", "Sinal de Roubo Parcial da Subclávia",
+        "Sinal de Roubo Total da Subclávia", "Estenose de Vertebral (>50%)"
+    }
+    _status_vert_dir_chk, _ = avaliar_vertebral(espectro_vert_dir, vps_vert_dir)
+    _status_vert_esq_chk, _ = avaliar_vertebral(espectro_vert_esq, vps_vert_esq)
+    _tem_hemo_sig = (
+        status_aci_dir_limpo in _STATUS_HEMO_SIG or
+        status_aci_esq_limpo in _STATUS_HEMO_SIG or
+        _status_vert_dir_chk in _STATUS_HEMO_SIG or
+        _status_vert_esq_chk in _STATUS_HEMO_SIG or
+        any(na.get('hemo') for na in st.session_state.lesoes_nao_ateromatosas)
+    )
+    if not _tem_hemo_sig:
+        impressao_linhas.append("– Parâmetros compatíveis com ausência de lesões hemodinamicamente significativas no território arterial carotídeo-vertebral extracraniano.")
+
+
     obs_ativas = []
     if incluir_observacoes:
         if cmi_alterado:
@@ -996,15 +826,6 @@ if gerar_laudo:
                 "complementar ao grau de estenose na estratificação do risco de eventos cerebrovasculares.\" Referências: "
                 "Plaque-RADS™ Consensus Statement (2023); recomendações da Society of Radiologists in Ultrasound para "
                 "avaliação ultrassonográfica da doença carotídea."
-            )
-        _placas_alerta_obs = [p for p in st.session_state.lista_placas
-                              if p['composicao_texto'] != "Placa calcificada" and p['espessura'] >= 3.0]
-        if _placas_alerta_obs:
-            obs_ativas.append(
-                "\"Identifica-se placa aterosclerótica não completamente calcificada com espessura ≥ 3 mm, "
-                "característica associada a maior risco de instabilidade e de eventos cerebrovasculares isquêmicos. "
-                "Recomenda-se otimização do tratamento das dislipidemias e dos demais fatores de risco cardiovascular, "
-                "além de acompanhamento ultrassonográfico periódico.\""
             )
 
     # Monta texto de obs para marcador
@@ -1115,12 +936,14 @@ if gerar_laudo:
     st.success("Laudo integrado gerado com sucesso!")
 
     # Visualização do laudo na própria página
-    texto_visualizacao = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
     if modo_saida in ["Somente Visualização", "Visualização + DOCX"]:
+        texto_visualizacao = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
         st.markdown("## 👁️ Visualização do Laudo")
-        st.text_area("Laudo Gerado", value=texto_visualizacao, height=700)
-    st.markdown("### 🔊 Leitura em Áudio do Laudo")
-    render_audio_player(texto_visualizacao, key="arterial")
+        st.text_area(
+            "Laudo Gerado",
+            value=texto_visualizacao,
+            height=700
+        )
 
     # Download DOCX
     if modo_saida in ["Somente DOCX", "Visualização + DOCX"]:
