@@ -59,6 +59,8 @@ formato_exame = st.selectbox("Tipo de Exame:", ["Unilateral", "Bilateral (Laudos
 
 membros_para_processar = [st.selectbox("Selecione o Lado Avaliado:", ["DIREITO", "ESQUERDO"])] if formato_exame == "Unilateral" else ["DIREITO", "ESQUERDO"]
 
+modo_laudo = st.radio("Modelo de Laudo:", ["Mapeamento Venoso", "Rastreio de TVP"], horizontal=True)
+
 st.markdown("---")
 
 # Inicialização do estado de sessão para estruturas dinâmicas
@@ -68,6 +70,8 @@ if "segmentos_vsm_reg" not in st.session_state:
     st.session_state["segmentos_vsm_reg"] = {}
 if "vsp_reg" not in st.session_state:
     st.session_state["vsp_reg"] = {}
+if "tvp_dados_reg" not in st.session_state:
+    st.session_state["tvp_dados_reg"] = {}
 
 dados_membros = {}
 
@@ -86,336 +90,416 @@ for idx, m_nome in enumerate(membros_para_processar):
 
     with abas[idx]:
         st.markdown(f"### 📋 Parâmetros Clínicos - Membro {m_nome}")
-        
-        # 1. SISTEMA VENOSO PROFUNDO (SVP)
-        st.markdown("#### 1. Sistema Venoso Profundo (SVP)")
-        svp_status = st.radio(f"Status do SVP ({m_nome}):", ["Normal", "Anormal"], horizontal=True, key=f"svp_stat_{m_nome}")
-        svp_res = {"status": svp_status}
-        if svp_status == "Anormal":
-            c_svp1, c_svp2 = st.columns(2)
-            with c_svp1: svp_res["tipo"] = st.selectbox("Tipo de Alteração:", ["Refluxo", "Trombose Venosa Profunda (TVP)"], key=f"svp_tipo_{m_nome}")
-            with c_svp2: svp_res["veias"] = st.multiselect("Veias Acometidas:", ["Veia Femoral Comum (VFC)", "Veia Femoral (VF)", "Veia Femoral Profunda (VFP)", "Veia Poplítea (V POP)", "Veias Gastrocnêmias", "Veias Soleares", "Veias Tibiais Posteriores (VTP)", "Veias Fibulares"], key=f"svp_veias_{m_nome}")
-        
-        st.markdown("---")
-        
-        # 2. SISTEMA VENOSO SUPERFICIAL (SVS) - VEIA SAFENA MAGNA (VSM)
-        st.markdown("#### 2. Sistema Venoso Superficial (SVS)")
-        st.markdown("##### 2.1 Veia Safena Magna (VSM)")
-        
-        vsm_status_geral = st.selectbox("Status Geral da VSM:", ["Pérvia / Presente", "Ausente (Safenectomia Total)", "Ausente (Safenectomia Segmentar)"], key=f"vsm_status_geral_{m_nome}")
-        vsm_dados_mapeamento = {"status_geral": vsm_status_geral}
-        
-        if vsm_status_geral == "Pérvia / Presente":
-            st.markdown("**Avaliação da Junção Safenofemoral (JSF):**")
-            jsf_status = st.radio("Status da JSF:", ["Competente", "Incompetente"], horizontal=True, key=f"jsf_status_{m_nome}")
-            vsm_dados_mapeamento["jsf_status"] = jsf_status
-            
-            jsf_detalhes_input = {}
-            
-            if jsf_status == "Incompetente":
-                jsf_valvulas = st.selectbox(
-                    "Padrão de Incompetência Valvar da JSF:", 
-                    ["Válvulas Terminal e Pré-terminal incompetentes", "Apenas a Válvula Pré-terminal incompetente", "Apenas a Válvula Terminal incompetente"], 
-                    key=f"jsf_valvulas_{m_nome}"
-                )
-                vsm_dados_mapeamento["jsf_valvulas"] = jsf_valvulas
-                
-                st.markdown("<div style='background-color: #f0f7ff; padding: 12px; border-left: 4px solid #0056b3; border-radius: 4px; margin-top: 10px; margin-bottom: 10px;'><strong>📐 Extensão e Deságue do Refluxo Juncional</strong></div>", unsafe_allow_html=True)
-                
-                if "Terminal e Pré-terminal" in jsf_valvulas:
-                    c1, c2, c3 = st.columns(3)
-                    with c1: jsf_detalhes_input["extensao_refluxo"] = st.selectbox("O refluxo estende-se até:", ["toda sua extensão", "o terço proximal da coxa", "o terço médio da coxa", "o terço distal da coxa", "a altura do joelho", "o terço proximal da perna", "o terço médio da perna", "o terço distal da perna"], key=f"jsf_ext_{m_nome}")
-                    with c2: jsf_detalhes_input["desague_tipo"] = st.selectbox("Drenagem / Deságue para:", ["tributárias epifasciais varicosas", "veia perfurante incompetente", "veia comunicante", "veias colaterais de face medial"], key=f"jsf_des_tipo_{m_nome}")
-                    with c3: jsf_detalhes_input["ponto_ref_dist"] = st.selectbox("Ponto de Referência do Deságue:", ["Interlinha do Joelho", "Junção Safenofemoral (JSF)", "Face Plantar"], key=f"jsf_ref_dist_{m_nome}")
-                    
-                    c4, c5 = st.columns(2)
-                    with c4:
-                        if jsf_detalhes_input["ponto_ref_dist"] == "Interlinha do Joelho":
-                            jsf_detalhes_input["posicao_joelho_dist"] = st.radio("Posição em relação ao joelho:", ["acima", "abaixo"], horizontal=True, key=f"jsf_pos_joelho_{m_nome}")
-                        else: jsf_detalhes_input["posicao_joelho_dist"] = ""
-                    with c5: jsf_detalhes_input["dist_fim"] = st.text_input("Distância do ponto de referência (cm):", "0" if jsf_detalhes_input["ponto_ref_dist"]=="Interlinha do Joelho" else "15", key=f"jsf_dist_fim_{m_nome}")
 
-                elif "Apenas a Válvula Pré-terminal" in jsf_valvulas:
-                    c1, c2, c3 = st.columns(3)
-                    with c1: jsf_detalhes_input["cm_ponto_j"] = st.text_input("Incompetente até cerca de (cm) da JSF/Ponto J:", "10", key=f"jsf_det_j_{m_nome}")
-                    with c2: jsf_detalhes_input["tipo_drenagem"] = st.selectbox("Drenagem para:", ["tributárias epifasciais varicosas", "veia perfurante incompetente", "veia comunicante"], key=f"jsf_det_dren_{m_nome}")
-                    with c3: jsf_detalhes_input["terco_coxa"] = st.selectbox("Em qual terço anatômico:", ["terço proximal da coxa", "terço médio da coxa", "terço distal da coxa"], key=f"jsf_det_terco_{m_nome}")
-                
-                elif "Apenas a Válvula Terminal" in jsf_valvulas:
-                    jsf_detalhes_input["destino_terminal"] = st.selectbox(
-                        "Destino do refluxo da Válvula Terminal:",
-                        ["Fluxo para tributárias não safênicas (Mantém VSM competente)", "Escape para a Veia Safena Acessória Anterior (VSAA)"],
-                        key=f"jsf_dest_term_{m_nome}"
+        if modo_laudo == "Rastreio de TVP":
+            if m_nome not in st.session_state["tvp_dados_reg"]:
+                st.session_state["tvp_dados_reg"][m_nome] = {}
+
+            _VEIAS_TVP = [
+                {
+                    "chave": "femoral_comum",
+                    "display": "Veia Femoral Comum",
+                    "laudo": "veia femoral comum",
+                    "normal_txt": "pérvia, completamente compressível, apresentando paredes finas e exibindo fluxo fásico habitual, sem sinais de refluxo às manobras provocativas.",
+                },
+                {
+                    "chave": "femoral",
+                    "display": "Veia Femoral (Superficial)",
+                    "laudo": "veia femoral",
+                    "normal_txt": "pérvia, completamente compressível, apresentando paredes finas e exibindo fluxo fásico habitual, sem sinais de refluxo às manobras provocativas.",
+                },
+                {
+                    "chave": "femoral_profunda",
+                    "display": "Veia Femoral Profunda",
+                    "laudo": "veia femoral profunda",
+                    "normal_txt": "pérvia, sem falhas de enchimento.",
+                },
+                {
+                    "chave": "poplitea",
+                    "display": "Veia Poplítea",
+                    "laudo": "veia poplítea",
+                    "normal_txt": "pérvia, completamente compressível, apresentando paredes finas e exibindo fluxo fásico habitual, sem sinais de refluxo às manobras provocativas.",
+                },
+                {
+                    "chave": "gastrocnemias_solear",
+                    "display": "Veias Gastrocnêmias e Soleares",
+                    "laudo": "veias gastrocnêmias e soleares",
+                    "normal_txt": "pérvias e completamente compressíveis.",
+                },
+                {
+                    "chave": "tibiais_fibular",
+                    "display": "Veias Tibiais Posteriores, Anteriores e Fibular",
+                    "laudo": "veias tibiais posteriores, tibiais anteriores e fibular",
+                    "normal_txt": "pérvias e compressíveis.",
+                },
+            ]
+
+            tvp_dados_membro = {}
+            st.markdown("#### Avaliação das Veias Profundas")
+
+            for _veia in _VEIAS_TVP:
+                _chave = _veia["chave"]
+                st.markdown(f"**{_veia['display']}**")
+                _status_veia = st.radio(
+                    "Status:",
+                    ["Normal", "Trombose aguda", "Trombose crônica"],
+                    horizontal=True,
+                    key=f"tvp_{_chave}_{m_nome}",
+                )
+                _veia_dados = {"status": _status_veia}
+
+                if _status_veia == "Trombose crônica":
+                    _subtipo = st.radio(
+                        "Subtipo de trombose crônica:",
+                        ["Trabéculas / Trombo em organização", "Trombo aderido às paredes", "Recanalização completa"],
+                        horizontal=True,
+                        key=f"tvp_{_chave}_sub_{m_nome}",
                     )
-                    if "Acessória Anterior" in jsf_detalhes_input["destino_terminal"]:
-                        c1, c2 = st.columns(2)
-                        with c1: jsf_detalhes_input["vsaa_desague"] = st.text_input("Deságue da VSAA em veias epifasciais da face:", "anterolateral da coxa", key=f"jsf_vsaa_des_{m_nome}")
-                        with c2: jsf_detalhes_input["vsaa_extensao"] = st.text_input("Extensão dos trajetos varicosos até a face:", "lateral do joelho", key=f"jsf_vsaa_ext_{m_nome}")
-                    else:
-                        jsf_detalhes_input["tributarias_tipo"] = st.text_input("Fluindo para tributárias não safênicas na:", "coxa", key=f"jsf_det_term_trib_{m_nome}")
+                    _veia_dados["subtipo"] = _subtipo
 
-                vsm_dados_mapeamento["jsf_detalhes_input"] = jsf_detalhes_input
+                if _status_veia != "Normal":
+                    _refluxo = st.toggle(
+                        "Refluxo significativo neste segmento?",
+                        key=f"tvp_{_chave}_ref_{m_nome}",
+                    )
+                    _veia_dados["refluxo"] = _refluxo
 
-            incluir_segmento = st.toggle("Incluir Segmento Incompetente", key=f"incluir_seg_{m_nome}")
+                tvp_dados_membro[_chave] = _veia_dados
+                st.markdown("---")
 
-            seg_sel = []
-            seg_origem = "Insuficiência valvar isolada"
-            seg_desague = "Tributária epifascial varicosa"
-            seg_prox_ref = "Junção Safenofemoral (JSF)"
-            seg_prox_pos = ""
-            seg_prox_cm = "0"
-            seg_dist_ref = "Interlinha do Joelho"
-            seg_dist_pos = "abaixo"
-            seg_dist_cm = "15"
+            dados_membros[m_nome] = {"modo": "tvp", "tvp": tvp_dados_membro, "veias_meta": _VEIAS_TVP}
 
-            if incluir_segmento:
-                # Linha 1: Origem
-                seg_origem = st.selectbox(
-                    "Origem do refluxo (escape proximal):",
-                    ["Insuficiência valvar isolada", "Tributárias pélvicas", "Varizes ganglionares",
-                     "Tributária epifascial incompetente", "Veia de Giacomini incompetente",
-                     "Veia perfurante incompetente"],
-                    key=f"seg_origem_{m_nome}"
-                )
+        else:  # modo_laudo == "Mapeamento Venoso"
+        
+            # 1. SISTEMA VENOSO PROFUNDO (SVP)
+            st.markdown("#### 1. Sistema Venoso Profundo (SVP)")
+            svp_status = st.radio(f"Status do SVP ({m_nome}):", ["Normal", "Anormal"], horizontal=True, key=f"svp_stat_{m_nome}")
+            svp_res = {"status": svp_status}
+            if svp_status == "Anormal":
+                c_svp1, c_svp2 = st.columns(2)
+                with c_svp1: svp_res["tipo"] = st.selectbox("Tipo de Alteração:", ["Refluxo", "Trombose Venosa Profunda (TVP)"], key=f"svp_tipo_{m_nome}")
+                with c_svp2: svp_res["veias"] = st.multiselect("Veias Acometidas:", ["Veia Femoral Comum (VFC)", "Veia Femoral (VF)", "Veia Femoral Profunda (VFP)", "Veia Poplítea (V POP)", "Veias Gastrocnêmias", "Veias Soleares", "Veias Tibiais Posteriores (VTP)", "Veias Fibulares"], key=f"svp_veias_{m_nome}")
+        
+            st.markdown("---")
+        
+            # 2. SISTEMA VENOSO SUPERFICIAL (SVS) - VEIA SAFENA MAGNA (VSM)
+            st.markdown("#### 2. Sistema Venoso Superficial (SVS)")
+            st.markdown("##### 2.1 Veia Safena Magna (VSM)")
+        
+            vsm_status_geral = st.selectbox("Status Geral da VSM:", ["Pérvia / Presente", "Ausente (Safenectomia Total)", "Ausente (Safenectomia Segmentar)"], key=f"vsm_status_geral_{m_nome}")
+            vsm_dados_mapeamento = {"status_geral": vsm_status_geral}
+        
+            if vsm_status_geral == "Pérvia / Presente":
+                st.markdown("**Avaliação da Junção Safenofemoral (JSF):**")
+                jsf_status = st.radio("Status da JSF:", ["Competente", "Incompetente"], horizontal=True, key=f"jsf_status_{m_nome}")
+                vsm_dados_mapeamento["jsf_status"] = jsf_status
+            
+                jsf_detalhes_input = {}
+            
+                if jsf_status == "Incompetente":
+                    jsf_valvulas = st.selectbox(
+                        "Padrão de Incompetência Valvar da JSF:", 
+                        ["Válvulas Terminal e Pré-terminal incompetentes", "Apenas a Válvula Pré-terminal incompetente", "Apenas a Válvula Terminal incompetente"], 
+                        key=f"jsf_valvulas_{m_nome}"
+                    )
+                    vsm_dados_mapeamento["jsf_valvulas"] = jsf_valvulas
+                
+                    st.markdown("<div style='background-color: #f0f7ff; padding: 12px; border-left: 4px solid #0056b3; border-radius: 4px; margin-top: 10px; margin-bottom: 10px;'><strong>📐 Extensão e Deságue do Refluxo Juncional</strong></div>", unsafe_allow_html=True)
+                
+                    if "Terminal e Pré-terminal" in jsf_valvulas:
+                        c1, c2, c3 = st.columns(3)
+                        with c1: jsf_detalhes_input["extensao_refluxo"] = st.selectbox("O refluxo estende-se até:", ["toda sua extensão", "o terço proximal da coxa", "o terço médio da coxa", "o terço distal da coxa", "a altura do joelho", "o terço proximal da perna", "o terço médio da perna", "o terço distal da perna"], key=f"jsf_ext_{m_nome}")
+                        with c2: jsf_detalhes_input["desague_tipo"] = st.selectbox("Drenagem / Deságue para:", ["tributárias epifasciais varicosas", "veia perfurante incompetente", "veia comunicante", "veias colaterais de face medial"], key=f"jsf_des_tipo_{m_nome}")
+                        with c3: jsf_detalhes_input["ponto_ref_dist"] = st.selectbox("Ponto de Referência do Deságue:", ["Interlinha do Joelho", "Junção Safenofemoral (JSF)", "Face Plantar"], key=f"jsf_ref_dist_{m_nome}")
+                    
+                        c4, c5 = st.columns(2)
+                        with c4:
+                            if jsf_detalhes_input["ponto_ref_dist"] == "Interlinha do Joelho":
+                                jsf_detalhes_input["posicao_joelho_dist"] = st.radio("Posição em relação ao joelho:", ["acima", "abaixo"], horizontal=True, key=f"jsf_pos_joelho_{m_nome}")
+                            else: jsf_detalhes_input["posicao_joelho_dist"] = ""
+                        with c5: jsf_detalhes_input["dist_fim"] = st.text_input("Distância do ponto de referência (cm):", "0" if jsf_detalhes_input["ponto_ref_dist"]=="Interlinha do Joelho" else "15", key=f"jsf_dist_fim_{m_nome}")
 
-                # Linha 2: Início — Referência e Distância
-                _refs = ["Junção Safenofemoral (JSF)", "Interlinha do Joelho", "Face Plantar"]
-                c_prox1, c_prox2, c_prox3 = st.columns(3)
-                with c_prox1:
-                    seg_prox_ref = st.selectbox("Início — Referência:", _refs, key=f"seg_prox_ref_{m_nome}")
-                with c_prox2:
-                    if seg_prox_ref == "Interlinha do Joelho":
-                        seg_prox_pos = st.radio("Posição:", ["acima", "abaixo"], horizontal=True, key=f"seg_prox_pos_{m_nome}")
-                    else:
-                        seg_prox_pos = ""
-                        st.empty()
-                with c_prox3:
-                    seg_prox_cm = st.text_input("Distância (cm):", "0", key=f"seg_prox_cm_{m_nome}")
-
-                # Linha 3: Ponto distal
-                seg_desague = st.selectbox(
-                    "Ponto distal (deságue do refluxo):",
-                    ["Tributária epifascial varicosa", "Tributária varicosa troncular",
-                     "Veia perfurante de drenagem", "Região maleolar"],
-                    key=f"seg_desague_{m_nome}"
-                )
-
-                # Linha 4: Fim — Referência e Distância (oculto se região maleolar)
-                if seg_desague != "Região maleolar":
-                    c_dist1, c_dist2, c_dist3 = st.columns(3)
-                    with c_dist1:
-                        seg_dist_ref = st.selectbox("Fim — Referência:", _refs, key=f"seg_dist_ref_{m_nome}")
-                    with c_dist2:
-                        if seg_dist_ref == "Interlinha do Joelho":
-                            seg_dist_pos = st.radio("Posição:", ["acima", "abaixo"], horizontal=True, key=f"seg_dist_pos_{m_nome}")
+                    elif "Apenas a Válvula Pré-terminal" in jsf_valvulas:
+                        c1, c2, c3 = st.columns(3)
+                        with c1: jsf_detalhes_input["cm_ponto_j"] = st.text_input("Incompetente até cerca de (cm) da JSF/Ponto J:", "10", key=f"jsf_det_j_{m_nome}")
+                        with c2: jsf_detalhes_input["tipo_drenagem"] = st.selectbox("Drenagem para:", ["tributárias epifasciais varicosas", "veia perfurante incompetente", "veia comunicante"], key=f"jsf_det_dren_{m_nome}")
+                        with c3: jsf_detalhes_input["terco_coxa"] = st.selectbox("Em qual terço anatômico:", ["terço proximal da coxa", "terço médio da coxa", "terço distal da coxa"], key=f"jsf_det_terco_{m_nome}")
+                
+                    elif "Apenas a Válvula Terminal" in jsf_valvulas:
+                        jsf_detalhes_input["destino_terminal"] = st.selectbox(
+                            "Destino do refluxo da Válvula Terminal:",
+                            ["Fluxo para tributárias não safênicas (Mantém VSM competente)", "Escape para a Veia Safena Acessória Anterior (VSAA)"],
+                            key=f"jsf_dest_term_{m_nome}"
+                        )
+                        if "Acessória Anterior" in jsf_detalhes_input["destino_terminal"]:
+                            c1, c2 = st.columns(2)
+                            with c1: jsf_detalhes_input["vsaa_desague"] = st.text_input("Deságue da VSAA em veias epifasciais da face:", "anterolateral da coxa", key=f"jsf_vsaa_des_{m_nome}")
+                            with c2: jsf_detalhes_input["vsaa_extensao"] = st.text_input("Extensão dos trajetos varicosos até a face:", "lateral do joelho", key=f"jsf_vsaa_ext_{m_nome}")
                         else:
-                            seg_dist_pos = ""
+                            jsf_detalhes_input["tributarias_tipo"] = st.text_input("Fluindo para tributárias não safênicas na:", "coxa", key=f"jsf_det_term_trib_{m_nome}")
+
+                    vsm_dados_mapeamento["jsf_detalhes_input"] = jsf_detalhes_input
+
+                incluir_segmento = st.toggle("Incluir Segmento Incompetente", key=f"incluir_seg_{m_nome}")
+
+                seg_sel = []
+                seg_origem = "Insuficiência valvar isolada"
+                seg_desague = "Tributária epifascial varicosa"
+                seg_prox_ref = "Junção Safenofemoral (JSF)"
+                seg_prox_pos = ""
+                seg_prox_cm = "0"
+                seg_dist_ref = "Interlinha do Joelho"
+                seg_dist_pos = "abaixo"
+                seg_dist_cm = "15"
+
+                if incluir_segmento:
+                    # Linha 1: Origem
+                    seg_origem = st.selectbox(
+                        "Origem do refluxo (escape proximal):",
+                        ["Insuficiência valvar isolada", "Tributárias pélvicas", "Varizes ganglionares",
+                         "Tributária epifascial incompetente", "Veia de Giacomini incompetente",
+                         "Veia perfurante incompetente"],
+                        key=f"seg_origem_{m_nome}"
+                    )
+
+                    # Linha 2: Início — Referência e Distância
+                    _refs = ["Junção Safenofemoral (JSF)", "Interlinha do Joelho", "Face Plantar"]
+                    c_prox1, c_prox2, c_prox3 = st.columns(3)
+                    with c_prox1:
+                        seg_prox_ref = st.selectbox("Início — Referência:", _refs, key=f"seg_prox_ref_{m_nome}")
+                    with c_prox2:
+                        if seg_prox_ref == "Interlinha do Joelho":
+                            seg_prox_pos = st.radio("Posição:", ["acima", "abaixo"], horizontal=True, key=f"seg_prox_pos_{m_nome}")
+                        else:
+                            seg_prox_pos = ""
                             st.empty()
-                    with c_dist3:
-                        seg_dist_cm = st.text_input("Distância (cm):", "15", key=f"seg_dist_cm_{m_nome}")
-                else:
-                    seg_dist_ref = ""
-                    seg_dist_pos = ""
-                    seg_dist_cm = ""
+                    with c_prox3:
+                        seg_prox_cm = st.text_input("Distância (cm):", "0", key=f"seg_prox_cm_{m_nome}")
 
-                if st.button("💾 Registrar Segmento", key=f"reg_seg_vsm_{m_nome}"):
-                    st.session_state["segmentos_vsm_reg"][m_nome].append({
-                        "segmentos": seg_sel,
-                        "origem": seg_origem, "desague": seg_desague,
-                        "prox_ref": seg_prox_ref, "prox_pos": seg_prox_pos, "prox_cm": seg_prox_cm,
-                        "dist_ref": seg_dist_ref, "dist_pos": seg_dist_pos, "dist_cm": seg_dist_cm,
-                    })
-                    st.rerun()
+                    # Linha 3: Ponto distal
+                    seg_desague = st.selectbox(
+                        "Ponto distal (deságue do refluxo):",
+                        ["Tributária epifascial varicosa", "Tributária varicosa troncular",
+                         "Veia perfurante de drenagem", "Região maleolar"],
+                        key=f"seg_desague_{m_nome}"
+                    )
 
-            if st.session_state["segmentos_vsm_reg"][m_nome]:
-                for i, reg in enumerate(st.session_state["segmentos_vsm_reg"][m_nome]):
-                    def _fmt_ref(ref, pos, cm):
-                        if ref == "Interlinha do Joelho":
-                            return f"{cm} cm {pos} da interlinha do joelho"
-                        return f"{cm} cm da {ref}"
-                    segs_label = ", ".join(reg["segmentos"]) if reg["segmentos"] else "insuficiência valvar"
-                    desc = (f"`{i+1:02d}` **{segs_label}** | origem: {reg.get('origem','')} | deságue: {reg.get('desague','')} — "
-                            f"de {_fmt_ref(reg['prox_ref'], reg['prox_pos'], reg['prox_cm'])} "
-                            f"até {_fmt_ref(reg['dist_ref'], reg['dist_pos'], reg['dist_cm'])}")
-                    st.markdown(desc)
-                if st.button("❌ Limpar Segmentos Registrados", key=f"clear_seg_vsm_{m_nome}"):
-                    st.session_state["segmentos_vsm_reg"][m_nome] = []
-                    st.rerun()
+                    # Linha 4: Fim — Referência e Distância (oculto se região maleolar)
+                    if seg_desague != "Região maleolar":
+                        c_dist1, c_dist2, c_dist3 = st.columns(3)
+                        with c_dist1:
+                            seg_dist_ref = st.selectbox("Fim — Referência:", _refs, key=f"seg_dist_ref_{m_nome}")
+                        with c_dist2:
+                            if seg_dist_ref == "Interlinha do Joelho":
+                                seg_dist_pos = st.radio("Posição:", ["acima", "abaixo"], horizontal=True, key=f"seg_dist_pos_{m_nome}")
+                            else:
+                                seg_dist_pos = ""
+                                st.empty()
+                        with c_dist3:
+                            seg_dist_cm = st.text_input("Distância (cm):", "15", key=f"seg_dist_cm_{m_nome}")
+                    else:
+                        seg_dist_ref = ""
+                        seg_dist_pos = ""
+                        seg_dist_cm = ""
 
-            vsm_dados_mapeamento["tronco_refluxo"] = bool(st.session_state["segmentos_vsm_reg"][m_nome])
-            vsm_dados_mapeamento["segmentos_lista"] = st.session_state["segmentos_vsm_reg"][m_nome]
+                    if st.button("💾 Registrar Segmento", key=f"reg_seg_vsm_{m_nome}"):
+                        st.session_state["segmentos_vsm_reg"][m_nome].append({
+                            "segmentos": seg_sel,
+                            "origem": seg_origem, "desague": seg_desague,
+                            "prox_ref": seg_prox_ref, "prox_pos": seg_prox_pos, "prox_cm": seg_prox_cm,
+                            "dist_ref": seg_dist_ref, "dist_pos": seg_dist_pos, "dist_cm": seg_dist_cm,
+                        })
+                        st.rerun()
 
-        # Mensurações da Veia Safena Magna
-        if "Pérvia" in vsm_status_geral:
-            st.markdown("**Mensurações da Veia Safena Magna (Diâmetros em mm):**")
-            cm1, cm2, cm3, cm4 = st.columns(4)
-            with cm1: jsf_mm = st.text_input("Junção safenofemoral (mm):", "4.5", key=f"jsf_mm_{m_nome}")
-            with cm2: vsm_prox_coxa = st.text_input("Terço proximal da coxa (mm):", "3.8", key=f"prox_c_{m_nome}")
-            with cm3: vsm_med_coxa = st.text_input("Terço médio da coxa (mm):", "3.5", key=f"med_c_{m_nome}")
-            with cm4: vsm_dist_coxa = st.text_input("Terço distal da coxa (mm):", "3.2", key=f"dist_c_{m_nome}")
-            cm5, cm6, cm7 = st.columns(3)
-            with cm5: vsm_prox_perna = st.text_input("Terço proximal da perna (mm):", "3.0", key=f"prox_p_{m_nome}")
-            with cm6: vsm_med_perna = st.text_input("Terço médio da perna (mm):", "2.8", key=f"med_p_{m_nome}")
-            with cm7: vsm_dist_perna = st.text_input("Terço distal da perna (mm):", "2.5", key=f"dist_p_{m_nome}")
-            # Alertas de diâmetro da VSM (ESVS 2022)
-            _alertas_vsm = []
-            try:
-                if float(jsf_mm) > 8.0:
-                    _alertas_vsm.append(f"JSF: {jsf_mm} mm > 8,0 mm — dilatação acentuada da junção safenofemoral")
-            except ValueError: pass
-            for _lbl, _val in [("Terço proximal da coxa", vsm_prox_coxa), ("Terço médio da coxa", vsm_med_coxa),
-                                ("Terço distal da coxa", vsm_dist_coxa), ("Terço proximal da perna", vsm_prox_perna),
-                                ("Terço médio da perna", vsm_med_perna), ("Terço distal da perna", vsm_dist_perna)]:
+                if st.session_state["segmentos_vsm_reg"][m_nome]:
+                    for i, reg in enumerate(st.session_state["segmentos_vsm_reg"][m_nome]):
+                        def _fmt_ref(ref, pos, cm):
+                            if ref == "Interlinha do Joelho":
+                                return f"{cm} cm {pos} da interlinha do joelho"
+                            return f"{cm} cm da {ref}"
+                        segs_label = ", ".join(reg["segmentos"]) if reg["segmentos"] else "insuficiência valvar"
+                        desc = (f"`{i+1:02d}` **{segs_label}** | origem: {reg.get('origem','')} | deságue: {reg.get('desague','')} — "
+                                f"de {_fmt_ref(reg['prox_ref'], reg['prox_pos'], reg['prox_cm'])} "
+                                f"até {_fmt_ref(reg['dist_ref'], reg['dist_pos'], reg['dist_cm'])}")
+                        st.markdown(desc)
+                    if st.button("❌ Limpar Segmentos Registrados", key=f"clear_seg_vsm_{m_nome}"):
+                        st.session_state["segmentos_vsm_reg"][m_nome] = []
+                        st.rerun()
+
+                vsm_dados_mapeamento["tronco_refluxo"] = bool(st.session_state["segmentos_vsm_reg"][m_nome])
+                vsm_dados_mapeamento["segmentos_lista"] = st.session_state["segmentos_vsm_reg"][m_nome]
+
+            # Mensurações da Veia Safena Magna
+            if "Pérvia" in vsm_status_geral:
+                st.markdown("**Mensurações da Veia Safena Magna (Diâmetros em mm):**")
+                cm1, cm2, cm3, cm4 = st.columns(4)
+                with cm1: jsf_mm = st.text_input("Junção safenofemoral (mm):", "4.5", key=f"jsf_mm_{m_nome}")
+                with cm2: vsm_prox_coxa = st.text_input("Terço proximal da coxa (mm):", "3.8", key=f"prox_c_{m_nome}")
+                with cm3: vsm_med_coxa = st.text_input("Terço médio da coxa (mm):", "3.5", key=f"med_c_{m_nome}")
+                with cm4: vsm_dist_coxa = st.text_input("Terço distal da coxa (mm):", "3.2", key=f"dist_c_{m_nome}")
+                cm5, cm6, cm7 = st.columns(3)
+                with cm5: vsm_prox_perna = st.text_input("Terço proximal da perna (mm):", "3.0", key=f"prox_p_{m_nome}")
+                with cm6: vsm_med_perna = st.text_input("Terço médio da perna (mm):", "2.8", key=f"med_p_{m_nome}")
+                with cm7: vsm_dist_perna = st.text_input("Terço distal da perna (mm):", "2.5", key=f"dist_p_{m_nome}")
+                # Alertas de diâmetro da VSM (ESVS 2022)
+                _alertas_vsm = []
                 try:
-                    if float(_val) > 6.0:
-                        _alertas_vsm.append(f"{_lbl}: {_val} mm > 6,0 mm — tronco dilatado (limiar ESVS 2022 para indicação terapêutica)")
+                    if float(jsf_mm) > 8.0:
+                        _alertas_vsm.append(f"JSF: {jsf_mm} mm > 8,0 mm — dilatação acentuada da junção safenofemoral")
                 except ValueError: pass
-            if _alertas_vsm:
-                st.warning("⚠️ **Diâmetros fora do limiar de referência (ESVS 2022):**\n\n" + "\n\n".join(f"• {a}" for a in _alertas_vsm))
-        else: jsf_mm = vsm_prox_coxa = vsm_med_coxa = vsm_dist_coxa = vsm_prox_perna = vsm_med_perna = vsm_dist_perna = ""
+                for _lbl, _val in [("Terço proximal da coxa", vsm_prox_coxa), ("Terço médio da coxa", vsm_med_coxa),
+                                    ("Terço distal da coxa", vsm_dist_coxa), ("Terço proximal da perna", vsm_prox_perna),
+                                    ("Terço médio da perna", vsm_med_perna), ("Terço distal da perna", vsm_dist_perna)]:
+                    try:
+                        if float(_val) > 6.0:
+                            _alertas_vsm.append(f"{_lbl}: {_val} mm > 6,0 mm — tronco dilatado (limiar ESVS 2022 para indicação terapêutica)")
+                    except ValueError: pass
+                if _alertas_vsm:
+                    st.warning("⚠️ **Diâmetros fora do limiar de referência (ESVS 2022):**\n\n" + "\n\n".join(f"• {a}" for a in _alertas_vsm))
+            else: jsf_mm = vsm_prox_coxa = vsm_med_coxa = vsm_dist_coxa = vsm_prox_perna = vsm_med_perna = vsm_dist_perna = ""
 
-        st.markdown("---")
+            st.markdown("---")
 
-        # 2.2 VEIA SAFENA PARVA (VSP)
-        st.markdown("##### 2.2 Veia Safena Parva (VSP)")
-        vsp_template = st.selectbox(
-            "Padrão / Alterações na Veia Safena Parva (VSP):",
-            [
-                "Normal (Pérvia, de trajeto anatômico habitual e competente)",
-                "Ausente (Safenectomia Total)",
-                "Ausente (Safenectomia Segmentar)",
-                "Junção safenopoplítea ausente, com extensão cranial da veia safena parva (Veia de Giacomini)",
-                "JSP Incompetente -> refluxo na VSP em toda extensão com dilatação/tortuosidade"
-            ],
-            key=f"vsp_temp_choise_{m_nome}"
-        )
-        vsp_dados_form = {"template": vsp_template}
+            # 2.2 VEIA SAFENA PARVA (VSP)
+            st.markdown("##### 2.2 Veia Safena Parva (VSP)")
+            vsp_template = st.selectbox(
+                "Padrão / Alterações na Veia Safena Parva (VSP):",
+                [
+                    "Normal (Pérvia, de trajeto anatômico habitual e competente)",
+                    "Ausente (Safenectomia Total)",
+                    "Ausente (Safenectomia Segmentar)",
+                    "Junção safenopoplítea ausente, com extensão cranial da veia safena parva (Veia de Giacomini)",
+                    "JSP Incompetente -> refluxo na VSP em toda extensão com dilatação/tortuosidade"
+                ],
+                key=f"vsp_temp_choise_{m_nome}"
+            )
+            vsp_dados_form = {"template": vsp_template}
 
-        if "JSP Incompetente" in vsp_template:
-            st.markdown("<sub style='color: #444;'>Detalhamento do Deságue da VSP:</sub>", unsafe_allow_html=True)
-            cvsp_1, cvsp_2 = st.columns(2)
-            with cvsp_1: vsp_dados_form["desague_tipo"] = st.selectbox("Drenagem do refluxo da VSP para:", ["tributárias epifasciais varicosas", "veia perfurante incompetente", "veia comunicante", "malha reticular maleolar"], key=f"vsp_des_tipo_{m_nome}")
-            with cvsp_2: vsp_dados_form["localizacao_desague"] = st.selectbox("Região do deságue:", ["terço proximal da perna", "terço médio da perna", "terço distal da perna", "região maleolar lateral", "região maleolar medial"], key=f"vsp_des_loc_{m_nome}")
+            if "JSP Incompetente" in vsp_template:
+                st.markdown("<sub style='color: #444;'>Detalhamento do Deságue da VSP:</sub>", unsafe_allow_html=True)
+                cvsp_1, cvsp_2 = st.columns(2)
+                with cvsp_1: vsp_dados_form["desague_tipo"] = st.selectbox("Drenagem do refluxo da VSP para:", ["tributárias epifasciais varicosas", "veia perfurante incompetente", "veia comunicante", "malha reticular maleolar"], key=f"vsp_des_tipo_{m_nome}")
+                with cvsp_2: vsp_dados_form["localizacao_desague"] = st.selectbox("Região do deságue:", ["terço proximal da perna", "terço médio da perna", "terço distal da perna", "região maleolar lateral", "região maleolar medial"], key=f"vsp_des_loc_{m_nome}")
 
-        if "Ausente" not in vsp_template:
-            st.markdown("**Mensurações da Veia Safena Parva (Diâmetros em mm):**")
-            cp1, cp2, cp3 = st.columns(3)
-            label_jsp_dinamico = "Extensão cranial (mm):" if "extensão cranial" in vsp_template else "Junção safenopoplítea (mm):"
-            with cp1: vsp_dados_form["jsp_mm"] = st.text_input(label_jsp_dinamico, "4.2", key=f"jsp_mm_{m_nome}")
-            with cp2: vsp_dados_form["vsp_crossa"] = st.text_input("Crossa da safena parva (mm):", "3.8", key=f"crossa_{m_nome}")
-            with cp3: vsp_dados_form["vsp_med_perna_diam"] = st.text_input("Terço médio da perna (mm):", "3.0", key=f"med_per_{m_nome}")
+            if "Ausente" not in vsp_template:
+                st.markdown("**Mensurações da Veia Safena Parva (Diâmetros em mm):**")
+                cp1, cp2, cp3 = st.columns(3)
+                label_jsp_dinamico = "Extensão cranial (mm):" if "extensão cranial" in vsp_template else "Junção safenopoplítea (mm):"
+                with cp1: vsp_dados_form["jsp_mm"] = st.text_input(label_jsp_dinamico, "4.2", key=f"jsp_mm_{m_nome}")
+                with cp2: vsp_dados_form["vsp_crossa"] = st.text_input("Crossa da safena parva (mm):", "3.8", key=f"crossa_{m_nome}")
+                with cp3: vsp_dados_form["vsp_med_perna_diam"] = st.text_input("Terço médio da perna (mm):", "3.0", key=f"med_per_{m_nome}")
 
-        if st.button("💾 Registrar Achado da VSP", key=f"reg_vsp_{m_nome}"):
-            st.session_state["vsp_reg"][m_nome] = vsp_dados_form
-            st.rerun()
-
-        vsp_dados_input = st.session_state["vsp_reg"][m_nome] if st.session_state["vsp_reg"][m_nome] else vsp_dados_form
-
-        if st.session_state["vsp_reg"][m_nome]:
-            reg_vsp = st.session_state["vsp_reg"][m_nome]
-            lbl_vsp = reg_vsp["template"].split("(")[0].strip() if "(" in reg_vsp["template"] else reg_vsp["template"][:60]
-            st.write(f"✅ **VSP registrada:** {lbl_vsp}")
-            if st.button("❌ Limpar Registro VSP", key=f"clear_vsp_{m_nome}"):
-                st.session_state["vsp_reg"][m_nome] = []
+            if st.button("💾 Registrar Achado da VSP", key=f"reg_vsp_{m_nome}"):
+                st.session_state["vsp_reg"][m_nome] = vsp_dados_form
                 st.rerun()
 
-        jsp_mm = vsp_dados_input.get("jsp_mm", "")
-        vsp_crossa = vsp_dados_input.get("vsp_crossa", "")
-        vsp_med_perna_diam = vsp_dados_input.get("vsp_med_perna_diam", "")
+            vsp_dados_input = st.session_state["vsp_reg"][m_nome] if st.session_state["vsp_reg"][m_nome] else vsp_dados_form
 
-        st.markdown("---")
-
-        # --- 2.3 VEIAS PERFURANTES INCOMPETENTES ISOLADAS ---
-        st.markdown("#### 2.3 Veias Perfurantes Incompetentes (Mapeamento Separado)")
-        possui_perfurantes = st.checkbox("Identifica veias perfurantes incompetentes neste membro?", value=False, key=f"has_perf_{m_nome}")
-        perfurantes_coletadas = []
-        
-        if possui_perfurantes:
-            st.markdown("<div style='background-color: #fff9e6; padding: 10px; border-left: 4px solid #ffcc00; border-radius: 4px; margin-bottom: 15px;'><strong>📍 Localização Dinâmica de Perfurantes Incompetentes</strong></div>", unsafe_allow_html=True)
-            qtd_perf = len(st.session_state["lista_perfurantes"][m_nome])
-            
-            for p_idx in range(qtd_perf):
-                st.markdown(f"**Veia Perfurante Incompetente #{p_idx + 1}**")
-                perf_dados = {}
-                cp_1, cp_2, cp_3, cp_4, cp_5 = st.columns(5)
-                with cp_1: perf_dados["regiao"] = st.selectbox("Região Anatômica:", ["Coxa", "Perna"], key=f"perf_reg_{m_nome}_{p_idx}")
-                with cp_2: perf_dados["face"] = st.selectbox("Face Medida:", ["Medial", "Lateral", "Anterior", "Posterior", "Anterolateral", "Posterointerna"], key=f"perf_face_{m_nome}_{p_idx}")
-                with cp_3: perf_dados["ref_ponto"] = st.selectbox("Referência de Medida:", ["Interlinha do Joelho", "Face Plantar"], key=f"perf_ref_{m_nome}_{p_idx}")
-                with cp_4: perf_dados["altura_cm"] = st.text_input("Altura aferida (cm):", "12", key=f"perf_alt_{m_nome}_{p_idx}")
-                with cp_5: perf_dados["diametro_mm"] = st.text_input("Diâmetro (mm):", "3.5", key=f"perf_diam_{m_nome}_{p_idx}")
-                try:
-                    if float(perf_dados["diametro_mm"]) > 3.5:
-                        st.warning(f"⚠️ Perfurante #{p_idx + 1}: diâmetro {perf_dados['diametro_mm']} mm > 3,5 mm — critério ESVS 2022 para perfurante patológica")
-                except ValueError: pass
-                
-                if perf_dados["ref_ponto"] == "Interlinha do Joelho":
-                    perf_dados["posicao_joelho"] = st.radio("Posição do plano do joelho:", ["Acima", "Abaixo"], horizontal=True, key=f"perf_pos_j_{m_nome}_{p_idx}")
-                else: perf_dados["posicao_joelho"] = ""
-                
-                perfurantes_coletadas.append(perf_dados)
-                st.markdown("---")
-                
-            c_pbtn1, c_pbtn2, _ = st.columns([1.5, 1.5, 3])
-            with c_pbtn1:
-                if st.button("➕ Adicionar Nova Perfurante", key=f"add_perf_btn_{m_nome}"):
-                    st.session_state["lista_perfurantes"][m_nome].append(1)
+            if st.session_state["vsp_reg"][m_nome]:
+                reg_vsp = st.session_state["vsp_reg"][m_nome]
+                lbl_vsp = reg_vsp["template"].split("(")[0].strip() if "(" in reg_vsp["template"] else reg_vsp["template"][:60]
+                st.write(f"✅ **VSP registrada:** {lbl_vsp}")
+                if st.button("❌ Limpar Registro VSP", key=f"clear_vsp_{m_nome}"):
+                    st.session_state["vsp_reg"][m_nome] = []
                     st.rerun()
-            with c_pbtn2:
-                if len(st.session_state["lista_perfurantes"][m_nome]) > 0:
-                    if st.button("❌ Remover Última Perfurante", key=f"rem_perf_btn_{m_nome}"):
-                        st.session_state["lista_perfurantes"][m_nome].pop()
-                        st.rerun()
-                        
-        # --- 2.4 MAPA DE VARICOSIDADES ---
-        st.markdown("---")
-        st.markdown("#### 2.4 Mapeamento de Varicosidades / Malhas Reticulares")
-        possui_varicosidades = st.checkbox("Descrever presença de Telangiectasias, Microvarizes ou Reticulares?", key=f"has_varic_{m_nome}")
-        varic_dados = {"possui": possui_varicosidades}
-        
-        if possui_varicosidades:
-            cv_1, cv_2, cv_3 = st.columns(3)
-            with cv_1: varic_dados["telangiectasias"] = st.checkbox("Telangiectasias (< 1 mm)", key=f"var_tel_{m_nome}")
-            with cv_2: varic_dados["micro_reticulares"] = st.checkbox("Microvarizes / Varizes Reticulares (1 a 3 mm)", key=f"var_mic_{m_nome}")
-            with cv_3: varic_dados["veias_varicosas"] = st.checkbox("Veias Varicosas Tronculares (> 3 mm)", key=f"var_tronc_{m_nome}")
-            varic_dados["localizacao"] = st.text_input("Localização predominante das lesões superficiais:", "em faces lateral da coxa e posterior da perna", key=f"var_loc_{m_nome}")
 
-        st.markdown("---")
+            jsp_mm = vsp_dados_input.get("jsp_mm", "")
+            vsp_crossa = vsp_dados_input.get("vsp_crossa", "")
+            vsp_med_perna_diam = vsp_dados_input.get("vsp_med_perna_diam", "")
 
-        # 3. MÓDULOS ADICIONAIS & VARIÁVEIS EXTRAS
-        st.markdown("#### 3. Módulos Adicionais")
-        c_add1, c_add2 = st.columns(2)
-        with c_add1:
-            giacomini_opt = st.selectbox("Veia de Giacomini Isolada:", ["Não se aplica / Normal", "3.1 Refluxo ostial drenado de forma ascendente", "3.2 Refluxo ostial transferindo para VSM"], key=f"giacomini_{m_nome}")
-            varizes_pelvicas_opt = st.selectbox("Varizes Pélvicas (Pontos de Escape):", ["Ausentes", "5.1 Plexo venoso ciático (região infraglútea)", "5.2 Escape inguinal/perineal"], key=f"pelvicas_{m_nome}")
-            pos_op_opt = st.selectbox("Pós-Operatório / Recidiva:", ["Não se aplica", "6.3 Sinais de neovascularização adjacentes"], key=f"pos_op_{m_nome}")
+            st.markdown("---")
+
+            # --- 2.3 VEIAS PERFURANTES INCOMPETENTES ISOLADAS ---
+            st.markdown("#### 2.3 Veias Perfurantes Incompetentes (Mapeamento Separado)")
+            possui_perfurantes = st.checkbox("Identifica veias perfurantes incompetentes neste membro?", value=False, key=f"has_perf_{m_nome}")
+            perfurantes_coletadas = []
         
-        with c_add2:
-            st.markdown("**Achados Extras / Patologias de Tecidos Adjacentes:**")
-            achados_multiplos = st.multiselect(
-                "Selecione os achados adicionais observados:",
-                ["Cisto de Baker na fossa poplítea", "Edema intersticial subcutâneo"],
-                default=[],
-                key=f"achados_adi_multi_{m_nome}"
-            )
+            if possui_perfurantes:
+                st.markdown("<div style='background-color: #fff9e6; padding: 10px; border-left: 4px solid #ffcc00; border-radius: 4px; margin-bottom: 15px;'><strong>📍 Localização Dinâmica de Perfurantes Incompetentes</strong></div>", unsafe_allow_html=True)
+                qtd_perf = len(st.session_state["lista_perfurantes"][m_nome])
             
-            cisto_medidas = {}
-            if "Cisto de Baker na fossa poplítea" in achados_multiplos:
-                st.markdown("<sub style='color: #444;'>Dimensões do Cisto de Baker:</sub>", unsafe_allow_html=True)
-                cc1, cc2, cc3 = st.columns(3)
-                with cc1: cisto_medidas["comp"] = st.text_input("Eixo Long (mm):", "35", key=f"cb_c_{m_nome}")
-                with cc2: cisto_medidas["larg"] = st.text_input("Eixo Transv (mm):", "18", key=f"cb_l_{m_nome}")
-                with cc3: cisto_medidas["esp"] = st.text_input("Espessura (mm):", "12", key=f"cb_e_{m_nome}")
+                for p_idx in range(qtd_perf):
+                    st.markdown(f"**Veia Perfurante Incompetente #{p_idx + 1}**")
+                    perf_dados = {}
+                    cp_1, cp_2, cp_3, cp_4, cp_5 = st.columns(5)
+                    with cp_1: perf_dados["regiao"] = st.selectbox("Região Anatômica:", ["Coxa", "Perna"], key=f"perf_reg_{m_nome}_{p_idx}")
+                    with cp_2: perf_dados["face"] = st.selectbox("Face Medida:", ["Medial", "Lateral", "Anterior", "Posterior", "Anterolateral", "Posterointerna"], key=f"perf_face_{m_nome}_{p_idx}")
+                    with cp_3: perf_dados["ref_ponto"] = st.selectbox("Referência de Medida:", ["Interlinha do Joelho", "Face Plantar"], key=f"perf_ref_{m_nome}_{p_idx}")
+                    with cp_4: perf_dados["altura_cm"] = st.text_input("Altura aferida (cm):", "12", key=f"perf_alt_{m_nome}_{p_idx}")
+                    with cp_5: perf_dados["diametro_mm"] = st.text_input("Diâmetro (mm):", "3.5", key=f"perf_diam_{m_nome}_{p_idx}")
+                    try:
+                        if float(perf_dados["diametro_mm"]) > 3.5:
+                            st.warning(f"⚠️ Perfurante #{p_idx + 1}: diâmetro {perf_dados['diametro_mm']} mm > 3,5 mm — critério ESVS 2022 para perfurante patológica")
+                    except ValueError: pass
+                
+                    if perf_dados["ref_ponto"] == "Interlinha do Joelho":
+                        perf_dados["posicao_joelho"] = st.radio("Posição do plano do joelho:", ["Acima", "Abaixo"], horizontal=True, key=f"perf_pos_j_{m_nome}_{p_idx}")
+                    else: perf_dados["posicao_joelho"] = ""
+                
+                    perfurantes_coletadas.append(perf_dados)
+                    st.markdown("---")
+                
+                c_pbtn1, c_pbtn2, _ = st.columns([1.5, 1.5, 3])
+                with c_pbtn1:
+                    if st.button("➕ Adicionar Nova Perfurante", key=f"add_perf_btn_{m_nome}"):
+                        st.session_state["lista_perfurantes"][m_nome].append(1)
+                        st.rerun()
+                with c_pbtn2:
+                    if len(st.session_state["lista_perfurantes"][m_nome]) > 0:
+                        if st.button("❌ Remover Última Perfurante", key=f"rem_perf_btn_{m_nome}"):
+                            st.session_state["lista_perfurantes"][m_nome].pop()
+                            st.rerun()
+                        
+            # --- 2.4 MAPA DE VARICOSIDADES ---
+            st.markdown("---")
+            st.markdown("#### 2.4 Mapeamento de Varicosidades / Malhas Reticulares")
+            possui_varicosidades = st.checkbox("Descrever presença de Telangiectasias, Microvarizes ou Reticulares?", key=f"has_varic_{m_nome}")
+            varic_dados = {"possui": possui_varicosidades}
+        
+            if possui_varicosidades:
+                cv_1, cv_2, cv_3 = st.columns(3)
+                with cv_1: varic_dados["telangiectasias"] = st.checkbox("Telangiectasias (< 1 mm)", key=f"var_tel_{m_nome}")
+                with cv_2: varic_dados["micro_reticulares"] = st.checkbox("Microvarizes / Varizes Reticulares (1 a 3 mm)", key=f"var_mic_{m_nome}")
+                with cv_3: varic_dados["veias_varicosas"] = st.checkbox("Veias Varicosas Tronculares (> 3 mm)", key=f"var_tronc_{m_nome}")
+                varic_dados["localizacao"] = st.text_input("Localização predominante das lesões superficiais:", "em faces lateral da coxa e posterior da perna", key=f"var_loc_{m_nome}")
 
-        dados_membros[m_nome] = {
-            "svp": svp_res, "vsm_mapeamento": vsm_dados_mapeamento,
-            "jsf_mm": jsf_mm, "vsm_prox_coxa": vsm_prox_coxa, "vsm_med_coxa": vsm_med_coxa, "vsm_dist_coxa": vsm_dist_coxa,
-            "vsm_prox_perna": vsm_prox_perna, "vsm_med_perna": vsm_med_perna, "vsm_dist_perna": vsm_dist_perna,
-            "vsp_dados_input": vsp_dados_input, "jsp_mm": jsp_mm, "vsp_crossa": vsp_crossa, "vsp_med_perna_diam": vsp_med_perna_diam,
-            "giacomini_opt": giacomini_opt, "varizes_pelvicas_opt": varizes_pelvicas_opt, 
-            "pos_op_opt": pos_op_opt, "achados_adi_multi": achados_multiplos, "cisto_medidas": cisto_medidas,
-            "perfurantes_lista": perfurantes_coletadas if possui_perfurantes else [],
-            "varic_dados": varic_dados
-        }
+            st.markdown("---")
+
+            # 3. MÓDULOS ADICIONAIS & VARIÁVEIS EXTRAS
+            st.markdown("#### 3. Módulos Adicionais")
+            c_add1, c_add2 = st.columns(2)
+            with c_add1:
+                giacomini_opt = st.selectbox("Veia de Giacomini Isolada:", ["Não se aplica / Normal", "3.1 Refluxo ostial drenado de forma ascendente", "3.2 Refluxo ostial transferindo para VSM"], key=f"giacomini_{m_nome}")
+                varizes_pelvicas_opt = st.selectbox("Varizes Pélvicas (Pontos de Escape):", ["Ausentes", "5.1 Plexo venoso ciático (região infraglútea)", "5.2 Escape inguinal/perineal"], key=f"pelvicas_{m_nome}")
+                pos_op_opt = st.selectbox("Pós-Operatório / Recidiva:", ["Não se aplica", "6.3 Sinais de neovascularização adjacentes"], key=f"pos_op_{m_nome}")
+        
+            with c_add2:
+                st.markdown("**Achados Extras / Patologias de Tecidos Adjacentes:**")
+                achados_multiplos = st.multiselect(
+                    "Selecione os achados adicionais observados:",
+                    ["Cisto de Baker na fossa poplítea", "Edema intersticial subcutâneo"],
+                    default=[],
+                    key=f"achados_adi_multi_{m_nome}"
+                )
+            
+                cisto_medidas = {}
+                if "Cisto de Baker na fossa poplítea" in achados_multiplos:
+                    st.markdown("<sub style='color: #444;'>Dimensões do Cisto de Baker:</sub>", unsafe_allow_html=True)
+                    cc1, cc2, cc3 = st.columns(3)
+                    with cc1: cisto_medidas["comp"] = st.text_input("Eixo Long (mm):", "35", key=f"cb_c_{m_nome}")
+                    with cc2: cisto_medidas["larg"] = st.text_input("Eixo Transv (mm):", "18", key=f"cb_l_{m_nome}")
+                    with cc3: cisto_medidas["esp"] = st.text_input("Espessura (mm):", "12", key=f"cb_e_{m_nome}")
+
+            dados_membros[m_nome] = {
+                "svp": svp_res, "vsm_mapeamento": vsm_dados_mapeamento,
+                "jsf_mm": jsf_mm, "vsm_prox_coxa": vsm_prox_coxa, "vsm_med_coxa": vsm_med_coxa, "vsm_dist_coxa": vsm_dist_coxa,
+                "vsm_prox_perna": vsm_prox_perna, "vsm_med_perna": vsm_med_perna, "vsm_dist_perna": vsm_dist_perna,
+                "vsp_dados_input": vsp_dados_input, "jsp_mm": jsp_mm, "vsp_crossa": vsp_crossa, "vsp_med_perna_diam": vsp_med_perna_diam,
+                "giacomini_opt": giacomini_opt, "varizes_pelvicas_opt": varizes_pelvicas_opt, 
+                "pos_op_opt": pos_op_opt, "achados_adi_multi": achados_multiplos, "cisto_medidas": cisto_medidas,
+                "perfurantes_lista": perfurantes_coletadas if possui_perfurantes else [],
+                "varic_dados": varic_dados
+            }
 
 st.markdown("---")
 
@@ -743,6 +827,140 @@ def gerar_cartografia_venosa(m_nome, dados_m, paciente):
     return fig
 
 
+
+# --- FUNÇÃO DE LAUDO DE RASTREIO DE TVP ---
+def construir_laudo_tvp(membros_lista, dados_m_dict):
+    doc = Document()
+    doc.styles['Normal'].font.name = fonte_doc
+    doc.styles['Normal'].font.size = Pt(tamanho_fonte)
+
+    def add_p(text, bold_pre=None, align=WD_ALIGN_PARAGRAPH.LEFT, space_before=0, space_after=4, bullet=False):
+        p = doc.add_paragraph(style='List Bullet' if bullet else 'Normal')
+        p.alignment = align
+        p.paragraph_format.line_spacing = espacamento_linhas
+        p.paragraph_format.space_before = Pt(space_before)
+        p.paragraph_format.space_after = Pt(space_after)
+        if bold_pre:
+            r_p = p.add_run(bold_pre)
+            r_p.bold = True
+        p.add_run(text)
+
+    if nome_clinica.strip():
+        p_cl = doc.add_paragraph()
+        p_cl.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r_cl = p_cl.add_run(nome_clinica.upper())
+        r_cl.bold = True
+        r_cl.font.name = fonte_doc
+        r_cl.font.size = Pt(tamanho_fonte + 2)
+        doc.add_paragraph().paragraph_format.space_after = Pt(8)
+
+    if formato_exame == "Bilateral (Laudo Único)":
+        add_p("DOS MEMBROS INFERIORES", bold_pre='DUPLEX SCAN VENOSO — RASTREIO DE TVP ', space_after=12)
+    else:
+        add_p(f"DO MEMBRO INFERIOR {membros_lista[0]}", bold_pre='DUPLEX SCAN VENOSO — RASTREIO DE TVP ', space_after=12)
+
+    add_p(f" {nome_paciente}", bold_pre="Paciente:")
+    add_p("TÉCNICA", space_before=12, space_after=6)
+    add_p("Exame realizado com transdutor linear de alta frequência com avaliação compressiva segmentar, análise espectral Doppler e mapeamento de fluxo em cores.", space_after=12)
+
+    conclusoes_lista_tvp = []
+
+    _TEXTO_ALTERADO = {
+        "Trombose aguda": "não compressível e pouco deformável, com obstrução do fluxo a custa de material hipoecóico intraluminal sugestivo de trombo.",
+        "Trabéculas / Trombo em organização": "parcialmente compressível e deformável, apresentando traves ecogênicas intraluminais compatíveis com trombo em organização.",
+        "Trombo aderido às paredes": "parcialmente compressível e deformável, apresentando material hipoecóico intraluminal (trombo) aderido às suas paredes.",
+        "Recanalização completa": "de calibre reduzido e paredes espessadas, sugerindo alterações sequelares relacionadas a trombose prévia, completamente recanalizada.",
+    }
+
+    _IMPRESSAO_ALTERADO = {
+        "Trombose aguda": "Sinais de trombose venosa profunda de aspecto recente na {veia}.",
+        "Trabéculas / Trombo em organização": "Sinais de trombose venosa profunda antiga, com trombo em organização na {veia}.",
+        "Trombo aderido às paredes": "Sinais de trombose venosa profunda parcialmente recanalizada na {veia}.",
+        "Recanalização completa": "Sequela de TVP prévia recanalizada na {veia}.",
+    }
+
+    for m_nome in membros_lista:
+        dm = dados_m_dict[m_nome]
+        add_p("⸻", space_after=12)
+
+        if formato_exame == "Bilateral (Laudo Único)":
+            add_p(f"RELATÓRIO TÉCNICO – MEMBRO INFERIOR {m_nome}", space_after=12)
+        else:
+            add_p("RELATÓRIO", space_after=12)
+
+        add_p("SISTEMA VENOSO PROFUNDO", space_after=6)
+
+        tvp = dm.get("tvp", {})
+        veias_meta = dm.get("veias_meta", [])
+        tem_alteracao = False
+
+        for veia_info in veias_meta:
+            chave = veia_info["chave"]
+            nome_laudo = veia_info["laudo"]
+            normal_txt = veia_info["normal_txt"]
+            dados_veia = tvp.get(chave, {"status": "Normal"})
+            status = dados_veia.get("status", "Normal")
+
+            nome_cap = nome_laudo[0].upper() + nome_laudo[1:]
+
+            if status == "Normal":
+                add_p(f"{nome_cap}: {normal_txt}")
+            elif status == "Trombose aguda":
+                add_p(f"{nome_cap}: {_TEXTO_ALTERADO['Trombose aguda']}")
+                conclusoes_lista_tvp.append((m_nome, _IMPRESSAO_ALTERADO["Trombose aguda"].format(veia=nome_laudo)))
+                tem_alteracao = True
+                if dados_veia.get("refluxo"):
+                    add_p("Observa-se refluxo significativo neste segmento após as manobras provocativas.")
+                    conclusoes_lista_tvp.append((m_nome, f"Refluxo no segmento acometido ({nome_laudo}), possivelmente relacionado a disfunção valvar secundária à TVP."))
+            elif status == "Trombose crônica":
+                subtipo = dados_veia.get("subtipo", "Trabéculas / Trombo em organização")
+                add_p(f"{nome_cap}: {_TEXTO_ALTERADO[subtipo]}")
+                conclusoes_lista_tvp.append((m_nome, _IMPRESSAO_ALTERADO[subtipo].format(veia=nome_laudo)))
+                tem_alteracao = True
+                if dados_veia.get("refluxo"):
+                    add_p("Observa-se refluxo significativo neste segmento após as manobras provocativas.")
+                    conclusoes_lista_tvp.append((m_nome, f"Refluxo no segmento acometido ({nome_laudo}), possivelmente relacionado a disfunção valvar secundária à TVP."))
+
+    # IMPRESSÃO DIAGNÓSTICA
+    if quebrar_pagina_diag:
+        doc.add_page_break()
+    add_p("⸻", space_after=12)
+    add_p("IMPRESSÃO DIAGNÓSTICA", space_after=6)
+
+    if not conclusoes_lista_tvp:
+        add_p("Ausência de trombose venosa profunda no momento.", bullet=True)
+    else:
+        vistas = set()
+        for m_origem, c_txt in conclusoes_lista_tvp:
+            chave_unica = (m_origem, c_txt)
+            if chave_unica not in vistas:
+                vistas.add(chave_unica)
+                prefixo = f"[{m_origem}] " if formato_exame == "Bilateral (Laudo Único)" else ""
+                add_p(f"{prefixo}{c_txt}", bullet=True)
+
+    if nome_medico or crm_medico:
+        doc.add_paragraph().paragraph_format.space_before = Pt(25)
+        p_assin = doc.add_paragraph()
+        p_assin.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_assin.paragraph_format.line_spacing = espacamento_linhas
+        if nome_medico:
+            r = p_assin.add_run(f"{nome_medico}\n")
+            r.bold = True
+        if crm_medico:
+            p_assin.add_run(f"CRM-{crm_uf} {crm_medico}\n")
+        if rqe_medico.strip():
+            p_assin.add_run(f"RQE {rqe_medico}")
+
+    if incluir_rodape_link and rodape_url.strip():
+        p_rod = doc.add_paragraph()
+        p_rod.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_rod.paragraph_format.space_before = Pt(30)
+        r_rod = p_rod.add_run(f"Laudo gerado com suporte do sistema de mapeamento venoso: {rodape_url.strip()}")
+        r_rod.italic = True
+        r_rod.font.size = Pt(max(tamanho_fonte - 2, 8))
+
+    return doc
+
 # --- FUNÇÃO DE MONTAGEM E CONSTRUÇÃO DO DOCUMENTO WORD ---
 def construir_laudo_word(membros_lista, dados_m_dict):
     doc = Document()
@@ -1009,27 +1227,45 @@ def _exibir_doc(doc, buf, nome_arquivo, label_download):
 
 col_btn1, col_btn2 = st.columns(2)
 
+_lbl_btn_laudo = "🔍 Gerar Laudo de Rastreio de TVP" if modo_laudo == "Rastreio de TVP" else "🚀 Gerar Laudo Venoso Completo"
 with col_btn1:
-    gerar_laudo_btn = st.button("🚀 Gerar Laudo Venoso Completo", use_container_width=True)
+    gerar_laudo_btn = st.button(_lbl_btn_laudo, use_container_width=True)
 
 with col_btn2:
-    gerar_cart_btn = st.button("🗺️ Gerar Cartografia Venosa", use_container_width=True, type="secondary")
+    gerar_cart_btn = st.button("🗺️ Gerar Cartografia Venosa", use_container_width=True, type="secondary",
+                               disabled=(modo_laudo == "Rastreio de TVP"))
 
 if gerar_laudo_btn:
-    if formato_exame == "Bilateral (Laudos Separados)":
-        for m_nome in ["DIREITO", "ESQUERDO"]:
-            doc_sep = construir_laudo_word([m_nome], dados_membros)
+    if modo_laudo == "Rastreio de TVP":
+        if formato_exame == "Bilateral (Laudos Separados)":
+            for m_nome in ["DIREITO", "ESQUERDO"]:
+                doc_sep = construir_laudo_tvp([m_nome], dados_membros)
+                buf = BytesIO()
+                doc_sep.save(buf)
+                buf.seek(0)
+                _exibir_doc(doc_sep, buf, f"Laudo_TVP_MMII_{m_nome}.docx",
+                            f"📥 Baixar Laudo TVP Membro {m_nome} (.docx)")
+        else:
+            doc_tvp = construir_laudo_tvp(membros_para_processar, dados_membros)
             buf = BytesIO()
-            doc_sep.save(buf)
+            doc_tvp.save(buf)
             buf.seek(0)
-            _exibir_doc(doc_sep, buf, f"Laudo_Venoso_MMII_{m_nome}.docx",
-                        f"📥 Baixar Laudo Membro {m_nome} (.docx)")
+            _exibir_doc(doc_tvp, buf, "Laudo_TVP_MMII.docx", "📥 Baixar Laudo Rastreio TVP (.docx)")
     else:
-        doc_unico = construir_laudo_word(membros_para_processar, dados_membros)
-        buf = BytesIO()
-        doc_unico.save(buf)
-        buf.seek(0)
-        _exibir_doc(doc_unico, buf, "Laudo_Venoso_MMII.docx", "📥 Baixar Laudo Venoso (.docx)")
+        if formato_exame == "Bilateral (Laudos Separados)":
+            for m_nome in ["DIREITO", "ESQUERDO"]:
+                doc_sep = construir_laudo_word([m_nome], dados_membros)
+                buf = BytesIO()
+                doc_sep.save(buf)
+                buf.seek(0)
+                _exibir_doc(doc_sep, buf, f"Laudo_Venoso_MMII_{m_nome}.docx",
+                            f"📥 Baixar Laudo Membro {m_nome} (.docx)")
+        else:
+            doc_unico = construir_laudo_word(membros_para_processar, dados_membros)
+            buf = BytesIO()
+            doc_unico.save(buf)
+            buf.seek(0)
+            _exibir_doc(doc_unico, buf, "Laudo_Venoso_MMII.docx", "📥 Baixar Laudo Venoso (.docx)")
 
 if gerar_cart_btn:
     import matplotlib.pyplot as plt
