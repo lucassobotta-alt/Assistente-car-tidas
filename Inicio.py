@@ -47,7 +47,7 @@ st.markdown(
 # ── Módulos disponíveis ───────────────────────────────────────────────────────
 st.markdown("### Módulos disponíveis")
 
-col1, col2, col3 = st.columns(3, gap="large")
+col1, col2, col3, col4 = st.columns(4, gap="large")
 
 with col1:
     st.markdown(
@@ -117,6 +117,29 @@ with col3:
         unsafe_allow_html=True,
     )
     st.page_link("pages/03_Arterial_MMII.py", label="Acessar módulo arterial MMII →", icon="🫀")
+
+with col4:
+    st.markdown(
+        """
+        <div style="
+            border: 1px solid #dde3f0;
+            border-radius: 8px;
+            padding: 1.2rem 1.4rem 0.8rem 1.4rem;
+            background: #fff;
+            min-height: 170px;
+        ">
+            <h4 style="margin-top: 0;">🫘 Duplex Scan de Artérias Renais</h4>
+            <ul style="padding-left: 1.1rem; color: #444; font-size: 0.92rem;">
+                <li>Avaliação morfológica bilateral dos rins</li>
+                <li>VPS, VDF e IRA com cálculo automático</li>
+                <li>Classificação por critérios SBC / ESC 2024</li>
+                <li>Alerta para estenose hemodinamicamente significativa</li>
+            </ul>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.page_link("pages/04_Arterias_Renais.py", label="Acessar módulo renal →", icon="🫘")
 
 st.markdown("---")
 st.caption("Use o menu lateral para navegar entre os módulos.")
