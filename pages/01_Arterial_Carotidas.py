@@ -772,9 +772,6 @@ if gerar_laudo:
             impressao_linhas.append(f"– Calcificações parietais isoladas sem repercussão hemodinâmica {prep} {c['topografia']} {c['lado'].lower()}.")
             tem_achado = True
 
-    if not tem_achado:
-        impressao_linhas.append("– Artérias carótidas e vertebrais pérvias, com trajetos e padrões de fluxo normais, dentro dos limites da normalidade.")
-
     _STATUS_HEMO_SIG = {
         "Oclusão", "Suboclusão",
         "Estenose de 50-59%", "Estenose de 60-69%", "Estenose de 70-89%", "Estenose > 90%",
