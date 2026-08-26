@@ -139,7 +139,10 @@ with col4:
         """,
         unsafe_allow_html=True,
     )
-    st.page_link("pages/04_Arterias_Renais.py", label="Acessar módulo renal →", icon="🫘")
+    try:
+        st.page_link("pages/04_Arterias_Renais.py", label="Acessar módulo renal →", icon="🫘")
+    except Exception:
+        st.markdown("🫘 **[Acessar módulo renal](./04_Arterias_Renais)**")
 
 st.markdown("---")
 st.caption("Use o menu lateral para navegar entre os módulos.")
