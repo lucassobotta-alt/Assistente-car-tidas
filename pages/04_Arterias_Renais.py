@@ -42,6 +42,7 @@ with st.sidebar:
     with colcrm2:
         crm_uf = st.selectbox("UF", ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"], index=25, key="ar_uf")
     rqe_medico = st.text_input("RQE:", "", key="ar_rqe")
+    incluir_assinatura = st.toggle("Incluir assinatura / carimbo no laudo", value=True, key="ar_assin")
 
     st.markdown("---")
     st.markdown("### 🔗 Rodapé do Documento")
@@ -51,7 +52,7 @@ with st.sidebar:
         rodape_url = st.text_input("URL do sistema:", placeholder="Ex: https://seu-app.streamlit.app", key="ar_rodape_url")
 
 # --- PACIENTE ---
-nome_paciente = st.text_input("Nome do Paciente:", "Paciente Exemplo", key="ar_paciente")
+nome_paciente = st.text_input("Nome do Paciente:", "", key="ar_paciente")
 
 st.markdown("---")
 
@@ -372,7 +373,8 @@ def construir_laudo_renais():
         doc.add_paragraph().paragraph_format.space_after = Pt(8)
 
     add_p("DE AORTA E ARTÉRIAS RENAIS", bold_pre="DUPLEX SCAN ", space_after=12)
-    add_p(f" {nome_paciente}", bold_pre="Paciente:")
+    if nome_paciente.strip():
+        add_p(f" {nome_paciente}", bold_pre="Paciente:")
     add_p("TÉCNICA", space_before=12, space_after=6)
     add_p(
         "Exame realizado com transdutor convexo multifrequencial, utilizando recursos de modo B, "
@@ -504,7 +506,7 @@ def construir_laudo_renais():
             add_p("Ausência de sinais diretos ou indiretos de estenose hemodinamicamente significativa nas artérias renais.", bullet=True)
 
     # Assinatura
-    if nome_medico or crm_medico:
+    if incluir_assinatura and (nome_medico or crm_medico):
         doc.add_paragraph().paragraph_format.space_before = Pt(25)
         p_assin = doc.add_paragraph()
         p_assin.alignment = WD_ALIGN_PARAGRAPH.CENTER

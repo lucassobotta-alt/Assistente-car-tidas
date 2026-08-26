@@ -186,6 +186,7 @@ with st.sidebar:
     with colcrm2:
         crm_uf = st.selectbox("UF CRM", ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"], index=25)
     rqe_medico = st.text_input("RQE:")
+    incluir_assinatura = st.toggle("Incluir assinatura / carimbo no laudo", value=True)
     incluir_observacoes = st.toggle("Incluir observações complementares", value=True)
     incluir_velocidades = st.toggle("Incluir velocidades (VPS / relação ACI-ACC) no laudo", value=True)
 
@@ -914,7 +915,7 @@ if gerar_laudo:
                 adicionar_texto_esquerda(obs, bold_prefix=f"– Observação {i+1}: ", italico=True, fonte_menor=True)
 
     # Bloco de Assinatura (comum a ambos os modos)
-    if nome_medico or crm_medico:
+    if incluir_assinatura and (nome_medico or crm_medico):
         doc.add_paragraph().paragraph_format.space_before = Pt(36)
         p_assinatura = doc.add_paragraph()
         p_assinatura.alignment = WD_ALIGN_PARAGRAPH.CENTER
