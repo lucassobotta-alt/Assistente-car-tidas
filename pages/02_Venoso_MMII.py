@@ -45,6 +45,7 @@ with st.sidebar:
     with colcrm2:
         crm_uf = st.selectbox("UF", ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"], index=25)
     rqe_medico = st.text_input("RQE:", "")
+    incluir_assinatura = st.toggle("Incluir assinatura / carimbo no laudo", value=True)
 
     st.markdown("---")
     st.markdown("### 🔗 Rodapé do Documento")
@@ -54,7 +55,7 @@ with st.sidebar:
         rodape_url = st.text_input("URL do sistema:", placeholder="Ex: https://seu-app.streamlit.app")
 
 # --- IDENTIFICAÇÃO DO PACIENTE ---
-nome_paciente = st.text_input("Nome do Paciente:", "Paciente Exemplo Venoso")
+nome_paciente = st.text_input("Nome do Paciente:", "")
 formato_exame = st.selectbox("Tipo de Exame:", ["Unilateral", "Bilateral (Laudos Separados)", "Bilateral (Laudo Único)"])
 
 membros_para_processar = [st.selectbox("Selecione o Lado Avaliado:", ["DIREITO", "ESQUERDO"])] if formato_exame == "Unilateral" else ["DIREITO", "ESQUERDO"]
@@ -859,7 +860,8 @@ def construir_laudo_tvp(membros_lista, dados_m_dict):
     else:
         add_p(f"DO MEMBRO INFERIOR {membros_lista[0]}", bold_pre='DUPLEX SCAN VENOSO — RASTREIO DE TVP ', space_after=12)
 
-    add_p(f" {nome_paciente}", bold_pre="Paciente:")
+    if nome_paciente.strip():
+        add_p(f" {nome_paciente}", bold_pre="Paciente:")
     add_p("TÉCNICA", space_before=12, space_after=6)
     add_p("Exame realizado com transdutor linear de alta frequência com avaliação compressiva segmentar, análise espectral Doppler e mapeamento de fluxo em cores.", space_after=12)
 
@@ -938,7 +940,7 @@ def construir_laudo_tvp(membros_lista, dados_m_dict):
                 prefixo = f"[{m_origem}] " if formato_exame == "Bilateral (Laudo Único)" else ""
                 add_p(f"{prefixo}{c_txt}", bullet=True)
 
-    if nome_medico or crm_medico:
+    if incluir_assinatura and (nome_medico or crm_medico):
         doc.add_paragraph().paragraph_format.space_before = Pt(25)
         p_assin = doc.add_paragraph()
         p_assin.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -992,7 +994,8 @@ def construir_laudo_word(membros_lista, dados_m_dict):
     else:
         add_p(f"DO MEMBRO INFERIOR {membros_lista[0]}", bold_pre='DUPLEX SCAN VENOSO ', space_after=12)
 
-    add_p(f" {nome_paciente}", bold_pre="Paciente:")
+    if nome_paciente.strip():
+        add_p(f" {nome_paciente}", bold_pre="Paciente:")
     add_p("TÉCNICA", space_before=12, space_after=6)
     add_p("Exame realizado com transdutor linear de alta frequência...", space_after=12)
     
@@ -1190,7 +1193,7 @@ def construir_laudo_word(membros_lista, dados_m_dict):
             prefixo = f"[{m_origem}] " if formato_exame == "Bilateral (Laudo Único)" else ""
             add_p(f"{prefixo}{conclusao_txt}", bullet=True)
 
-    if nome_medico or crm_medico:
+    if incluir_assinatura and (nome_medico or crm_medico):
         doc.add_paragraph().paragraph_format.space_before = Pt(25)
         p_assin = doc.add_paragraph()
         p_assin.alignment = WD_ALIGN_PARAGRAPH.CENTER
