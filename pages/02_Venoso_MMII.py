@@ -896,7 +896,7 @@ def construir_laudo_tvp(membros_lista, dados_m_dict):
     if nome_paciente.strip():
         add_p(f" {nome_paciente}", bold_pre="Paciente:")
     add_p("TÉCNICA", space_before=12, space_after=6)
-    add_p("Exame realizado com transdutor linear de alta frequência com avaliação compressiva segmentar, análise espectral Doppler e mapeamento de fluxo em cores.", space_after=12)
+    add_p("Exame realizado com o paciente em ortostase, utilizando transdutor linear de alta frequência, com avaliação compressiva segmentar, mapeamento de fluxo em cores e análise espectral Doppler pulsado, sem limitações técnicas.", space_after=12)
 
     conclusoes_lista_tvp = []
 
@@ -1030,7 +1030,7 @@ def construir_laudo_word(membros_lista, dados_m_dict):
     if nome_paciente.strip():
         add_p(f" {nome_paciente}", bold_pre="Paciente:")
     add_p("TÉCNICA", space_before=12, space_after=6)
-    add_p("Exame realizado com transdutor linear de alta frequência...", space_after=12)
+    add_p("Exame realizado com o paciente em ortostase, utilizando transdutor linear de alta frequência, com avaliação compressiva segmentar, mapeamento de fluxo em cores e análise espectral Doppler pulsado, sem limitações técnicas.", space_after=12)
     
     conclusoes_lista = []
     
