@@ -1058,6 +1058,8 @@ def construir_laudo_word(membros_lista, dados_m_dict):
         else:
             if vm["jsf_status"] == "Competente":
                 add_p("A junção safenofemoral apresenta-se competente, sem evidências de refluxo valvar patológico.")
+                if not vm.get("tronco_refluxo", False):
+                    add_p("A veia safena magna apresenta-se pérvia e competente, sem sinais de refluxo ao longo de seu trajeto.")
             else:
                 v_padrao = vm["jsf_valvulas"]
                 det = vm.get("jsf_detalhes_input", {})
