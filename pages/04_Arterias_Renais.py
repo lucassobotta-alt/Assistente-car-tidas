@@ -45,6 +45,18 @@ with st.sidebar:
     incluir_assinatura = st.toggle("Incluir assinatura / carimbo no laudo", value=True, key="ar_assin")
 
     st.markdown("---")
+    _AR_SIDEBAR_KEYS = {
+        "ar_fonte", "ar_tam", "ar_esp", "ar_qpd", "ar_saida",
+        "ar_clinica", "ar_medico", "ar_crm", "ar_uf", "ar_rqe",
+        "ar_assin", "ar_rodape_tog", "ar_rodape_url",
+    }
+    if st.button("🔄 Resetar Todos os Parâmetros", use_container_width=True, type="secondary"):
+        for _k in [k for k in st.session_state if k not in _AR_SIDEBAR_KEYS]:
+            del st.session_state[_k]
+        st.toast("🔄 Todos os dados clínicos foram limpos!")
+        st.rerun()
+
+    st.markdown("---")
     st.markdown("### 🔗 Rodapé do Documento")
     incluir_rodape_link = st.toggle("Incluir nota de rodapé com link do sistema", value=False, key="ar_rodape_tog")
     rodape_url = ""

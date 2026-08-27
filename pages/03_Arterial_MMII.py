@@ -32,6 +32,13 @@ with st.sidebar:
         crm_uf = st.selectbox("UF", ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"], index=25)
     rqe_medico = st.text_input("RQE:", "")
 
+    st.markdown("---")
+    if st.button("🔄 Resetar Todos os Parâmetros", use_container_width=True, type="secondary"):
+        for _k in list(st.session_state.keys()):
+            del st.session_state[_k]
+        st.toast("🔄 Todos os dados clínicos foram limpos!")
+        st.rerun()
+
 # --- IDENTIFICACAO DO PACIENTE ---
 nome_paciente = st.text_input("Nome do Paciente:", "")
 formato_exame = st.selectbox("Tipo de Exame:", ["Unilateral", "Bilateral (Laudos Separados)", "Bilateral (Laudo Único)"])
