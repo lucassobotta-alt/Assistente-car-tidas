@@ -73,6 +73,8 @@ if "vsp_reg" not in st.session_state:
     st.session_state["vsp_reg"] = {}
 if "tvp_dados_reg" not in st.session_state:
     st.session_state["tvp_dados_reg"] = {}
+if "jsf_backup" not in st.session_state:
+    st.session_state["jsf_backup"] = {}
 
 dados_membros = {}
 
@@ -192,6 +194,13 @@ for idx, m_nome in enumerate(membros_para_processar):
         
             if vsm_status_geral == "Pérvia / Presente":
                 st.markdown("**Avaliação da Junção Safenofemoral (JSF):**")
+
+                # Restore JSF widget state from backup if Streamlit cleared it on tab switch
+                _jsf_bk = st.session_state["jsf_backup"].get(m_nome, {})
+                for _bk_key, _bk_val in _jsf_bk.items():
+                    if _bk_key not in st.session_state:
+                        st.session_state[_bk_key] = _bk_val
+
                 jsf_status = st.radio("Status da JSF:", ["Competente", "Incompetente"], horizontal=True, key=f"jsf_status_{m_nome}")
                 vsm_dados_mapeamento["jsf_status"] = jsf_status
             
@@ -240,6 +249,19 @@ for idx, m_nome in enumerate(membros_para_processar):
                             jsf_detalhes_input["tributarias_tipo"] = st.text_input("Fluindo para tributárias não safênicas na:", "coxa", key=f"jsf_det_term_trib_{m_nome}")
 
                     vsm_dados_mapeamento["jsf_detalhes_input"] = jsf_detalhes_input
+
+                # Save all JSF-related widget values to backup for tab-switch persistence
+                _jsf_bk_keys = [
+                    f"jsf_status_{m_nome}", f"jsf_valvulas_{m_nome}",
+                    f"jsf_ext_{m_nome}", f"jsf_des_tipo_{m_nome}", f"jsf_ref_dist_{m_nome}",
+                    f"jsf_pos_joelho_{m_nome}", f"jsf_dist_fim_{m_nome}",
+                    f"jsf_det_j_{m_nome}", f"jsf_det_dren_{m_nome}", f"jsf_det_terco_{m_nome}",
+                    f"jsf_dest_term_{m_nome}", f"jsf_vsaa_des_{m_nome}", f"jsf_vsaa_ext_{m_nome}",
+                    f"jsf_det_term_trib_{m_nome}",
+                ]
+                st.session_state["jsf_backup"][m_nome] = {
+                    k: st.session_state[k] for k in _jsf_bk_keys if k in st.session_state
+                }
 
                 incluir_segmento = st.toggle("Incluir Segmento Incompetente", key=f"incluir_seg_{m_nome}")
 
@@ -416,40 +438,44 @@ for idx, m_nome in enumerate(membros_para_processar):
             perfurantes_coletadas = []
         
             if possui_perfurantes:
-                st.markdown("<div style='background-color: #fff9e6; padding: 10px; border-left: 4px solid #ffcc00; border-radius: 4px; margin-bottom: 15px;'><strong>📍 Localização Dinâmica de Perfurantes Incompetentes</strong></div>", unsafe_allow_html=True)
-                qtd_perf = len(st.session_state["lista_perfurantes"][m_nome])
-            
-                for p_idx in range(qtd_perf):
-                    st.markdown(f"**Veia Perfurante Incompetente #{p_idx + 1}**")
-                    perf_dados = {}
-                    cp_1, cp_2, cp_3, cp_4, cp_5 = st.columns(5)
-                    with cp_1: perf_dados["regiao"] = st.selectbox("Região Anatômica:", ["Coxa", "Perna"], key=f"perf_reg_{m_nome}_{p_idx}")
-                    with cp_2: perf_dados["face"] = st.selectbox("Face Medida:", ["Medial", "Lateral", "Anterior", "Posterior", "Anterolateral", "Posterointerna"], key=f"perf_face_{m_nome}_{p_idx}")
-                    with cp_3: perf_dados["ref_ponto"] = st.selectbox("Referência de Medida:", ["Interlinha do Joelho", "Face Plantar"], key=f"perf_ref_{m_nome}_{p_idx}")
-                    with cp_4: perf_dados["altura_cm"] = st.text_input("Altura aferida (cm):", "12", key=f"perf_alt_{m_nome}_{p_idx}")
-                    with cp_5: perf_dados["diametro_mm"] = st.text_input("Diâmetro (mm):", "3.5", key=f"perf_diam_{m_nome}_{p_idx}")
-                    try:
-                        if float(perf_dados["diametro_mm"]) > 3.5:
-                            st.warning(f"⚠️ Perfurante #{p_idx + 1}: diâmetro {perf_dados['diametro_mm']} mm > 3,5 mm — critério ESVS 2022 para perfurante patológica")
-                    except ValueError: pass
-                
-                    if perf_dados["ref_ponto"] == "Interlinha do Joelho":
-                        perf_dados["posicao_joelho"] = st.radio("Posição do plano do joelho:", ["Acima", "Abaixo"], horizontal=True, key=f"perf_pos_j_{m_nome}_{p_idx}")
-                    else: perf_dados["posicao_joelho"] = ""
-                
-                    perfurantes_coletadas.append(perf_dados)
-                    st.markdown("---")
-                
-                c_pbtn1, c_pbtn2, _ = st.columns([1.5, 1.5, 3])
-                with c_pbtn1:
-                    if st.button("➕ Adicionar Nova Perfurante", key=f"add_perf_btn_{m_nome}"):
-                        st.session_state["lista_perfurantes"][m_nome].append(1)
+                st.markdown("**Nova Perfurante — Parâmetros Anatômicos:**")
+                cp_1, cp_2, cp_3, cp_4, cp_5 = st.columns(5)
+                perf_nova = {}
+                with cp_1: perf_nova["regiao"] = st.selectbox("Região Anatômica:", ["Coxa", "Perna"], key=f"perf_reg_{m_nome}_new")
+                with cp_2: perf_nova["face"] = st.selectbox("Face:", ["Medial", "Lateral", "Anterior", "Posterior", "Anterolateral", "Posterointerna"], key=f"perf_face_{m_nome}_new")
+                with cp_3: perf_nova["ref_ponto"] = st.selectbox("Referência:", ["Interlinha do Joelho", "Face Plantar"], key=f"perf_ref_{m_nome}_new")
+                with cp_4: perf_nova["altura_cm"] = st.text_input("Distância (cm):", "12", key=f"perf_alt_{m_nome}_new")
+                with cp_5: perf_nova["diametro_mm"] = st.text_input("Diâmetro (mm):", "3.5", key=f"perf_diam_{m_nome}_new")
+                if perf_nova["ref_ponto"] == "Interlinha do Joelho":
+                    perf_nova["posicao_joelho"] = st.radio("Posição em relação ao joelho:", ["Acima", "Abaixo"], horizontal=True, key=f"perf_pos_j_{m_nome}_new")
+                else:
+                    perf_nova["posicao_joelho"] = ""
+                try:
+                    if float(perf_nova["diametro_mm"]) > 3.5:
+                        st.warning(f"⚠️ Diâmetro {perf_nova['diametro_mm']} mm > 3,5 mm — critério ESVS 2022 para perfurante patológica")
+                except ValueError:
+                    pass
+
+                if st.button("💾 Registrar Achado", key=f"reg_perf_{m_nome}"):
+                    st.session_state["lista_perfurantes"][m_nome].append(perf_nova)
+                    st.rerun()
+
+                if st.session_state["lista_perfurantes"][m_nome]:
+                    st.markdown("**Perfurantes registradas:**")
+                    for i, reg in enumerate(st.session_state["lista_perfurantes"][m_nome]):
+                        _ref_r = reg["ref_ponto"]
+                        _pos_r = reg["posicao_joelho"]
+                        _alt_r = reg["altura_cm"]
+                        if "Interlinha" in _ref_r:
+                            _loc_txt = f"a {_alt_r} cm {_pos_r.lower()} da interlinha do joelho"
+                        else:
+                            _loc_txt = f"a {_alt_r} cm da face plantar"
+                        st.markdown(f"`{i+1:02d}` **{reg['regiao']} / face {reg['face']}** — Ø {reg['diametro_mm']} mm | {_loc_txt}")
+                    if st.button("❌ Limpar Todas as Perfurantes", key=f"clear_perf_{m_nome}"):
+                        st.session_state["lista_perfurantes"][m_nome] = []
                         st.rerun()
-                with c_pbtn2:
-                    if len(st.session_state["lista_perfurantes"][m_nome]) > 0:
-                        if st.button("❌ Remover Última Perfurante", key=f"rem_perf_btn_{m_nome}"):
-                            st.session_state["lista_perfurantes"][m_nome].pop()
-                            st.rerun()
+
+                perfurantes_coletadas = list(st.session_state["lista_perfurantes"][m_nome])
                         
             # --- 2.4 MAPA DE VARICOSIDADES ---
             st.markdown("---")
@@ -1118,20 +1144,22 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                 add_p("Medidas da veia safena parva:", space_before=4, space_after=4)
                 for lbl, val in medidas_vsp_ativas: add_p(f" {val} mm", bold_pre=lbl, bullet=True)
 
-        # 2.3 VEIAS PERFURANTES INCOMPETENTES RELEVANTES
+        # 2.3 VEIAS PERFURANTES INCOMPETENTES
         if dm["perfurantes_lista"]:
-            add_p("VEIAS PERFURANTES INCOMPETENTES RELEVANTES", space_before=8, space_after=4)
             for p_dados in dm["perfurantes_lista"]:
                 r_reg = p_dados["regiao"]
                 r_face = p_dados["face"]
                 r_ref = p_dados["ref_ponto"]
                 r_alt = p_dados["altura_cm"]
                 r_pos = p_dados["posicao_joelho"]
-                
-                txt_ref_perf = f"localizada {r_pos.lower()} da interlinha do joelho" if "Interlinha" in r_ref else f"a partir da face plantar"
+
+                if "Interlinha" in r_ref:
+                    txt_ref_perf = f"{r_pos.lower()} da interlinha do joelho"
+                else:
+                    txt_ref_perf = "da face plantar"
                 r_diam = p_dados.get("diametro_mm", "")
                 txt_diam = f", com diâmetro de {r_diam} mm" if r_diam else ""
-                add_p(f"Identificada veia perfurante incompetente na {r_reg.lower()}, face {r_face.lower()}{txt_diam}, medindo {r_alt} cm de altura {txt_ref_perf}.", bullet=True)
+                add_p(f"Identificada veia perfurante incompetente na {r_reg.lower()}, face {r_face.lower()}{txt_diam}, situada a {r_alt} cm {txt_ref_perf}.", bullet=True)
                 conclusoes_lista.append((m_nome, f"Insuficiência de veia perfurante na {r_reg.lower()} (face {r_face.lower()})."))
 
         # 2.4 MAPA DE VARICOSIDADES
