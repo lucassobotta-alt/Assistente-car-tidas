@@ -316,6 +316,13 @@ for ai, lado_art in enumerate(["Direita", "Esquerda"]):
 
             _grau, _cor = classificar_estenose(_vps_f, _vdf_f, _rra_f, _ta_f)
 
+            # Sinais indiretos: artéria principal normal mas intrarrenais alteradas
+            _ta_val = _ta_f or 0
+            _sinais_indiretos = (
+                _cor == "green" and
+                (fluxo_intra_padrao == "padrão tardus-parvus" or _ta_val > 100)
+            )
+
             _cor_map = {"green": "🟢", "blue": "🔵", "orange": "🟠", "red": "🔴", "gray": "⚪"}
             st.markdown(
                 f"**{_cor_map.get(_cor, '⚪')} Classificação automática — Artéria Renal {lado_art}:** {_grau}"
@@ -325,6 +332,17 @@ for ai, lado_art in enumerate(["Direita", "Esquerda"]):
                 st.warning(
                     f"⚠️ **Critérios compatíveis com estenose hemodinamicamente significativa — Artéria Renal {lado_art}.**  \n"
                     "Considere avaliação complementar (AngioTC, AngioRM ou arteriografia)."
+                )
+
+            if _sinais_indiretos:
+                st.warning(
+                    f"⚠️ **Discordância hemodinâmica — Artéria Renal {lado_art}:** "
+                    "o padrão intrarrenal sugere sinais **indiretos** de estenose hemodinamicamente "
+                    "significativa (tardus-parvus e/ou tempo de aceleração > 100 ms), embora as "
+                    "velocidades diretas estejam dentro da normalidade.  \n"
+                    "**Verifique:** a artéria renal foi completamente visualizada ao longo de todo "
+                    "o seu trajeto? Houve limitação técnica que possa ter comprometido a avaliação "
+                    "direta da velocidade no ponto de estenose?"
                 )
 
             dados_arterias[lado_art] = {
@@ -341,6 +359,7 @@ for ai, lado_art in enumerate(["Direita", "Esquerda"]):
                 "ta_intra": ta_intra,
                 "grau": _grau,
                 "cor": _cor,
+                "sinais_indiretos": _sinais_indiretos,
                 "nao_identificada": False,
             }
 
@@ -490,7 +509,20 @@ def construir_laudo_renais():
                 _grau = da["grau"]
                 _cor = da["cor"]
                 if _cor == "green":
-                    pass  # Normal — não adiciona conclusão de estenose
+                    if da.get("sinais_indiretos"):
+                        _motivo = []
+                        if da["fluxo_intra_padrao"] == "padrão tardus-parvus":
+                            _motivo.append("padrão tardus-parvus")
+                        _ta_val_r = _safe_float(da["ta_intra"]) or 0
+                        if _ta_val_r > 100:
+                            _motivo.append(f"tempo de aceleração de {da['ta_intra']} ms")
+                        _motivo_txt = " e ".join(_motivo)
+                        conclusoes.append(
+                            f"Artéria renal {lado_art.lower()}: presença de sinais indiretos de "
+                            f"estenose hemodinamicamente significativa ({_motivo_txt}), "
+                            "na vigência de velocidades diretas na artéria renal dentro da normalidade. "
+                            "Não se exclui estenose proximal de difícil demonstração ultrassonográfica."
+                        )
                 elif _cor == "blue":
                     conclusoes.append(
                         f"Artéria renal {lado_art.lower()}: sinais compatíveis com estenose hemodinamicamente não significativa (< 60%)."
@@ -523,7 +555,7 @@ def construir_laudo_renais():
 
     # Artérias renais
     _todas_normais = all(
-        (not da.get("nao_identificada")) and da.get("cor") == "green"
+        (not da.get("nao_identificada")) and da.get("cor") == "green" and not da.get("sinais_indiretos")
         for da in dados_arterias.values()
     )
     if _todas_normais:
