@@ -45,10 +45,23 @@ with st.sidebar:
     incluir_assinatura = st.toggle("Incluir assinatura / carimbo no laudo", value=True, key="ar_assin")
 
     st.markdown("---")
+    st.markdown("### 🔬 Avaliação Complementar")
+    sugerir_complementar = st.toggle("Sugerir avaliação complementar no laudo", value=False, key="ar_sug_comp")
+    metodos_complementares = []
+    if sugerir_complementar:
+        metodos_complementares = st.multiselect(
+            "Método(s) sugerido(s):",
+            ["Angiotomografia (AngioTC)", "Angioressonância Magnética (AngioRM)", "Arteriografia digital"],
+            default=["Angiotomografia (AngioTC)"],
+            key="ar_sug_metodos"
+        )
+
+    st.markdown("---")
     _AR_SIDEBAR_KEYS = {
         "ar_fonte", "ar_tam", "ar_esp", "ar_qpd", "ar_saida",
         "ar_clinica", "ar_medico", "ar_crm", "ar_uf", "ar_rqe",
         "ar_assin", "ar_rodape_tog", "ar_rodape_url",
+        "ar_sug_comp", "ar_sug_metodos",
     }
     if st.button("🔄 Resetar Todos os Parâmetros", use_container_width=True, type="secondary"):
         for _k in [k for k in st.session_state if k not in _AR_SIDEBAR_KEYS]:
@@ -366,7 +379,7 @@ def construir_laudo_renais():
     doc.styles['Normal'].font.size = Pt(tamanho_fonte)
 
     def add_p(text, bold_pre=None, align=WD_ALIGN_PARAGRAPH.LEFT,
-              space_before=0, space_after=4, bullet=False):
+              space_before=0, space_after=4, bullet=False, italic=False):
         p = doc.add_paragraph(style='List Bullet' if bullet else 'Normal')
         p.alignment = align
         p.paragraph_format.line_spacing = espacamento_linhas
@@ -375,7 +388,9 @@ def construir_laudo_renais():
         if bold_pre:
             r_p = p.add_run(bold_pre)
             r_p.bold = True
-        p.add_run(text)
+        r = p.add_run(text)
+        if italic:
+            r.italic = True
 
     if nome_clinica.strip():
         p_cl = doc.add_paragraph()
@@ -518,6 +533,21 @@ def construir_laudo_renais():
             add_p(c, bullet=True)
         if not conclusoes:
             add_p("Ausência de sinais diretos ou indiretos de estenose hemodinamicamente significativa nas artérias renais.", bullet=True)
+
+    # Observação — avaliação complementar
+    if sugerir_complementar and metodos_complementares:
+        if len(metodos_complementares) == 1:
+            _met_txt = metodos_complementares[0]
+        elif len(metodos_complementares) == 2:
+            _met_txt = f"{metodos_complementares[0]} e {metodos_complementares[1]}"
+        else:
+            _met_txt = ", ".join(metodos_complementares[:-1]) + f" e {metodos_complementares[-1]}"
+        add_p(
+            f"OBSERVAÇÃO: Os achados ultrassonográficos do presente exame indicam correlação com "
+            f"método de imagem complementar. Sugere-se a realização de {_met_txt} para melhor "
+            f"caracterização anatômica e hemodinâmica das artérias renais e planejamento terapêutico adequado.",
+            space_before=10, italic=True
+        )
 
     # Assinatura
     if incluir_assinatura and (nome_medico or crm_medico):
