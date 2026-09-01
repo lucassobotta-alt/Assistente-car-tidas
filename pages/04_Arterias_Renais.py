@@ -90,14 +90,14 @@ if aorta_aneurisma:
         key="ao_aneu_desc"
     )
 
-# Alerta VPS aórtica fora do range de referência do IRA
+# Alerta VPS aórtica fora do range de referência da RRA
 try:
     _vps_ao_float = float(aorta_vps.replace(",", "."))
     if _vps_ao_float < 40 or _vps_ao_float > 100:
         st.warning(
             f"⚠️ **VPS aórtica fora do intervalo de referência ({aorta_vps} cm/s):** "
-            "valores < 40 ou > 100 cm/s podem comprometer a validade do Índice Renal-Aórtico (IRA). "
-            "Interprete o IRA com cautela neste exame."
+            "valores < 40 ou > 100 cm/s podem comprometer a validade da Razão Renal-Aórtica (RRA). "
+            "Interprete a RRA com cautela neste exame."
         )
 except ValueError:
     _vps_ao_float = None
@@ -202,7 +202,7 @@ def _safe_float(s):
     except (ValueError, TypeError):
         return None
 
-def classificar_estenose(vps, vdf, ira, ta):
+def classificar_estenose(vps, vdf, rra, ta):
     """Retorna (grau_texto, cor) baseado nos critérios SBC/ESC."""
     if vps is None:
         return "Não calculado", "gray"
@@ -211,13 +211,13 @@ def classificar_estenose(vps, vdf, ira, ta):
     if vps < 200:
         return "Normal (sem estenose significativa)", "green"
     # VPS ≥ 200
-    if ira is not None and ira >= 3.5:
+    if rra is not None and rra >= 3.5:
         if vdf is not None and vdf >= 150:
             if ta is not None and ta >= 70:
                 return "Estenose ≥ 80% (grave)", "red"
             return "Estenose ≥ 60–80%", "orange"
         return "Estenose ≥ 60%", "orange"
-    # VPS ≥ 200 mas IRA < 3.5
+    # VPS ≥ 200 mas RRA < 3.5
     return "Estenose < 60% (hemodinamicamente não significativa)", "blue"
 
 dados_arterias = {}
@@ -258,16 +258,18 @@ for ai, lado_art in enumerate(["Direita", "Esquerda"]):
             with col_v2:
                 vdf_art = st.text_input("VDF (cm/s):", "40", key=f"art_vdf_{lado_art}")
             with col_v3:
-                # IRA auto-calculado, editável
+                # RRA auto-calculada — sempre recomputada a cada render
                 _vps_f = _safe_float(vps_art)
-                _ira_auto = ""
+                _rra_auto = ""
                 if _vps_f is not None and _vps_ao_float and _vps_ao_float > 0:
-                    _ira_auto = f"{_vps_f / _vps_ao_float:.2f}"
-                ira_art = st.text_input(
-                    "IRA (auto):",
-                    _ira_auto if _ira_auto else "—",
-                    key=f"art_ira_{lado_art}",
-                    help="Calculado como VPS renal / VPS aórtica. Edite se necessário."
+                    _rra_auto = f"{_vps_f / _vps_ao_float:.2f}"
+                _key_rra = f"art_rra_{lado_art}"
+                st.session_state[_key_rra] = _rra_auto if _rra_auto else "—"
+                rra_art = st.text_input(
+                    "Razão renal-aórtica (RRA):",
+                    key=_key_rra,
+                    disabled=True,
+                    help="Calculado automaticamente como VPS renal / VPS aórtica."
                 )
 
             turbulencia = st.toggle(
@@ -296,10 +298,10 @@ for ai, lado_art in enumerate(["Direita", "Esquerda"]):
             # --- Classificação automática ---
             _vps_f = _safe_float(vps_art)
             _vdf_f = _safe_float(vdf_art)
-            _ira_f = _safe_float(ira_art)
+            _rra_f = _safe_float(rra_art)
             _ta_f = _safe_float(ta_intra)
 
-            _grau, _cor = classificar_estenose(_vps_f, _vdf_f, _ira_f, _ta_f)
+            _grau, _cor = classificar_estenose(_vps_f, _vdf_f, _rra_f, _ta_f)
 
             _cor_map = {"green": "🟢", "blue": "🔵", "orange": "🟠", "red": "🔴", "gray": "⚪"}
             st.markdown(
@@ -317,7 +319,7 @@ for ai, lado_art in enumerate(["Direita", "Esquerda"]):
                 "calibre_traj": calibre_traj,
                 "vps": vps_art,
                 "vdf": vdf_art,
-                "ira": ira_art,
+                "rra": rra_art,
                 "turbulencia": turbulencia,
                 "turb_desc": turb_desc,
                 "fluxo_intra_padrao": fluxo_intra_padrao,
@@ -447,7 +449,7 @@ def construir_laudo_renais():
                 f"Artéria renal {lado_art.lower()} identificada {_id_txt}, "
                 f"apresentando calibre e trajeto {_cal_txt}."
             )
-            add_p(f"VPS: {da['vps']} cm/s. VDF: {da['vdf']} cm/s. Índice renal-aórtico (IRA): {da['ira']}.")
+            add_p(f"VPS: {da['vps']} cm/s. VDF: {da['vdf']} cm/s. Razão renal-aórtica (RRA): {da['rra']}.")
 
             if da["turbulencia"]:
                 add_p(
