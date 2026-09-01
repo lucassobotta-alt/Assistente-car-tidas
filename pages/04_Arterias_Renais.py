@@ -79,6 +79,390 @@ with st.sidebar:
 # --- PACIENTE ---
 nome_paciente = st.text_input("Nome do Paciente:", "", key="ar_paciente")
 
+modo_template = st.radio(
+    "Template de avaliação:",
+    ["Duplex Scan de Aorta e Artérias Renais", "Avaliação de Rim Transplantado"],
+    horizontal=True,
+    key="ar_modo_template"
+)
+
+# =========================================================
+# MODO: RIM TRANSPLANTADO
+# =========================================================
+if modo_template == "Avaliação de Rim Transplantado":
+
+    _ECOTEXTURA_OPTS_TX = [
+        "normais",
+        "ecotextura homogênea com diferenciação corticomedular preservada",
+        "ecotextura aumentada com diferenciação corticomedular reduzida",
+        "ecotextura heterogênea com diferenciação corticomedular reduzida",
+        "ecotextura heterogênea com diferenciação corticomedular abolida",
+    ]
+
+    st.markdown("---")
+    st.markdown("### 1. Localização do Rim Transplantado")
+    localizacao_tx = st.radio(
+        "Rim transplantado localizado em:",
+        ["Fossa ilíaca direita", "Fossa ilíaca esquerda"],
+        horizontal=True,
+        key="tx_loc"
+    )
+
+    st.markdown("---")
+    st.markdown("### 2. Avaliação Morfológica do Rim Transplantado")
+    col_tx1, col_tx2 = st.columns(2)
+    with col_tx1:
+        comp_tx = st.text_input("Comprimento (cm):", "11.0", key="tx_comp")
+    with col_tx2:
+        cortical_tx = st.text_input("Espessura cortical (cm):", "1.2", key="tx_cortical")
+
+    ecotextura_tx = st.selectbox(
+        "Ecotextura e diferenciação corticomedular:",
+        _ECOTEXTURA_OPTS_TX,
+        key="tx_eco"
+    )
+
+    c_tx1, c_tx2 = st.columns(2)
+    with c_tx1:
+        calculos_tx = st.toggle("Cálculos identificados?", key="tx_calc")
+        calc_desc_tx = ""
+        if calculos_tx:
+            calc_desc_tx = st.text_input("Descrição:", "cálculo de até ___ mm no polo inferior", key="tx_calc_desc")
+    with c_tx2:
+        hidronefrose_tx = st.toggle("Hidronefrose?", key="tx_hidro")
+        hidro_desc_tx = ""
+        if hidronefrose_tx:
+            hidro_desc_tx = st.selectbox(
+                "Grau:",
+                ["leve (grau I)", "moderada (grau II)", "acentuada (grau III)"],
+                key="tx_hidro_grau"
+            )
+
+    try:
+        _comp_tx_f = float(comp_tx.replace(",", "."))
+        if _comp_tx_f < 9.0:
+            st.warning(f"⚠️ Rim transplantado com comprimento {comp_tx} cm < 9,0 cm — considerar redução volumétrica.")
+    except ValueError:
+        pass
+
+    st.markdown("**Coleções Perinéfricas**")
+    colecao_tx = st.toggle("Coleção perinéfrica identificada?", key="tx_colecao")
+    colecao_tipo_tx = ""
+    colecao_desc_tx = ""
+    if colecao_tx:
+        colecao_tipo_tx = st.selectbox(
+            "Tipo de coleção:",
+            ["hematoma", "seroma", "linfocele", "abscesso", "urinoma"],
+            key="tx_col_tipo"
+        )
+        colecao_desc_tx = st.text_input(
+            "Dimensões e localização:",
+            "coleção de ___ × ___ cm em topografia ___",
+            key="tx_col_desc"
+        )
+
+    st.markdown("---")
+    st.markdown("### 3. Anastomose Arterial")
+    tipo_anast_tx = st.selectbox(
+        "Tipo de anastomose arterial:",
+        [
+            "término-lateral com artéria ilíaca externa",
+            "término-lateral com artéria ilíaca comum",
+            "término-terminal com artéria ilíaca interna",
+        ],
+        key="tx_anast_tipo"
+    )
+
+    col_a1, col_a2, col_a3 = st.columns(3)
+    with col_a1:
+        vps_anast_tx = st.text_input("VPS na anastomose (cm/s):", "120", key="tx_anast_vps")
+    with col_a2:
+        vdf_anast_tx = st.text_input("VDF na anastomose (cm/s):", "40", key="tx_anast_vdf")
+    with col_a3:
+        ir_anast_tx = st.text_input("IR na anastomose:", "0.65", key="tx_anast_ir")
+
+    estenose_anast_tx = st.toggle("Turbulência / estenose na anastomose?", key="tx_anast_esten")
+    estenose_anast_desc_tx = ""
+    if estenose_anast_tx:
+        estenose_anast_desc_tx = st.text_input(
+            "Descrição da alteração:",
+            "aceleração focal com turbulência pós-estenótica na anastomose",
+            key="tx_anast_esten_desc"
+        )
+
+    st.markdown("---")
+    st.markdown("### 4. Artéria Principal do Rim Transplantado")
+    col_b1, col_b2, col_b3, col_b4 = st.columns(4)
+    with col_b1:
+        vps_art_tx = st.text_input("VPS (cm/s):", "120", key="tx_art_vps")
+    with col_b2:
+        vdf_art_tx = st.text_input("VDF (cm/s):", "40", key="tx_art_vdf")
+    with col_b3:
+        ir_art_tx = st.text_input("IR:", "0.65", key="tx_art_ir")
+    with col_b4:
+        ta_art_tx = st.text_input("Tempo de aceleração (ms):", "50", key="tx_art_ta")
+
+    st.markdown("---")
+    st.markdown("### 5. Fluxo Intrarrenal")
+    _FLUXO_INTRA_TX_OPTS = [
+        "baixa resistência",
+        "alta resistência",
+        "padrão tardus-parvus",
+        "ausente (oclusão)",
+    ]
+    col_fi1, col_fi2, col_fi3, col_fi4 = st.columns(4)
+    with col_fi1:
+        fluxo_intra_tx = st.selectbox("Padrão:", _FLUXO_INTRA_TX_OPTS, key="tx_fi_pad")
+    with col_fi2:
+        vps_intra_tx = st.text_input("VPS intrarrenal (cm/s):", "25", key="tx_fi_vps")
+    with col_fi3:
+        ir_intra_tx = st.text_input("IR intrarrenal:", "0.65", key="tx_fi_ir")
+    with col_fi4:
+        ta_intra_tx = st.text_input("Tempo de aceleração (ms):", "70", key="tx_fi_ta")
+
+    def _safe_float_tx(s):
+        try:
+            return float(str(s).replace(",", ".").strip())
+        except (ValueError, TypeError):
+            return None
+
+    _ir_intra_f_tx = _safe_float_tx(ir_intra_tx)
+    if _ir_intra_f_tx is not None:
+        if _ir_intra_f_tx < 0.70:
+            st.success(f"🟢 IR intrarrenal {ir_intra_tx} — dentro da normalidade (< 0,70).")
+        elif _ir_intra_f_tx <= 0.80:
+            st.warning(f"🟡 IR intrarrenal {ir_intra_tx} — limítrofe (0,70–0,80). Correlacionar clinicamente.")
+        else:
+            st.error(f"🔴 IR intrarrenal {ir_intra_tx} — elevado (> 0,80). Considerar rejeição aguda, necrose tubular aguda ou obstrução.")
+
+    st.markdown("---")
+    st.markdown("### 6. Anastomose Venosa")
+    veia_anast_tx = st.selectbox(
+        "Anastomose venosa:",
+        [
+            "pérvia, com fluxo venoso de padrão habitual",
+            "com fluxo venoso de padrão pulsátil (elevação de pressão venosa)",
+            "não identificada ao método (limitação técnica)",
+        ],
+        key="tx_veia"
+    )
+
+    st.markdown("---")
+    st.markdown("### 7. Observação Técnica (Opcional)")
+    incluir_obs_tx = st.toggle("Incluir nota sobre limitações técnicas?", value=False, key="tx_obs_tog")
+    obs_tx = ""
+    if incluir_obs_tx:
+        obs_tx = st.text_area("Texto da observação técnica:", key="tx_obs_txt", height=80)
+
+    st.markdown("---")
+
+    def construir_laudo_transplante():
+        doc = Document()
+        doc.styles['Normal'].font.name = fonte_doc
+        doc.styles['Normal'].font.size = Pt(tamanho_fonte)
+
+        def add_p(text, bold_pre=None, align=WD_ALIGN_PARAGRAPH.LEFT,
+                  space_before=0, space_after=4, bullet=False, italic=False):
+            p = doc.add_paragraph(style='List Bullet' if bullet else 'Normal')
+            p.alignment = align
+            p.paragraph_format.line_spacing = espacamento_linhas
+            p.paragraph_format.space_before = Pt(space_before)
+            p.paragraph_format.space_after = Pt(space_after)
+            if bold_pre:
+                r_p = p.add_run(bold_pre)
+                r_p.bold = True
+            r = p.add_run(text)
+            if italic:
+                r.italic = True
+
+        if nome_clinica.strip():
+            p_cl = doc.add_paragraph()
+            p_cl.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            r_cl = p_cl.add_run(nome_clinica.upper())
+            r_cl.bold = True
+            r_cl.font.name = fonte_doc
+            r_cl.font.size = Pt(tamanho_fonte + 2)
+            doc.add_paragraph().paragraph_format.space_after = Pt(8)
+
+        add_p("DE RIM TRANSPLANTADO", bold_pre="DUPLEX SCAN ", space_after=12)
+        if nome_paciente.strip():
+            add_p(f" {nome_paciente}", bold_pre="Paciente:")
+
+        add_p("TÉCNICA", space_before=12, space_after=6)
+        add_p(
+            "Exame realizado com transdutor convexo e linear multifrequencial, utilizando recursos de modo B, "
+            "Doppler colorido e Doppler espectral, com avaliação morfológica e hemodinâmica do rim transplantado, "
+            "anastomoses arterial e venosa, fluxo intrarrenal e estruturas perinéfricas.",
+            space_after=12
+        )
+
+        add_p("RELATÓRIO", space_before=6, space_after=8)
+
+        add_p("MORFOLOGIA DO RIM TRANSPLANTADO", space_after=4)
+        _calc_txt_tx = (
+            f"Identificado(s) {calc_desc_tx}."
+            if calculos_tx and calc_desc_tx
+            else "Não foram observados cálculos com mais de 5 mm."
+        )
+        _hidro_txt_tx = (
+            f"Identificada hidronefrose {hidro_desc_tx}."
+            if hidronefrose_tx and hidro_desc_tx
+            else "Ausência de hidronefrose."
+        )
+        _eco_tx = ecotextura_tx if ecotextura_tx != "normais" else "normais"
+        add_p(
+            f"Rim transplantado localizado em {localizacao_tx.lower()}, medindo {comp_tx} cm, com espessura "
+            f"cortical de {cortical_tx} cm, apresentando ecotextura e diferenciação corticomedular {_eco_tx}. "
+            f"{_calc_txt_tx} {_hidro_txt_tx}"
+        )
+        if colecao_tx and colecao_tipo_tx:
+            add_p(f"Identificada {colecao_tipo_tx} perinéfrica: {colecao_desc_tx}.")
+        else:
+            add_p("Não se identificam coleções líquidas perinéfricas significativas.")
+
+        add_p("ANASTOMOSE ARTERIAL", space_before=10, space_after=4)
+        add_p(
+            f"Anastomose arterial {tipo_anast_tx}, com VPS de {vps_anast_tx} cm/s, "
+            f"VDF de {vdf_anast_tx} cm/s e IR de {ir_anast_tx}."
+        )
+        if estenose_anast_tx and estenose_anast_desc_tx:
+            add_p(f"Observa-se {estenose_anast_desc_tx}.")
+        else:
+            add_p("Não se observam acelerações focais significativas ou turbulência pós-estenótica na anastomose.")
+
+        add_p("ARTÉRIA PRINCIPAL DO RIM TRANSPLANTADO", space_before=10, space_after=4)
+        _ta_art_tx_f = _safe_float_tx(ta_art_tx)
+        if _ta_art_tx_f is not None and _ta_art_tx_f > 100:
+            _tp_txt = f", com tempo de aceleração de {ta_art_tx} ms (prolongado)"
+        else:
+            _tp_txt = f", com tempo de aceleração de {ta_art_tx} ms"
+        add_p(
+            f"Artéria principal do rim transplantado pérvia, com VPS de {vps_art_tx} cm/s, "
+            f"VDF de {vdf_art_tx} cm/s, IR de {ir_art_tx}{_tp_txt}."
+        )
+
+        add_p("FLUXO INTRARRENAL", space_before=10, space_after=4)
+        if fluxo_intra_tx == "ausente (oclusão)":
+            add_p("Fluxo intrarrenal ausente ao Doppler colorido e espectral, sugerindo oclusão arterial.")
+        else:
+            add_p(
+                f"Fluxo intrarrenal com padrão de {fluxo_intra_tx}, VPS de {vps_intra_tx} cm/s, "
+                f"IR de {ir_intra_tx} e tempo de aceleração de {ta_intra_tx} ms."
+            )
+
+        add_p("ANASTOMOSE VENOSA", space_before=10, space_after=4)
+        add_p(f"Anastomose venosa {veia_anast_tx}.")
+
+        if incluir_obs_tx and obs_tx.strip():
+            add_p("OBSERVAÇÃO TÉCNICA", space_before=10, space_after=4)
+            add_p(obs_tx.strip())
+
+        if quebrar_pagina_diag:
+            doc.add_page_break()
+        add_p("⸻", space_after=12)
+        add_p("IMPRESSÃO DIAGNÓSTICA", space_after=6)
+
+        conclusoes_tx = []
+
+        if hidronefrose_tx and hidro_desc_tx:
+            conclusoes_tx.append(f"Hidronefrose {hidro_desc_tx} no rim transplantado.")
+        if colecao_tx and colecao_tipo_tx:
+            conclusoes_tx.append(f"{colecao_tipo_tx.capitalize()} perinéfrica: {colecao_desc_tx}.")
+        if estenose_anast_tx:
+            conclusoes_tx.append(
+                "Sinais compatíveis com estenose da anastomose arterial. Correlacionar com avaliação complementar (AngioTC, AngioRM ou arteriografia)."
+            )
+
+        _ir_f_conc = _safe_float_tx(ir_intra_tx)
+        if fluxo_intra_tx == "ausente (oclusão)":
+            conclusoes_tx.append("Sinais de oclusão arterial do rim transplantado — trombose arterial não excluída.")
+        elif fluxo_intra_tx == "padrão tardus-parvus":
+            conclusoes_tx.append(
+                "Padrão intrarrenal tardus-parvus — sinais indiretos de estenose proximal da artéria do enxerto renal."
+            )
+        elif _ir_f_conc is not None:
+            if _ir_f_conc > 0.80:
+                conclusoes_tx.append(
+                    f"IR intrarrenal elevado ({ir_intra_tx}). Não se exclui rejeição aguda, necrose tubular aguda ou obstrução urinária. Correlacionar com quadro clínico e laboratorial."
+                )
+            elif _ir_f_conc > 0.70:
+                conclusoes_tx.append(
+                    f"IR intrarrenal limítrofe ({ir_intra_tx}). Correlacionar clinicamente e monitorar evolutivamente."
+                )
+
+        if "pulsátil" in veia_anast_tx:
+            conclusoes_tx.append(
+                "Fluxo venoso pulsátil na anastomose venosa — sugestivo de elevação da pressão venosa central. Correlacionar clinicamente."
+            )
+
+        if not conclusoes_tx:
+            add_p(
+                "Rim transplantado com avaliação morfológica e hemodinâmica dentro dos limites da normalidade ao método. "
+                "Ausência de sinais de estenose arterial significativa, trombose ou rejeição ao estudo Doppler.",
+                bullet=True
+            )
+        else:
+            for c in conclusoes_tx:
+                add_p(c, bullet=True)
+
+        if sugerir_complementar and metodos_complementares:
+            if len(metodos_complementares) == 1:
+                _met_txt = metodos_complementares[0]
+            elif len(metodos_complementares) == 2:
+                _met_txt = f"{metodos_complementares[0]} e {metodos_complementares[1]}"
+            else:
+                _met_txt = ", ".join(metodos_complementares[:-1]) + f" e {metodos_complementares[-1]}"
+            add_p(
+                f"OBSERVAÇÃO: Os achados ultrassonográficos do presente exame indicam correlação com método de imagem "
+                f"complementar. Sugere-se a realização de {_met_txt} para melhor caracterização anatômica e hemodinâmica "
+                "do enxerto renal e planejamento terapêutico adequado.",
+                space_before=10, italic=True
+            )
+
+        if incluir_assinatura and (nome_medico or crm_medico):
+            doc.add_paragraph().paragraph_format.space_before = Pt(25)
+            p_assin = doc.add_paragraph()
+            p_assin.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_assin.paragraph_format.line_spacing = espacamento_linhas
+            if nome_medico:
+                r = p_assin.add_run(f"{nome_medico}\n")
+                r.bold = True
+            if crm_medico:
+                p_assin.add_run(f"CRM-{crm_uf} {crm_medico}\n")
+            if rqe_medico.strip():
+                p_assin.add_run(f"RQE {rqe_medico}")
+
+        if incluir_rodape_link and rodape_url.strip():
+            p_rod = doc.add_paragraph()
+            p_rod.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_rod.paragraph_format.space_before = Pt(30)
+            r_rod = p_rod.add_run(f"Laudo gerado com suporte do sistema: {rodape_url.strip()}")
+            r_rod.italic = True
+            r_rod.font.size = Pt(max(tamanho_fonte - 2, 8))
+
+        return doc
+
+    if st.button("🚀 Gerar Laudo de Rim Transplantado", use_container_width=True):
+        doc = construir_laudo_transplante()
+        buf = BytesIO()
+        doc.save(buf)
+        buf.seek(0)
+        st.success("Laudo gerado com sucesso!")
+        if modo_saida in ["Somente Visualização", "Visualização + DOCX"]:
+            texto_viz = "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+            st.markdown("## 👁️ Visualização do Laudo")
+            st.text_area("Laudo Gerado", value=texto_viz, height=600)
+        if modo_saida in ["Somente DOCX", "Visualização + DOCX"]:
+            st.download_button(
+                "📥 Baixar Laudo de Rim Transplantado (.docx)",
+                buf,
+                "Laudo_Rim_Transplantado.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True
+            )
+
+    st.stop()
+
 st.markdown("---")
 
 # =========================================================
