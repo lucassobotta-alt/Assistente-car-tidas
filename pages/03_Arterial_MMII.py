@@ -156,6 +156,20 @@ for idx, m_nome in enumerate(membros_para_processar):
     with abas[idx]:
         st.markdown(f"### 📋 Mapeamento Arterial - Membro {m_nome}")
 
+        # Toggle global de ateromatose difusa
+        ateroma_global = st.toggle(
+            "Ateromatose difusa em **todas** as artérias",
+            key=f"ateroma_global_{m_nome}"
+        )
+        desc_ateroma_global = ""
+        if ateroma_global:
+            desc_ateroma_global = st.radio(
+                "Padrão da ateromatose (todas as artérias):",
+                ["calcificações parietais multissegmentares", "placas de ateroma calcificadas multissegmentares"],
+                horizontal=True,
+                key=f"tipo_ateroma_global_{m_nome}"
+            )
+
         # Primeiro passo: Coleta e armazenamento inicial de inputs de forma limpa
         dados_brutos_membro = {}
 
@@ -174,15 +188,20 @@ for idx, m_nome in enumerate(membros_para_processar):
                     key=f"status_{art_id}_{m_nome}"
                 )
 
-                # Input de Ateromatose Difusa (Parietal)
-                tem_ateromatose = st.checkbox("Ateromatose difusa?", value=False, key=f"ateroma_{art_id}_{m_nome}")
-                desc_ateromatose = ""
-                if tem_ateromatose:
-                    desc_ateromatose = st.radio(
-                        "Padrão da ateromatose:",
-                        ["calcificações parietais multissegmentares", "placas de ateroma calcificadas multissegmentares"],
-                        key=f"tipo_ateroma_{art_id}_{m_nome}"
-                    )
+                # Ateromatose difusa — global ou individual
+                if ateroma_global:
+                    tem_ateromatose = True
+                    desc_ateromatose = desc_ateroma_global
+                    st.caption("🔶 Ateromatose difusa ativa (definida globalmente)")
+                else:
+                    tem_ateromatose = st.checkbox("Ateromatose difusa?", value=False, key=f"ateroma_{art_id}_{m_nome}")
+                    desc_ateromatose = ""
+                    if tem_ateromatose:
+                        desc_ateromatose = st.radio(
+                            "Padrão da ateromatose:",
+                            ["calcificações parietais multissegmentares", "placas de ateroma calcificadas multissegmentares"],
+                            key=f"tipo_ateroma_{art_id}_{m_nome}"
+                        )
 
             is_estenose_focal = status == "Estenose Focal"
             is_estenose_consecutiva = status == "Estenoses Consecutivas"
