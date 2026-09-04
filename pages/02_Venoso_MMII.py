@@ -45,7 +45,7 @@ with st.sidebar:
     with colcrm2:
         crm_uf = st.selectbox("UF", ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"], index=25)
     rqe_medico = st.text_input("RQE:", "")
-    incluir_assinatura = st.toggle("Incluir assinatura / carimbo no laudo", value=True)
+    incluir_assinatura = st.toggle("Incluir assinatura / carimbo no laudo", value=False)
 
     st.markdown("---")
     if st.button("🔄 Resetar Todos os Parâmetros", use_container_width=True, type="secondary"):

@@ -186,7 +186,7 @@ with st.sidebar:
     with colcrm2:
         crm_uf = st.selectbox("UF CRM", ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"], index=25)
     rqe_medico = st.text_input("RQE:")
-    incluir_assinatura = st.toggle("Incluir assinatura / carimbo no laudo", value=True)
+    incluir_assinatura = st.toggle("Incluir assinatura / carimbo no laudo", value=False)
     incluir_observacoes = st.toggle("Incluir observações complementares", value=True)
     incluir_velocidades = st.toggle("Incluir velocidades (VPS / relação ACI-ACC) no laudo", value=True)
 
