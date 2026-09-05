@@ -185,7 +185,53 @@ for idx, m_nome in enumerate(membros_para_processar):
                 tvp_dados_membro[_chave] = _veia_dados
                 st.markdown("---")
 
-            dados_membros[m_nome] = {"modo": "tvp", "tvp": tvp_dados_membro, "veias_meta": _VEIAS_TVP}
+            # --- Avaliação pré-operatória ---
+            tvp_pre_op = st.toggle("Avaliação pré-operatória?", key=f"tvp_pre_op_{m_nome}")
+
+            # --- Varredura superficial ---
+            tvp_varredura_sup = st.toggle("Incluir varredura superficial?", key=f"tvp_var_sup_{m_nome}")
+            tvp_sup_dados = None
+            if tvp_varredura_sup:
+                _sup_status = st.radio(
+                    "Sistema venoso superficial:",
+                    ["Pérvio (sem alterações)", "Sinais de tromboflebite superficial"],
+                    horizontal=True,
+                    key=f"tvp_sup_status_{m_nome}"
+                )
+                tvp_sup_dados = {"status": _sup_status}
+                if _sup_status == "Sinais de tromboflebite superficial":
+                    _SUP_SEGS_VSM = [
+                        "Terço proximal da coxa", "Terço médio da coxa", "Terço distal da coxa",
+                        "Terço proximal da perna", "Terço médio da perna", "Terço distal da perna",
+                    ]
+                    _SUP_SEGS_VSP = [
+                        "Coxa", "Terço proximal da perna", "Terço médio da perna", "Terço distal da perna",
+                    ]
+                    _veias_afetadas = st.multiselect(
+                        "Veia(s) acometida(s):",
+                        ["Veia safena magna (VSM)", "Veia safena parva (VSP)", "Veia tributária não safênica"],
+                        key=f"tvp_sup_veias_{m_nome}"
+                    )
+                    tvp_sup_dados["veias_afetadas"] = _veias_afetadas
+                    if "Veia safena magna (VSM)" in _veias_afetadas:
+                        tvp_sup_dados["vsm_segs"] = st.multiselect(
+                            "Segmentos da VSM acometidos:", _SUP_SEGS_VSM,
+                            key=f"tvp_sup_vsm_segs_{m_nome}"
+                        )
+                    if "Veia safena parva (VSP)" in _veias_afetadas:
+                        tvp_sup_dados["vsp_segs"] = st.multiselect(
+                            "Segmentos da VSP acometidos:", _SUP_SEGS_VSP,
+                            key=f"tvp_sup_vsp_segs_{m_nome}"
+                        )
+                    if "Veia tributária não safênica" in _veias_afetadas:
+                        tvp_sup_dados["tributaria_loc"] = st.text_input(
+                            "Localização da tributária acometida:", key=f"tvp_sup_trib_loc_{m_nome}"
+                        )
+
+            dados_membros[m_nome] = {
+                "modo": "tvp", "tvp": tvp_dados_membro, "veias_meta": _VEIAS_TVP,
+                "tvp_pre_op": tvp_pre_op, "tvp_sup": tvp_sup_dados,
+            }
 
         else:  # modo_laudo == "Mapeamento Venoso"
         
@@ -661,6 +707,43 @@ for idx, m_nome in enumerate(membros_para_processar):
 
             st.markdown("---")
 
+            # 2.6 TROMBOFLEBITE SUPERFICIAL
+            st.markdown("#### 2.6 Tromboflebite Superficial")
+            incluir_tromboflebite = st.toggle("Identificada tromboflebite superficial?", key=f"tromboflebite_tog_{m_nome}")
+            tromboflebite_dados = None
+            if incluir_tromboflebite:
+                _TF_SEGS_VSM = [
+                    "Terço proximal da coxa", "Terço médio da coxa", "Terço distal da coxa",
+                    "Terço proximal da perna", "Terço médio da perna", "Terço distal da perna",
+                ]
+                _TF_SEGS_VSP = [
+                    "Coxa", "Terço proximal da perna", "Terço médio da perna", "Terço distal da perna",
+                ]
+                _tf_veias = st.multiselect(
+                    "Veia(s) acometida(s):",
+                    ["Veia safena magna (VSM)", "Veia safena parva (VSP)", "Veia tributária não safênica", "Veia varicosa"],
+                    key=f"tf_veias_{m_nome}"
+                )
+                tromboflebite_dados = {"veias_afetadas": _tf_veias}
+                if "Veia safena magna (VSM)" in _tf_veias:
+                    tromboflebite_dados["vsm_segs"] = st.multiselect(
+                        "Segmentos da VSM acometidos:", _TF_SEGS_VSM, key=f"tf_vsm_segs_{m_nome}"
+                    )
+                if "Veia safena parva (VSP)" in _tf_veias:
+                    tromboflebite_dados["vsp_segs"] = st.multiselect(
+                        "Segmentos da VSP acometidos:", _TF_SEGS_VSP, key=f"tf_vsp_segs_{m_nome}"
+                    )
+                if "Veia tributária não safênica" in _tf_veias:
+                    tromboflebite_dados["tributaria_loc"] = st.text_input(
+                        "Localização da tributária acometida:", key=f"tf_trib_loc_{m_nome}"
+                    )
+                if "Veia varicosa" in _tf_veias:
+                    tromboflebite_dados["varicosa_loc"] = st.text_input(
+                        "Localização da veia varicosa acometida:", key=f"tf_varicosa_loc_{m_nome}"
+                    )
+
+            st.markdown("---")
+
             # 3. MÓDULOS ADICIONAIS & VARIÁVEIS EXTRAS
             st.markdown("#### 3. Módulos Adicionais")
             c_add1, c_add2 = st.columns(2)
@@ -695,7 +778,8 @@ for idx, m_nome in enumerate(membros_para_processar):
                 "pos_op_opt": pos_op_opt, "achados_adi_multi": achados_multiplos, "cisto_medidas": cisto_medidas,
                 "perfurantes_lista": perfurantes_coletadas if possui_perfurantes else [],
                 "varic_dados": varic_dados,
-                "varizes_extrassaf_dados": varizes_extrassaf_dados
+                "varizes_extrassaf_dados": varizes_extrassaf_dados,
+                "tromboflebite_dados": tromboflebite_dados,
             }
 
 st.markdown("---")
@@ -1061,6 +1145,15 @@ def construir_laudo_tvp(membros_lista, dados_m_dict):
     add_p("TÉCNICA", space_before=12, space_after=6)
     add_p("Exame realizado com o paciente em ortostase, utilizando transdutor linear de alta frequência, com avaliação compressiva segmentar, mapeamento de fluxo em cores e análise espectral Doppler pulsado, sem limitações técnicas.", space_after=12)
 
+    if any(dados_m_dict[m].get("tvp_pre_op") for m in membros_lista):
+        add_p(
+            "Exame solicitado como avaliação venosa pré-operatória em paciente assintomático. "
+            "O método permite avaliar o estado do sistema venoso no momento da realização do exame, "
+            "não sendo capaz de excluir a possibilidade de desenvolvimento de trombose venosa em momento "
+            "posterior, inclusive no período perioperatório.",
+            space_before=6, space_after=10, italic=True
+        )
+
     conclusoes_lista_tvp = []
 
     _TEXTO_ALTERADO = {
@@ -1118,6 +1211,43 @@ def construir_laudo_tvp(membros_lista, dados_m_dict):
                 if dados_veia.get("refluxo"):
                     add_p("Observa-se refluxo significativo neste segmento após as manobras provocativas.")
                     conclusoes_lista_tvp.append((m_nome, f"Refluxo no segmento acometido ({nome_laudo}), possivelmente relacionado a disfunção valvar secundária à TVP."))
+
+        # Sistema venoso superficial (varredura opcional)
+        _tvp_sup = dm.get("tvp_sup")
+        if _tvp_sup is not None:
+            add_p("SISTEMA VENOSO SUPERFICIAL", space_before=10, space_after=4)
+            if _tvp_sup.get("status") == "Pérvio (sem alterações)":
+                add_p("Sistema venoso superficial pérvio, sem sinais de tromboflebite ao método.")
+            else:
+                _sv_veias = _tvp_sup.get("veias_afetadas", [])
+                if "Veia safena magna (VSM)" in _sv_veias:
+                    _sv_segs_vsm = _tvp_sup.get("vsm_segs", [])
+                    if _sv_segs_vsm:
+                        _sv_segs_txt = ", ".join(s.lower() for s in _sv_segs_vsm)
+                        add_p(
+                            f"Identificados sinais de tromboflebite superficial no tronco da veia safena magna "
+                            f"nos seguintes segmentos: {_sv_segs_txt}. Observa-se espessamento parietal com "
+                            "material hipoecóico intraluminal e dor à compressão seletiva nos segmentos afetados."
+                        )
+                        conclusoes_lista_tvp.append((m_nome, f"Sinais de tromboflebite superficial na veia safena magna ({_sv_segs_txt})."))
+                if "Veia safena parva (VSP)" in _sv_veias:
+                    _sv_segs_vsp = _tvp_sup.get("vsp_segs", [])
+                    if _sv_segs_vsp:
+                        _sv_segs_txt_vsp = ", ".join(s.lower() for s in _sv_segs_vsp)
+                        add_p(
+                            f"Identificados sinais de tromboflebite superficial no tronco da veia safena parva "
+                            f"nos seguintes segmentos: {_sv_segs_txt_vsp}. Observa-se espessamento parietal com "
+                            "material hipoecóico intraluminal e dor à compressão seletiva nos segmentos afetados."
+                        )
+                        conclusoes_lista_tvp.append((m_nome, f"Sinais de tromboflebite superficial na veia safena parva ({_sv_segs_txt_vsp})."))
+                if "Veia tributária não safênica" in _sv_veias:
+                    _sv_trib = _tvp_sup.get("tributaria_loc", "")
+                    _sv_trib_txt = f" em {_sv_trib}" if _sv_trib else ""
+                    add_p(
+                        f"Identificados sinais de tromboflebite superficial em veia tributária não safênica{_sv_trib_txt}. "
+                        "Observa-se espessamento parietal com material hipoecóico intraluminal e dor à compressão seletiva no segmento afetado."
+                    )
+                    conclusoes_lista_tvp.append((m_nome, f"Sinais de tromboflebite superficial em veia tributária não safênica{_sv_trib_txt}."))
 
     # IMPRESSÃO DIAGNÓSTICA
     if quebrar_pagina_diag:
@@ -1459,6 +1589,56 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                     "de pelve).",
                     space_before=4, italic=True
                 )
+
+        # 2.6 TROMBOFLEBITE SUPERFICIAL (Mapeamento)
+        _tf = dm.get("tromboflebite_dados")
+        if _tf is not None:
+            add_p("TROMBOFLEBITE SUPERFICIAL", space_before=10, space_after=4)
+            _tf_veias = _tf.get("veias_afetadas", [])
+            if not _tf_veias:
+                add_p("Identificado quadro de tromboflebite superficial, sem especificação de segmento.")
+            else:
+                if "Veia safena magna (VSM)" in _tf_veias:
+                    _tf_segs_vsm = _tf.get("vsm_segs", [])
+                    if _tf_segs_vsm:
+                        _tf_segs_txt = ", ".join(s.lower() for s in _tf_segs_vsm)
+                        add_p(
+                            f"Identificados sinais de tromboflebite superficial no tronco da veia safena magna "
+                            f"nos seguintes segmentos: {_tf_segs_txt}. Observa-se espessamento parietal com "
+                            "material hipoecóico intraluminal e dor à compressão seletiva nos segmentos afetados.",
+                            space_before=6
+                        )
+                        conclusoes_lista.append((m_nome, f"Sinais de tromboflebite superficial na veia safena magna ({_tf_segs_txt})."))
+                if "Veia safena parva (VSP)" in _tf_veias:
+                    _tf_segs_vsp = _tf.get("vsp_segs", [])
+                    if _tf_segs_vsp:
+                        _tf_segs_txt_vsp = ", ".join(s.lower() for s in _tf_segs_vsp)
+                        add_p(
+                            f"Identificados sinais de tromboflebite superficial no tronco da veia safena parva "
+                            f"nos seguintes segmentos: {_tf_segs_txt_vsp}. Observa-se espessamento parietal com "
+                            "material hipoecóico intraluminal e dor à compressão seletiva nos segmentos afetados.",
+                            space_before=6
+                        )
+                        conclusoes_lista.append((m_nome, f"Sinais de tromboflebite superficial na veia safena parva ({_tf_segs_txt_vsp})."))
+                if "Veia tributária não safênica" in _tf_veias:
+                    _tf_trib = _tf.get("tributaria_loc", "")
+                    _tf_trib_txt = f" em {_tf_trib}" if _tf_trib else ""
+                    add_p(
+                        f"Identificados sinais de tromboflebite superficial em veia tributária não safênica{_tf_trib_txt}. "
+                        "Observa-se espessamento parietal com material hipoecóico intraluminal e dor à compressão seletiva no segmento afetado.",
+                        space_before=6
+                    )
+                    conclusoes_lista.append((m_nome, f"Sinais de tromboflebite superficial em veia tributária não safênica{_tf_trib_txt}."))
+                if "Veia varicosa" in _tf_veias:
+                    _tf_varicosa = _tf.get("varicosa_loc", "")
+                    _tf_varicosa_txt = f" em {_tf_varicosa}" if _tf_varicosa else ""
+                    add_p(
+                        f"Identificados sinais de tromboflebite superficial em veia varicosa{_tf_varicosa_txt}. "
+                        "Observa-se espessamento e endurecimento da parede vascular, com material hipoecóico "
+                        "intraluminal e dor à compressão seletiva no segmento afetado.",
+                        space_before=6
+                    )
+                    conclusoes_lista.append((m_nome, f"Sinais de tromboflebite superficial em veia varicosa{_tf_varicosa_txt}."))
 
         # 3. MÓDULOS ADICIONAIS EXTRA (Giacomini Isolado, Pélvicas)
         if dm["giacomini_opt"] != "Não se aplica / Normal" or dm["varizes_pelvicas_opt"] != "Ausentes":
