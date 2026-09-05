@@ -69,6 +69,10 @@ membros_para_processar = [st.selectbox("Selecione o Lado Avaliado:", ["DIREITO",
 
 modo_laudo = st.radio("Modelo de Laudo:", ["Mapeamento Venoso", "Rastreio de TVP"], horizontal=True)
 
+tvp_pre_op = False
+if modo_laudo == "Rastreio de TVP":
+    tvp_pre_op = st.toggle("Avaliação pré-operatória?", key="tvp_pre_op_global")
+
 st.markdown("---")
 
 # Inicialização do estado de sessão para estruturas dinâmicas
@@ -184,9 +188,6 @@ for idx, m_nome in enumerate(membros_para_processar):
 
                 tvp_dados_membro[_chave] = _veia_dados
                 st.markdown("---")
-
-            # --- Avaliação pré-operatória ---
-            tvp_pre_op = st.toggle("Avaliação pré-operatória?", key=f"tvp_pre_op_{m_nome}")
 
             # --- Varredura superficial ---
             tvp_varredura_sup = st.toggle("Incluir varredura superficial?", key=f"tvp_var_sup_{m_nome}")
