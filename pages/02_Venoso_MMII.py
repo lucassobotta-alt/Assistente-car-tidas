@@ -1237,7 +1237,9 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                     add_p(f"Refluxo originado de incompetência das válvulas pré-terminal e terminal da junção safenofemoral, com escape para a veia safena magna, que segue incompetente até {extensao_txt}. O refluxo apresenta deságue para {det.get('desague_tipo','tributárias epifasciais varicosas')} localizado {termo_dist}.")
                     if extensao_txt != "toda sua extensão":
                         add_p("O restante do trajeto da veia safena magna segue competente.")
-                    conclusoes_lista.append((m_nome, f"Insuficiência segmentar do tronco da veia safena magna por incompetência da junção safenofemoral (até {extensao_txt})."))
+                        conclusoes_lista.append((m_nome, "Insuficiência segmentar da veia safena magna com escape do refluxo a partir de junção safenofemoral incompetente."))
+                    else:
+                        conclusoes_lista.append((m_nome, "Insuficiência da veia safena magna por incompetência da junção safenofemoral."))
                 
                 elif "Apenas a Válvula Pré-terminal" in v_padrao:
                     add_p(f"Refluxo originado de incompetência da válvula pré-terminal da junção safenofemoral, com escape de refluxo proveniente de tributária para o segmento proximal da veia safena magna que segue incompetente até cerca de {det.get('cm_ponto_j','__')} cm da junção/ponto J, onde ocorre drenagem para {det.get('tipo_drenagem','tributárias epifasciais varicosas')} formando complexos varicosos na face medial da coxa em {det.get('terco_coxa','terço médio')}.")
@@ -1278,7 +1280,10 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                             conclusoes_lista.append((m_nome, f"Insuficiência segmentar do tronco da VSM ({terco_m})."))
                     else:
                         add_p(f"Insuficiência valvar do tronco da veia safena magna{origem_txt}, {extensao_txt}{desague_txt}.")
-                        conclusoes_lista.append((m_nome, "Insuficiência valvar do tronco da VSM sem segmento incompetente definido."))
+                        if vm.get("jsf_status") == "Incompetente":
+                            conclusoes_lista.append((m_nome, "Insuficiência segmentar da veia safena magna com escape do refluxo a partir de junção safenofemoral incompetente."))
+                        else:
+                            conclusoes_lista.append((m_nome, "Insuficiência segmentar da veia safena magna."))
                 add_p("O restante do trajeto da veia safena magna segue competente.")
 
         # Impressão das Medidas da VSM
@@ -1331,7 +1336,10 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                     else:
                         _ext_vsp = f"a partir de {_ini_vsp}"
                     add_p(f"Identificado segmento incompetente no tronco da veia safena parva{_orig_txt}, com extensão {_ext_vsp}, com deságue para {_des_vsp.lower() if _des_vsp else 'tributárias epifasciais'}.")
-                    conclusoes_lista.append((m_nome, "Insuficiência segmentar do tronco da veia safena parva."))
+                    if vsp_d.get("jsp_status") == "Incompetente":
+                        conclusoes_lista.append((m_nome, "Insuficiência segmentar da veia safena parva com escape do refluxo a partir de junção safenopoplítea incompetente."))
+                    else:
+                        conclusoes_lista.append((m_nome, "Insuficiência segmentar da veia safena parva."))
                 add_p("O restante do trajeto da veia safena parva segue competente.")
 
         # Impressão das Medidas da VSP
