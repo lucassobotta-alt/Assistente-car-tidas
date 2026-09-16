@@ -612,15 +612,59 @@ for idx, m_nome in enumerate(membros_para_processar):
             # --- 2.4 MAPA DE VARICOSIDADES ---
             st.markdown("---")
             st.markdown("#### 2.4 Mapeamento de Varicosidades / Malhas Reticulares")
-            possui_varicosidades = st.checkbox("Descrever presença de Telangiectasias, Microvarizes ou Reticulares?", key=f"has_varic_{m_nome}")
+            possui_varicosidades = st.toggle("Descrever lesões vasculares superficiais?", key=f"has_varic_{m_nome}")
             varic_dados = {"possui": possui_varicosidades}
-        
+
             if possui_varicosidades:
-                cv_1, cv_2, cv_3 = st.columns(3)
-                with cv_1: varic_dados["telangiectasias"] = st.checkbox("Telangiectasias (< 1 mm)", key=f"var_tel_{m_nome}")
-                with cv_2: varic_dados["micro_reticulares"] = st.checkbox("Microvarizes / Varizes Reticulares (1 a 3 mm)", key=f"var_mic_{m_nome}")
-                with cv_3: varic_dados["veias_varicosas"] = st.checkbox("Veias Varicosas Tronculares (> 3 mm)", key=f"var_tronc_{m_nome}")
-                varic_dados["localizacao"] = st.text_input("Localização predominante das lesões superficiais:", "em faces lateral da coxa e posterior da perna", key=f"var_loc_{m_nome}")
+                # --- Telangiectasias (< 1 mm · C1) ---
+                st.markdown("**Telangiectasias** (< 1 mm · C1) — *não descrevemos salvo nutridora*")
+                tel_presente = st.checkbox("Identificadas telangiectasias?", key=f"var_tel_{m_nome}")
+                varic_dados["telangiectasias"] = {"presente": tel_presente}
+                if tel_presente:
+                    tel_nutridora = st.checkbox("Incluir no laudo como veia nutridora?", key=f"var_tel_nut_{m_nome}")
+                    varic_dados["telangiectasias"]["nutridora"] = tel_nutridora
+                    if tel_nutridora:
+                        varic_dados["telangiectasias"]["nutridora_loc"] = st.text_input(
+                            "Localização da veia nutridora:", key=f"var_tel_nut_loc_{m_nome}"
+                        )
+
+                st.markdown("---")
+
+                # --- Veias Reticulares (1 a < 3 mm · C1) ---
+                st.markdown("**Veias Reticulares** (1 a < 3 mm · C1) — *buscar conexão*")
+                ret_presente = st.checkbox("Identificadas veias reticulares?", key=f"var_ret_{m_nome}")
+                varic_dados["reticulares"] = {"presente": ret_presente}
+                if ret_presente:
+                    ret_conexao = st.radio(
+                        "Conexão identificada:",
+                        ["Conexão demonstrável", "Não demonstrável ao método"],
+                        horizontal=True, key=f"var_ret_con_{m_nome}"
+                    )
+                    varic_dados["reticulares"]["conexao"] = ret_conexao
+                    if ret_conexao == "Conexão demonstrável":
+                        varic_dados["reticulares"]["conexao_desc"] = st.text_input(
+                            "Descrever a conexão:", key=f"var_ret_con_desc_{m_nome}"
+                        )
+                    varic_dados["reticulares"]["localizacao"] = st.text_input(
+                        "Localização predominante:", key=f"var_ret_loc_{m_nome}"
+                    )
+
+                st.markdown("---")
+
+                # --- Varizes (≥ 3 mm · C2) ---
+                st.markdown("**Varizes** (≥ 3 mm · C2) — *classificar origem*")
+                var_presente = st.checkbox("Identificadas varizes?", key=f"var_v_{m_nome}")
+                varic_dados["varizes"] = {"presente": var_presente}
+                if var_presente:
+                    varic_dados["varizes"]["origem"] = st.multiselect(
+                        "Origem do refluxo:",
+                        ["Fuga de JSF", "Fuga de JSP", "Ponto de escape extrassafênico",
+                         "Reentrada", "C2r (recorrência pós-tratamento)"],
+                        key=f"var_v_orig_{m_nome}"
+                    )
+                    varic_dados["varizes"]["localizacao"] = st.text_input(
+                        "Localização predominante:", key=f"var_v_loc_{m_nome}"
+                    )
 
             st.markdown("---")
 
@@ -1071,9 +1115,9 @@ def gerar_cartografia_venosa(m_nome, dados_m, paciente):
     vd = dados_m.get("varic_dados", {})
     if vd.get("possui"):
         tipos_var = []
-        if vd.get("telangiectasias"):     tipos_var.append("Telang.")
-        if vd.get("micro_reticulares"):   tipos_var.append("Reticulares")
-        if vd.get("veias_varicosas"):     tipos_var.append("Varicosas")
+        if vd.get("telangiectasias", {}).get("nutridora"):  tipos_var.append("Telang. nutridora")
+        if vd.get("reticulares", {}).get("presente"):       tipos_var.append("Reticulares")
+        if vd.get("varizes", {}).get("presente"):           tipos_var.append("Varizes C2")
         if tipos_var:
             ax_med.text(-5.5, 6, "Varicosidades:\n" + ", ".join(tipos_var),
                         fontsize=6, ha='left', va='bottom', color='#784212',
@@ -1505,14 +1549,48 @@ def construir_laudo_word(membros_lista, dados_m_dict):
         # 2.4 MAPA DE VARICOSIDADES
         vd = dm["varic_dados"]
         if vd.get("possui", False):
-            v_tipos = []
-            if vd.get("telangiectasias"): v_tipos.append("telangiectasias (< 1 mm de diâmetro)")
-            if vd.get("micro_reticulares"): v_tipos.append("microvarizes / varizes reticulares (1 a 3 mm de diâmetro)")
-            if vd.get("veias_varicosas"): v_tipos.append("veias varicosas tronculares (> 3 mm de diâmetro)")
-            
-            if v_tipos:
-                txt_varicosidades = "Presença de lesões vasculares superficiais do tipo: " + ", ".join(v_tipos) + f", localizadas predominantemente {vd.get('localizacao', '')}."
-                add_p(txt_varicosidades, space_before=6)
+            # Telangiectasias — apenas se nutridora
+            tel = vd.get("telangiectasias", {})
+            if tel.get("nutridora"):
+                tel_loc = tel.get("nutridora_loc", "")
+                add_p(
+                    f"Identificada(s) veia(s) telangiectatica(s) funcionando como nutridora(s)"
+                    + (f", localizada(s) {tel_loc}" if tel_loc else "") + ".",
+                    space_before=6
+                )
+                conclusoes_lista.append((m_nome, f"Telangiectasias com veia nutridora identificada{(' em ' + tel_loc) if tel_loc else ''}."))
+
+            # Veias Reticulares
+            ret = vd.get("reticulares", {})
+            if ret.get("presente"):
+                ret_con = ret.get("conexao", "")
+                ret_loc = ret.get("localizacao", "")
+                if ret_con == "Conexão demonstrável":
+                    ret_con_desc = ret.get("conexao_desc", "")
+                    con_txt = f"com conexão demonstrável{(' a ' + ret_con_desc) if ret_con_desc else ''}"
+                else:
+                    con_txt = "sem conexão demonstrável ao método"
+                add_p(
+                    f"Identificadas malhas reticulares (1 a < 3 mm de diâmetro)"
+                    + (f", localizadas predominantemente {ret_loc}" if ret_loc else "")
+                    + f", {con_txt}.",
+                    space_before=6
+                )
+                conclusoes_lista.append((m_nome, f"Malhas reticulares{(' em ' + ret_loc) if ret_loc else ''}, {con_txt}."))
+
+            # Varizes C2
+            var = vd.get("varizes", {})
+            if var.get("presente"):
+                var_loc = var.get("localizacao", "")
+                orig_list = var.get("origem", [])
+                orig_txt = (", ".join(orig_list)) if orig_list else "origem não classificada"
+                add_p(
+                    f"Identificadas veias varicosas (≥ 3 mm de diâmetro)"
+                    + (f", localizadas predominantemente {var_loc}" if var_loc else "")
+                    + f". Origem: {orig_txt}.",
+                    space_before=6
+                )
+                conclusoes_lista.append((m_nome, f"Varizes C2{(' em ' + var_loc) if var_loc else ''}. Origem: {orig_txt}."))
 
         # 2.5 VARIZES EXTRASSAFÊNICAS
         _PELVICO_TXTS = {
