@@ -5,6 +5,17 @@ from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
 
+# Limiares clínicos centralizados — ajuste aqui se a referência mudar
+LIMIARES = {
+    "telangiectasia_mm": 1.0,
+    "variz_mm": 3.0,
+    "perfurante_patologica_mm": 3.5,
+    "refluxo_profundo_s": 1.0,    # VFC e Poplítea
+    "refluxo_safena_s": 0.5,
+    "refluxo_perfurante_s": 0.5,
+    "refluxo_profundo_distal_s": 0.5,  # demais veias profundas
+}
+
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.title("🌀 Assistente de Laudos: Duplex Scan Venoso de MMII")
 
@@ -239,10 +250,27 @@ for idx, m_nome in enumerate(membros_para_processar):
             st.markdown("#### 1. Sistema Venoso Profundo (SVP)")
             svp_status = st.radio(f"Status do SVP ({m_nome}):", ["Normal", "Anormal"], horizontal=True, key=f"svp_stat_{m_nome}")
             svp_res = {"status": svp_status}
+            _VEIAS_SVP = [
+                "Veia Femoral Comum (VFC)", "Veia Femoral (VF)", "Veia Femoral Profunda (VFP)",
+                "Veia Poplítea (V POP)", "Veias Gastrocnêmias", "Veias Soleares",
+                "Veias Tibiais Posteriores (VTP)", "Veias Fibulares",
+            ]
             if svp_status == "Anormal":
-                c_svp1, c_svp2 = st.columns(2)
-                with c_svp1: svp_res["tipo"] = st.selectbox("Tipo de Alteração:", ["Refluxo", "Trombose Venosa Profunda (TVP)"], key=f"svp_tipo_{m_nome}")
-                with c_svp2: svp_res["veias"] = st.multiselect("Veias Acometidas:", ["Veia Femoral Comum (VFC)", "Veia Femoral (VF)", "Veia Femoral Profunda (VFP)", "Veia Poplítea (V POP)", "Veias Gastrocnêmias", "Veias Soleares", "Veias Tibiais Posteriores (VTP)", "Veias Fibulares"], key=f"svp_veias_{m_nome}")
+                svp_res["tipo"] = st.selectbox("Tipo de Alteração:", ["Refluxo", "Trombose Venosa Profunda (TVP)"], key=f"svp_tipo_{m_nome}")
+                svp_res["veias"] = st.multiselect(
+                    "Veias Acometidas (pérvias, com refluxo):" if svp_res["tipo"] == "Refluxo" else "Veias Trombosadas:",
+                    _VEIAS_SVP, key=f"svp_veias_{m_nome}"
+                )
+                if svp_res["tipo"] == "Refluxo":
+                    _vfc_pop = {"Veia Femoral Comum (VFC)", "Veia Poplítea (V POP)"}
+                    _sel = set(svp_res["veias"])
+                    _has_1s = bool(_sel & _vfc_pop)
+                    _has_05s = bool(_sel - _vfc_pop)
+                    _partes = []
+                    if _has_1s: _partes.append("VFC / Poplítea → limiar > **1,0 s**")
+                    if _has_05s: _partes.append("demais veias profundas → limiar > **0,5 s**")
+                    if _partes:
+                        st.caption("ℹ️ Limiares de refluxo: " + " · ".join(_partes))
         
             st.markdown("---")
         
@@ -577,16 +605,46 @@ for idx, m_nome in enumerate(membros_para_processar):
                 with cp_2: perf_nova["face"] = st.selectbox("Face:", ["Medial", "Lateral", "Anterior", "Posterior", "Anterolateral", "Posterointerna"], key=f"perf_face_{m_nome}_new")
                 with cp_3: perf_nova["ref_ponto"] = st.selectbox("Referência:", ["Interlinha do Joelho", "Face Plantar"], key=f"perf_ref_{m_nome}_new")
                 with cp_4: perf_nova["altura_cm"] = st.text_input("Distância (cm):", "12", key=f"perf_alt_{m_nome}_new")
-                with cp_5: perf_nova["diametro_mm"] = st.text_input("Diâmetro (mm):", "3.5", key=f"perf_diam_{m_nome}_new")
+                with cp_5: perf_nova["diametro_mm"] = st.text_input("Diâmetro na fáscia (mm):", "3.5", key=f"perf_diam_{m_nome}_new")
                 if perf_nova["ref_ponto"] == "Interlinha do Joelho":
                     perf_nova["posicao_joelho"] = st.radio("Posição em relação ao joelho:", ["Acima", "Abaixo"], horizontal=True, key=f"perf_pos_j_{m_nome}_new")
                 else:
                     perf_nova["posicao_joelho"] = ""
+                # Fluxo e contexto clínico
+                _cpf1, _cpf2 = st.columns(2)
+                with _cpf1:
+                    perf_nova["fluxo_dir"] = st.radio(
+                        "Direção do fluxo:", ["Para fora (outward)", "Bidirecional"],
+                        horizontal=True, key=f"perf_dir_{m_nome}_new"
+                    )
+                with _cpf2:
+                    perf_nova["fluxo_dur_s"] = st.text_input("Duração do refluxo (s):", "0.5", key=f"perf_dur_{m_nome}_new")
+                perf_nova["c5c6"] = st.checkbox(
+                    "Localizada sob úlcera ativa ou cicatrizada (contexto C5/C6)?",
+                    key=f"perf_c5c6_{m_nome}_new"
+                )
+                # Classificação automática
                 try:
-                    if float(perf_nova["diametro_mm"]) > 3.5:
-                        st.warning(f"⚠️ Diâmetro {perf_nova['diametro_mm']} mm > 3,5 mm — critério ESVS 2022 para perfurante patológica")
+                    _dur_val  = float(perf_nova["fluxo_dur_s"])
+                    _diam_val = float(perf_nova["diametro_mm"])
                 except ValueError:
-                    pass
+                    _dur_val = 0.0; _diam_val = 0.0
+                _outward = perf_nova["fluxo_dir"] == "Para fora (outward)"
+                if not _outward:
+                    perf_nova["class_perf"] = "fluxo bidirecional"
+                    st.info("⚠️ Fluxo bidirecional — não classificada como incompetente isolada")
+                elif (_outward and _dur_val >= LIMIARES["refluxo_perfurante_s"]
+                      and _diam_val >= LIMIARES["perfurante_patologica_mm"]
+                      and perf_nova["c5c6"]):
+                    perf_nova["class_perf"] = "patológica"
+                    st.error("🔴 PATOLÓGICA — todas as condições ESVS 2022 presentes")
+                else:
+                    perf_nova["class_perf"] = "incompetente"
+                    conds_falt = []
+                    if not (_dur_val >= LIMIARES["refluxo_perfurante_s"]): conds_falt.append(f"duração < {LIMIARES['refluxo_perfurante_s']} s")
+                    if not (_diam_val >= LIMIARES["perfurante_patologica_mm"]): conds_falt.append(f"calibre < {LIMIARES['perfurante_patologica_mm']} mm")
+                    if not perf_nova["c5c6"]: conds_falt.append("sem contexto C5/C6")
+                    st.warning(f"⚠️ Incompetente (não patológica: {'; '.join(conds_falt)})")
 
                 if st.button("💾 Registrar Achado", key=f"reg_perf_{m_nome}"):
                     st.session_state["lista_perfurantes"][m_nome].append(perf_nova)
@@ -1382,9 +1440,28 @@ def construir_laudo_word(membros_lista, dados_m_dict):
         # 1. SVP
         add_p("SISTEMA VENOSO PROFUNDO", space_after=6)
         if dm["svp"]["status"] == "Normal":
-            add_p("As veias femoral comum, femoral, poplítea, tibiais posteriores e fibulares apresentam-se pérvias, compressíveis, com fluxo fásico com a respiração e competentes...")
+            add_p("As veias femoral comum, femoral, poplítea, tibiais posteriores e fibulares apresentam-se pérvias, compressíveis, com fluxo fásico com a respiração e competentes, sem sinais de refluxo patológico ou trombose.")
         else:
-            add_p(f"Sistema Venoso Profundo ANORMAL. Detectados sinais de {dm['svp']['tipo']} nas veias: {', '.join(dm['svp'].get('veias', []))}.")
+            _svp_tipo = dm["svp"].get("tipo", "Alteração")
+            _svp_veias = dm["svp"].get("veias", [])
+            _veias_str = ", ".join(_svp_veias) if _svp_veias else "veias não especificadas"
+            if _svp_tipo == "Refluxo":
+                _VFC_POP = {"Veia Femoral Comum (VFC)", "Veia Poplítea (V POP)"}
+                _sel = set(_svp_veias)
+                _vv_1s  = sorted(_sel & _VFC_POP)
+                _vv_05s = sorted(_sel - _VFC_POP)
+                _partes_txt = []
+                if _vv_1s:  _partes_txt.append(f"{', '.join(_vv_1s)} (refluxo > {LIMIARES['refluxo_profundo_s']} s)")
+                if _vv_05s: _partes_txt.append(f"{', '.join(_vv_05s)} (refluxo > {LIMIARES['refluxo_profundo_distal_s']} s)")
+                add_p(
+                    f"Identificado refluxo venoso profundo patológico em: {'; '.join(_partes_txt)}. "
+                    f"As veias acometidas encontram-se pérvias com fluxo retrógrado patológico ao teste de compressão-descompressão.",
+                    space_before=4
+                )
+                conclusoes_lista.append((m_nome, f"Refluxo venoso profundo em {_veias_str}."))
+            else:
+                add_p(f"Sinais de trombose venosa profunda (TVP) nas seguintes veias: {_veias_str}.")
+                conclusoes_lista.append((m_nome, f"Sinais de TVP em {_veias_str}."))
 
         # 2. SVS - VEIA SAFENA MAGNA (VSM)
         add_p("SISTEMA VENOSO SUPERFICIAL", space_before=12, space_after=6)
@@ -1536,15 +1613,33 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                 r_ref = p_dados["ref_ponto"]
                 r_alt = p_dados["altura_cm"]
                 r_pos = p_dados["posicao_joelho"]
+                r_class = p_dados.get("class_perf", "incompetente")
+                r_diam = p_dados.get("diametro_mm", "")
+                r_dur = p_dados.get("fluxo_dur_s", "")
+                r_dir = p_dados.get("fluxo_dir", "Para fora (outward)")
 
                 if "Interlinha" in r_ref:
                     txt_ref_perf = f"{r_pos.lower()} da interlinha do joelho"
                 else:
                     txt_ref_perf = "da face plantar"
-                r_diam = p_dados.get("diametro_mm", "")
-                txt_diam = f", com diâmetro de {r_diam} mm" if r_diam else ""
-                add_p(f"Identificada veia perfurante incompetente na {r_reg.lower()}, face {r_face.lower()}{txt_diam}, situada a {r_alt} cm {txt_ref_perf}.", bullet=True)
-                conclusoes_lista.append((m_nome, f"Insuficiência de veia perfurante na {r_reg.lower()} (face {r_face.lower()})."))
+
+                txt_diam = f", com diâmetro de {r_diam} mm no nível da fáscia" if r_diam else ""
+                if r_dir == "Bidirecional":
+                    txt_fluxo = ", exibindo fluxo bidirecional transfascial"
+                else:
+                    txt_fluxo = f", com fluxo de saída de duração de {r_dur} s" if r_dur else ""
+
+                add_p(
+                    f"Identificada veia perfurante {r_class} na {r_reg.lower()}, face {r_face.lower()}"
+                    f"{txt_diam}, situada a {r_alt} cm {txt_ref_perf}{txt_fluxo}.",
+                    bullet=True
+                )
+                if r_class == "patológica":
+                    conclusoes_lista.append((m_nome, f"Veia perfurante patológica (ESVS 2022) na {r_reg.lower()} (face {r_face.lower()})."))
+                elif r_class == "fluxo bidirecional":
+                    conclusoes_lista.append((m_nome, f"Veia perfurante com fluxo bidirecional na {r_reg.lower()} (face {r_face.lower()})."))
+                else:
+                    conclusoes_lista.append((m_nome, f"Insuficiência de veia perfurante na {r_reg.lower()} (face {r_face.lower()})."))
 
         # 2.4 MAPA DE VARICOSIDADES
         vd = dm["varic_dados"]
