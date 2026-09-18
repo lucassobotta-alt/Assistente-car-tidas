@@ -5,6 +5,17 @@ from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from io import BytesIO
 
+# Limiares clínicos centralizados — ajuste aqui se a referência mudar
+LIMIARES = {
+    "telangiectasia_mm": 1.0,
+    "variz_mm": 3.0,
+    "perfurante_patologica_mm": 3.5,
+    "refluxo_profundo_s": 1.0,    # VFC e Poplítea
+    "refluxo_safena_s": 0.5,
+    "refluxo_perfurante_s": 0.5,
+    "refluxo_profundo_distal_s": 0.5,  # demais veias profundas
+}
+
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.title("🌀 Assistente de Laudos: Duplex Scan Venoso de MMII")
 
@@ -46,6 +57,7 @@ with st.sidebar:
         crm_uf = st.selectbox("UF", ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"], index=25)
     rqe_medico = st.text_input("RQE:", "")
     incluir_assinatura = st.toggle("Incluir assinatura / carimbo no laudo", value=False)
+    incluir_obs_pelvica = st.toggle("Incluir observação de complementação de imagem pélvica", value=False)
 
     st.markdown("---")
     if st.button("🔄 Resetar Todos os Parâmetros", use_container_width=True, type="secondary"):
@@ -240,10 +252,27 @@ for idx, m_nome in enumerate(membros_para_processar):
             st.markdown("#### 1. Sistema Venoso Profundo (SVP)")
             svp_status = st.radio(f"Status do SVP ({m_nome}):", ["Normal", "Anormal"], horizontal=True, key=f"svp_stat_{m_nome}")
             svp_res = {"status": svp_status}
+            _VEIAS_SVP = [
+                "Veia Femoral Comum (VFC)", "Veia Femoral (VF)", "Veia Femoral Profunda (VFP)",
+                "Veia Poplítea (V POP)", "Veias Gastrocnêmias", "Veias Soleares",
+                "Veias Tibiais Posteriores (VTP)", "Veias Fibulares",
+            ]
             if svp_status == "Anormal":
-                c_svp1, c_svp2 = st.columns(2)
-                with c_svp1: svp_res["tipo"] = st.selectbox("Tipo de Alteração:", ["Refluxo", "Trombose Venosa Profunda (TVP)"], key=f"svp_tipo_{m_nome}")
-                with c_svp2: svp_res["veias"] = st.multiselect("Veias Acometidas:", ["Veia Femoral Comum (VFC)", "Veia Femoral (VF)", "Veia Femoral Profunda (VFP)", "Veia Poplítea (V POP)", "Veias Gastrocnêmias", "Veias Soleares", "Veias Tibiais Posteriores (VTP)", "Veias Fibulares"], key=f"svp_veias_{m_nome}")
+                svp_res["tipo"] = st.selectbox("Tipo de Alteração:", ["Refluxo", "Trombose Venosa Profunda (TVP)"], key=f"svp_tipo_{m_nome}")
+                svp_res["veias"] = st.multiselect(
+                    "Veias Acometidas (pérvias, com refluxo):" if svp_res["tipo"] == "Refluxo" else "Veias Trombosadas:",
+                    _VEIAS_SVP, key=f"svp_veias_{m_nome}"
+                )
+                if svp_res["tipo"] == "Refluxo":
+                    _vfc_pop = {"Veia Femoral Comum (VFC)", "Veia Poplítea (V POP)"}
+                    _sel = set(svp_res["veias"])
+                    _has_1s = bool(_sel & _vfc_pop)
+                    _has_05s = bool(_sel - _vfc_pop)
+                    _partes = []
+                    if _has_1s: _partes.append("VFC / Poplítea → limiar > **1,0 s**")
+                    if _has_05s: _partes.append("demais veias profundas → limiar > **0,5 s**")
+                    if _partes:
+                        st.caption("ℹ️ Limiares de refluxo: " + " · ".join(_partes))
         
             st.markdown("---")
         
@@ -578,16 +607,46 @@ for idx, m_nome in enumerate(membros_para_processar):
                 with cp_2: perf_nova["face"] = st.selectbox("Face:", ["Medial", "Lateral", "Anterior", "Posterior", "Anterolateral", "Posterointerna"], key=f"perf_face_{m_nome}_new")
                 with cp_3: perf_nova["ref_ponto"] = st.selectbox("Referência:", ["Interlinha do Joelho", "Face Plantar"], key=f"perf_ref_{m_nome}_new")
                 with cp_4: perf_nova["altura_cm"] = st.text_input("Distância (cm):", "12", key=f"perf_alt_{m_nome}_new")
-                with cp_5: perf_nova["diametro_mm"] = st.text_input("Diâmetro (mm):", "3.5", key=f"perf_diam_{m_nome}_new")
+                with cp_5: perf_nova["diametro_mm"] = st.text_input("Diâmetro na fáscia (mm):", "3.5", key=f"perf_diam_{m_nome}_new")
                 if perf_nova["ref_ponto"] == "Interlinha do Joelho":
                     perf_nova["posicao_joelho"] = st.radio("Posição em relação ao joelho:", ["Acima", "Abaixo"], horizontal=True, key=f"perf_pos_j_{m_nome}_new")
                 else:
                     perf_nova["posicao_joelho"] = ""
+                # Fluxo e contexto clínico
+                _cpf1, _cpf2 = st.columns(2)
+                with _cpf1:
+                    perf_nova["fluxo_dir"] = st.radio(
+                        "Direção do fluxo:", ["Para fora (outward)", "Bidirecional"],
+                        horizontal=True, key=f"perf_dir_{m_nome}_new"
+                    )
+                with _cpf2:
+                    perf_nova["fluxo_dur_s"] = st.text_input("Duração do refluxo (s):", "0.5", key=f"perf_dur_{m_nome}_new")
+                perf_nova["c5c6"] = st.checkbox(
+                    "Localizada sob úlcera ativa ou cicatrizada (contexto C5/C6)?",
+                    key=f"perf_c5c6_{m_nome}_new"
+                )
+                # Classificação automática
                 try:
-                    if float(perf_nova["diametro_mm"]) > 3.5:
-                        st.warning(f"⚠️ Diâmetro {perf_nova['diametro_mm']} mm > 3,5 mm — critério ESVS 2022 para perfurante patológica")
+                    _dur_val  = float(perf_nova["fluxo_dur_s"])
+                    _diam_val = float(perf_nova["diametro_mm"])
                 except ValueError:
-                    pass
+                    _dur_val = 0.0; _diam_val = 0.0
+                _outward = perf_nova["fluxo_dir"] == "Para fora (outward)"
+                if not _outward:
+                    perf_nova["class_perf"] = "fluxo bidirecional"
+                    st.info("⚠️ Fluxo bidirecional — não classificada como incompetente isolada")
+                elif (_outward and _dur_val >= LIMIARES["refluxo_perfurante_s"]
+                      and _diam_val >= LIMIARES["perfurante_patologica_mm"]
+                      and perf_nova["c5c6"]):
+                    perf_nova["class_perf"] = "patológica"
+                    st.error("🔴 PATOLÓGICA — todas as condições ESVS 2022 presentes")
+                else:
+                    perf_nova["class_perf"] = "incompetente"
+                    conds_falt = []
+                    if not (_dur_val >= LIMIARES["refluxo_perfurante_s"]): conds_falt.append(f"duração < {LIMIARES['refluxo_perfurante_s']} s")
+                    if not (_diam_val >= LIMIARES["perfurante_patologica_mm"]): conds_falt.append(f"calibre < {LIMIARES['perfurante_patologica_mm']} mm")
+                    if not perf_nova["c5c6"]: conds_falt.append("sem contexto C5/C6")
+                    st.warning(f"⚠️ Incompetente (não patológica: {'; '.join(conds_falt)})")
 
                 if st.button("💾 Registrar Achado", key=f"reg_perf_{m_nome}"):
                     st.session_state["lista_perfurantes"][m_nome].append(perf_nova)
@@ -613,15 +672,59 @@ for idx, m_nome in enumerate(membros_para_processar):
             # --- 2.4 MAPA DE VARICOSIDADES ---
             st.markdown("---")
             st.markdown("#### 2.4 Mapeamento de Varicosidades / Malhas Reticulares")
-            possui_varicosidades = st.checkbox("Descrever presença de Telangiectasias, Microvarizes ou Reticulares?", key=f"has_varic_{m_nome}")
+            possui_varicosidades = st.toggle("Descrever lesões vasculares superficiais?", key=f"has_varic_{m_nome}")
             varic_dados = {"possui": possui_varicosidades}
-        
+
             if possui_varicosidades:
-                cv_1, cv_2, cv_3 = st.columns(3)
-                with cv_1: varic_dados["telangiectasias"] = st.checkbox("Telangiectasias (< 1 mm)", key=f"var_tel_{m_nome}")
-                with cv_2: varic_dados["micro_reticulares"] = st.checkbox("Microvarizes / Varizes Reticulares (1 a 3 mm)", key=f"var_mic_{m_nome}")
-                with cv_3: varic_dados["veias_varicosas"] = st.checkbox("Veias Varicosas Tronculares (> 3 mm)", key=f"var_tronc_{m_nome}")
-                varic_dados["localizacao"] = st.text_input("Localização predominante das lesões superficiais:", "em faces lateral da coxa e posterior da perna", key=f"var_loc_{m_nome}")
+                # --- Telangiectasias (< 1 mm · C1) ---
+                st.markdown("**Telangiectasias** (< 1 mm · C1) — *não descrevemos salvo nutridora*")
+                tel_presente = st.checkbox("Identificadas telangiectasias?", key=f"var_tel_{m_nome}")
+                varic_dados["telangiectasias"] = {"presente": tel_presente}
+                if tel_presente:
+                    tel_nutridora = st.checkbox("Incluir no laudo como veia nutridora?", key=f"var_tel_nut_{m_nome}")
+                    varic_dados["telangiectasias"]["nutridora"] = tel_nutridora
+                    if tel_nutridora:
+                        varic_dados["telangiectasias"]["nutridora_loc"] = st.text_input(
+                            "Localização da veia nutridora:", key=f"var_tel_nut_loc_{m_nome}"
+                        )
+
+                st.markdown("---")
+
+                # --- Veias Reticulares (1 a < 3 mm · C1) ---
+                st.markdown("**Veias Reticulares** (1 a < 3 mm · C1) — *buscar conexão*")
+                ret_presente = st.checkbox("Identificadas veias reticulares?", key=f"var_ret_{m_nome}")
+                varic_dados["reticulares"] = {"presente": ret_presente}
+                if ret_presente:
+                    ret_conexao = st.radio(
+                        "Conexão identificada:",
+                        ["Conexão demonstrável", "Não demonstrável ao método"],
+                        horizontal=True, key=f"var_ret_con_{m_nome}"
+                    )
+                    varic_dados["reticulares"]["conexao"] = ret_conexao
+                    if ret_conexao == "Conexão demonstrável":
+                        varic_dados["reticulares"]["conexao_desc"] = st.text_input(
+                            "Descrever a conexão:", key=f"var_ret_con_desc_{m_nome}"
+                        )
+                    varic_dados["reticulares"]["localizacao"] = st.text_input(
+                        "Localização predominante:", key=f"var_ret_loc_{m_nome}"
+                    )
+
+                st.markdown("---")
+
+                # --- Varizes (≥ 3 mm · C2) ---
+                st.markdown("**Varizes** (≥ 3 mm · C2) — *classificar origem*")
+                var_presente = st.checkbox("Identificadas varizes?", key=f"var_v_{m_nome}")
+                varic_dados["varizes"] = {"presente": var_presente}
+                if var_presente:
+                    varic_dados["varizes"]["origem"] = st.multiselect(
+                        "Origem do refluxo:",
+                        ["Fuga de JSF", "Fuga de JSP", "Ponto de escape extrassafênico",
+                         "Reentrada", "C2r (recorrência pós-tratamento)"],
+                        key=f"var_v_orig_{m_nome}"
+                    )
+                    varic_dados["varizes"]["localizacao"] = st.text_input(
+                        "Localização predominante:", key=f"var_v_loc_{m_nome}"
+                    )
 
             st.markdown("---")
 
@@ -634,16 +737,15 @@ for idx, m_nome in enumerate(membros_para_processar):
                 for _vei, _veitem in enumerate(_varext_saved):
                     _vec1, _vec2 = st.columns([6, 1])
                     with _vec1:
-                        _ve_lbl = _veitem["origem"]
+                        _ve_tipo_lbl = _veitem.get("tipo", _veitem.get("origem", "?"))
+                        _ve_lbl = _ve_tipo_lbl
                         if _veitem.get("localizacao"):
                             _ve_lbl += f" — {_veitem['localizacao']}"
                         if _veitem.get("trib_cm"):
                             _pos = f" {_veitem['trib_pos']}" if _veitem.get("trib_pos") else ""
                             _ve_lbl += f" ({_veitem['trib_cm']} cm{_pos} da {_veitem.get('trib_ref','')})"
-                        if _veitem.get("ciatica_subtipo"):
-                            _ve_lbl += f" ({_veitem['ciatica_subtipo']})"
-                        if _veitem.get("pelvico_pontos"):
-                            _ve_lbl += f" [{', '.join(_veitem['pelvico_pontos'])}]"
+                        if _veitem.get("pelvico_ponto"):
+                            _ve_lbl += f" [{_veitem['pelvico_ponto']}]"
                         st.markdown(f"• {_ve_lbl}")
                     with _vec2:
                         if st.button("❌", key=f"rem_varext_{m_nome}_{_vei}"):
@@ -651,56 +753,73 @@ for idx, m_nome in enumerate(membros_para_processar):
                             st.rerun()
 
             st.markdown("<sub style='color: #444;'>Adicionar nova entrada:</sub>", unsafe_allow_html=True)
-            _varext_origem = st.selectbox(
-                "Origem:",
-                ["Tributária incompetente", "Refluxo de origem ciática", "Refluxo pélvico"],
-                key=f"varext_origem_{m_nome}"
+            _varext_tipo = st.radio(
+                "Tipo:",
+                ["Tributária incompetente", "Escape pélvico"],
+                horizontal=True, key=f"varext_tipo_{m_nome}"
             )
             _varext_loc = ""
             _varext_trib_ref = ""
             _varext_trib_pos = ""
             _varext_trib_cm = ""
-            _varext_ciatica = ""
-            _varext_pelvico = []
-            if _varext_origem == "Tributária incompetente":
-                _varext_loc = st.text_input("Localização:", "", key=f"varext_loc_{m_nome}")
+            _varext_pelvico_ponto = ""
+            _varext_pelvico_dados = {}
+
+            if _varext_tipo == "Tributária incompetente":
+                _varext_loc = st.text_input("Localização das varizes:", "", key=f"varext_loc_{m_nome}")
                 _vt1, _vt2, _vt3 = st.columns(3)
                 with _vt1:
                     _varext_trib_ref = st.selectbox(
                         "Referência de altura:",
-                        ["Junção Safenofemoral", "Interlinha do Joelho", "Face Plantar"],
+                        ["Prega inguinal", "Interlinha do joelho", "Face plantar"],
                         key=f"varext_trib_ref_{m_nome}"
                     )
                 with _vt2:
-                    if _varext_trib_ref == "Interlinha do Joelho":
+                    if _varext_trib_ref == "Interlinha do joelho":
                         _varext_trib_pos = st.radio("Posição:", ["acima", "abaixo"], horizontal=True, key=f"varext_trib_pos_{m_nome}")
                     else:
                         _varext_trib_pos = ""
                         st.empty()
                 with _vt3:
                     _varext_trib_cm = st.text_input("Distância (cm):", "", key=f"varext_trib_cm_{m_nome}")
-            elif _varext_origem == "Refluxo de origem ciática":
-                _varext_ciatica = st.radio(
-                    "Tipo de refluxo ciático:",
-                    ["Varizes acompanhando o trajeto do nervo ciático", "Veia ciática persistente"],
-                    horizontal=True,
-                    key=f"varext_ciatica_{m_nome}"
+
+            elif _varext_tipo == "Escape pélvico":
+                _varext_pelvico_ponto = st.selectbox(
+                    "Ponto de escape:",
+                    [
+                        "Ponto P — perineal",
+                        "Ponto I — inguinal",
+                        "Ponto O — obturador",
+                        "Ponto G superior — glúteo supra-piriforme",
+                        "Ponto G inferior — glúteo infra-piriforme",
+                        "Inguinal — masculino (pampiniforme)",
+                        "Perineal — masculino (escrotal posterior)",
+                        "Negativa (sem pontos de escape pélvicos identificados)",
+                    ],
+                    key=f"varext_pelvico_ponto_{m_nome}"
                 )
-            elif _varext_origem == "Refluxo pélvico":
-                _varext_pelvico = st.multiselect(
-                    "Ponto(s) de escape do refluxo pélvico:",
-                    ["Ponto inguinal", "Ponto perineal", "Ponto obturatório", "Ponto glúteo"],
-                    key=f"varext_pelvico_{m_nome}"
-                )
+                if "Ponto I" in _varext_pelvico_ponto:
+                    _varext_pelvico_dados["drenagem_i"] = st.radio(
+                        "Drena para:",
+                        ["veia safena magna", "veia pudenda externa superficial"],
+                        horizontal=True, key=f"varext_pi_dren_{m_nome}"
+                    )
+                elif "Ponto G inferior" in _varext_pelvico_ponto:
+                    _varext_pelvico_dados["drenagem_g_inf"] = st.radio(
+                        "Alimenta varizes do território da:",
+                        ["veia safena parva", "poplíteo"],
+                        horizontal=True, key=f"varext_gi_dren_{m_nome}"
+                    )
+
             if st.button("💾 Salvar Varizes Extrassafênicas", key=f"save_varext_{m_nome}"):
                 st.session_state["lista_varext_reg"][m_nome].append({
+                    "tipo": _varext_tipo,
                     "localizacao": _varext_loc,
-                    "origem": _varext_origem,
                     "trib_ref": _varext_trib_ref,
                     "trib_pos": _varext_trib_pos,
                     "trib_cm": _varext_trib_cm,
-                    "ciatica_subtipo": _varext_ciatica,
-                    "pelvico_pontos": _varext_pelvico,
+                    "pelvico_ponto": _varext_pelvico_ponto,
+                    "pelvico_dados": _varext_pelvico_dados,
                 })
                 st.rerun()
 
@@ -745,38 +864,30 @@ for idx, m_nome in enumerate(membros_para_processar):
 
             st.markdown("---")
 
-            # 3. MÓDULOS ADICIONAIS & VARIÁVEIS EXTRAS
-            st.markdown("#### 3. Módulos Adicionais")
-            c_add1, c_add2 = st.columns(2)
-            with c_add1:
-                giacomini_opt = st.selectbox("Veia de Giacomini Isolada:", ["Não se aplica / Normal", "3.1 Refluxo ostial drenado de forma ascendente", "3.2 Refluxo ostial transferindo para VSM"], key=f"giacomini_{m_nome}")
-                varizes_pelvicas_opt = st.selectbox("Varizes Pélvicas (Pontos de Escape):", ["Ausentes", "5.1 Plexo venoso ciático (região infraglútea)", "5.2 Escape inguinal/perineal"], key=f"pelvicas_{m_nome}")
-                pos_op_opt = st.selectbox("Pós-Operatório / Recidiva:", ["Não se aplica", "6.3 Sinais de neovascularização adjacentes"], key=f"pos_op_{m_nome}")
-        
-            with c_add2:
-                st.markdown("**Achados Extras / Patologias de Tecidos Adjacentes:**")
-                achados_multiplos = st.multiselect(
-                    "Selecione os achados adicionais observados:",
-                    ["Cisto de Baker na fossa poplítea", "Edema intersticial subcutâneo"],
-                    default=[],
-                    key=f"achados_adi_multi_{m_nome}"
-                )
-            
-                cisto_medidas = {}
-                if "Cisto de Baker na fossa poplítea" in achados_multiplos:
-                    st.markdown("<sub style='color: #444;'>Dimensões do Cisto de Baker:</sub>", unsafe_allow_html=True)
-                    cc1, cc2, cc3 = st.columns(3)
-                    with cc1: cisto_medidas["comp"] = st.text_input("Eixo Long (mm):", "35", key=f"cb_c_{m_nome}")
-                    with cc2: cisto_medidas["larg"] = st.text_input("Eixo Transv (mm):", "18", key=f"cb_l_{m_nome}")
-                    with cc3: cisto_medidas["esp"] = st.text_input("Espessura (mm):", "12", key=f"cb_e_{m_nome}")
+            # 3. ACHADOS EXTRAS
+            st.markdown("#### 3. Achados Extras")
+            st.markdown("**Patologias de Tecidos Adjacentes:**")
+            achados_multiplos = st.multiselect(
+                "Selecione os achados adicionais observados:",
+                ["Cisto de Baker na fossa poplítea", "Edema intersticial subcutâneo"],
+                default=[],
+                key=f"achados_adi_multi_{m_nome}"
+            )
+
+            cisto_medidas = {}
+            if "Cisto de Baker na fossa poplítea" in achados_multiplos:
+                st.markdown("<sub style='color: #444;'>Dimensões do Cisto de Baker:</sub>", unsafe_allow_html=True)
+                cc1, cc2, cc3 = st.columns(3)
+                with cc1: cisto_medidas["comp"] = st.text_input("Eixo Long (mm):", "35", key=f"cb_c_{m_nome}")
+                with cc2: cisto_medidas["larg"] = st.text_input("Eixo Transv (mm):", "18", key=f"cb_l_{m_nome}")
+                with cc3: cisto_medidas["esp"] = st.text_input("Espessura (mm):", "12", key=f"cb_e_{m_nome}")
 
             dados_membros[m_nome] = {
                 "svp": svp_res, "vsm_mapeamento": vsm_dados_mapeamento,
                 "jsf_mm": jsf_mm, "vsm_prox_coxa": vsm_prox_coxa, "vsm_med_coxa": vsm_med_coxa, "vsm_dist_coxa": vsm_dist_coxa,
                 "vsm_prox_perna": vsm_prox_perna, "vsm_med_perna": vsm_med_perna, "vsm_dist_perna": vsm_dist_perna,
                 "vsp_dados_input": vsp_dados_input, "jsp_mm": jsp_mm, "vsp_crossa": vsp_crossa, "vsp_med_perna_diam": vsp_med_perna_diam,
-                "giacomini_opt": giacomini_opt, "varizes_pelvicas_opt": varizes_pelvicas_opt, 
-                "pos_op_opt": pos_op_opt, "achados_adi_multi": achados_multiplos, "cisto_medidas": cisto_medidas,
+                "achados_adi_multi": achados_multiplos, "cisto_medidas": cisto_medidas,
                 "perfurantes_lista": perfurantes_coletadas if possui_perfurantes else [],
                 "varic_dados": varic_dados,
                 "varizes_extrassaf_dados": varizes_extrassaf_dados,
@@ -1056,13 +1167,13 @@ def gerar_cartografia_venosa(m_nome, dados_m, paciente):
                     bbox=dict(boxstyle='round,pad=0.4', facecolor='#FADBD8',
                               edgecolor='#E74C3C', alpha=0.9, lw=1.5), zorder=15)
 
-    # ---- outros achados ----
-    if "3.1" in dados_m.get("giacomini_opt","") or "3.2" in dados_m.get("giacomini_opt",""):
-        ax_med.text(0, JSF_H - 8, "↑ Giacomini", fontsize=7, ha='center',
-                    color='#8E44AD',
-                    bbox=dict(boxstyle='round,pad=0.3', facecolor='#F5EEF8',
-                              edgecolor='#8E44AD', alpha=0.8, lw=1))
-    if any(x in dados_m.get("varizes_pelvicas_opt","") for x in ["5.1","5.2"]):
+    # ---- escape pélvico (novo formato) ----
+    _ved_cart = dados_m.get("varizes_extrassaf_dados", {})
+    _tem_pelvico_cart = any(
+        _vi.get("tipo") == "Escape pélvico" and "Negativa" not in _vi.get("pelvico_ponto", "")
+        for _vi in _ved_cart.get("lista", [])
+    )
+    if _tem_pelvico_cart:
         ax_med.text(0, JSF_H + 0.5, "Escape Pélvico", fontsize=7, ha='center',
                     color='#566573',
                     bbox=dict(boxstyle='round,pad=0.3', facecolor='#EBF5FB',
@@ -1072,9 +1183,9 @@ def gerar_cartografia_venosa(m_nome, dados_m, paciente):
     vd = dados_m.get("varic_dados", {})
     if vd.get("possui"):
         tipos_var = []
-        if vd.get("telangiectasias"):     tipos_var.append("Telang.")
-        if vd.get("micro_reticulares"):   tipos_var.append("Reticulares")
-        if vd.get("veias_varicosas"):     tipos_var.append("Varicosas")
+        if vd.get("telangiectasias", {}).get("nutridora"):  tipos_var.append("Telang. nutridora")
+        if vd.get("reticulares", {}).get("presente"):       tipos_var.append("Reticulares")
+        if vd.get("varizes", {}).get("presente"):           tipos_var.append("Varizes C2")
         if tipos_var:
             ax_med.text(-5.5, 6, "Varicosidades:\n" + ", ".join(tipos_var),
                         fontsize=6, ha='left', va='bottom', color='#784212',
@@ -1331,7 +1442,14 @@ def construir_laudo_word(membros_lista, dados_m_dict):
     add_p("Exame realizado com o paciente em ortostase, utilizando transdutor linear de alta frequência, com avaliação compressiva segmentar, mapeamento de fluxo em cores e análise espectral Doppler pulsado, sem limitações técnicas.", space_after=12)
     
     conclusoes_lista = []
-    
+    _OBS_PELVICA = (
+        "Sugere-se complementação com ultrassonografia transvaginal ou transabdominal "
+        "dirigida ao território utero-ovariano / angiotomografia ou angiorressonância de "
+        "pelve e abdome para caracterização do nível de refluxo e exclusão de causa obstrutiva "
+        "(síndrome de May-Thurner, compressão da veia renal esquerda), cuja definição tem "
+        "implicação terapêutica direta."
+    )
+
     for m_nome in membros_lista:
         dm = dados_m_dict[m_nome]
         add_p("⸻", space_after=12)
@@ -1343,9 +1461,28 @@ def construir_laudo_word(membros_lista, dados_m_dict):
         # 1. SVP
         add_p("SISTEMA VENOSO PROFUNDO", space_after=6)
         if dm["svp"]["status"] == "Normal":
-            add_p("As veias femoral comum, femoral, poplítea, tibiais posteriores e fibulares apresentam-se pérvias, compressíveis, com fluxo fásico com a respiração e competentes...")
+            add_p("As veias femoral comum, femoral, poplítea, tibiais posteriores e fibulares apresentam-se pérvias, compressíveis, com fluxo fásico com a respiração e competentes, sem sinais de refluxo patológico ou trombose.")
         else:
-            add_p(f"Sistema Venoso Profundo ANORMAL. Detectados sinais de {dm['svp']['tipo']} nas veias: {', '.join(dm['svp'].get('veias', []))}.")
+            _svp_tipo = dm["svp"].get("tipo", "Alteração")
+            _svp_veias = dm["svp"].get("veias", [])
+            _veias_str = ", ".join(_svp_veias) if _svp_veias else "veias não especificadas"
+            if _svp_tipo == "Refluxo":
+                _VFC_POP = {"Veia Femoral Comum (VFC)", "Veia Poplítea (V POP)"}
+                _sel = set(_svp_veias)
+                _vv_1s  = sorted(_sel & _VFC_POP)
+                _vv_05s = sorted(_sel - _VFC_POP)
+                _partes_txt = []
+                if _vv_1s:  _partes_txt.append(f"{', '.join(_vv_1s)} (refluxo > {LIMIARES['refluxo_profundo_s']} s)")
+                if _vv_05s: _partes_txt.append(f"{', '.join(_vv_05s)} (refluxo > {LIMIARES['refluxo_profundo_distal_s']} s)")
+                add_p(
+                    f"Identificado refluxo venoso profundo patológico em: {'; '.join(_partes_txt)}. "
+                    f"As veias acometidas encontram-se pérvias com fluxo retrógrado patológico ao teste de compressão-descompressão.",
+                    space_before=4
+                )
+                conclusoes_lista.append((m_nome, f"Refluxo venoso profundo em {_veias_str}."))
+            else:
+                add_p(f"Sinais de trombose venosa profunda (TVP) nas seguintes veias: {_veias_str}.")
+                conclusoes_lista.append((m_nome, f"Sinais de TVP em {_veias_str}."))
 
         # 2. SVS - VEIA SAFENA MAGNA (VSM)
         add_p("SISTEMA VENOSO SUPERFICIAL", space_before=12, space_after=6)
@@ -1497,103 +1634,203 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                 r_ref = p_dados["ref_ponto"]
                 r_alt = p_dados["altura_cm"]
                 r_pos = p_dados["posicao_joelho"]
+                r_class = p_dados.get("class_perf", "incompetente")
+                r_diam = p_dados.get("diametro_mm", "")
+                r_dur = p_dados.get("fluxo_dur_s", "")
+                r_dir = p_dados.get("fluxo_dir", "Para fora (outward)")
 
                 if "Interlinha" in r_ref:
                     txt_ref_perf = f"{r_pos.lower()} da interlinha do joelho"
                 else:
                     txt_ref_perf = "da face plantar"
-                r_diam = p_dados.get("diametro_mm", "")
-                txt_diam = f", com diâmetro de {r_diam} mm" if r_diam else ""
-                add_p(f"Identificada veia perfurante incompetente na {r_reg.lower()}, face {r_face.lower()}{txt_diam}, situada a {r_alt} cm {txt_ref_perf}.", bullet=True)
-                conclusoes_lista.append((m_nome, f"Insuficiência de veia perfurante na {r_reg.lower()} (face {r_face.lower()})."))
+
+                txt_diam = f", com diâmetro de {r_diam} mm no nível da fáscia" if r_diam else ""
+                if r_dir == "Bidirecional":
+                    txt_fluxo = ", exibindo fluxo bidirecional transfascial"
+                else:
+                    txt_fluxo = f", com fluxo de saída de duração de {r_dur} s" if r_dur else ""
+
+                add_p(
+                    f"Identificada veia perfurante {r_class} na {r_reg.lower()}, face {r_face.lower()}"
+                    f"{txt_diam}, situada a {r_alt} cm {txt_ref_perf}{txt_fluxo}.",
+                    bullet=True
+                )
+                if r_class == "patológica":
+                    conclusoes_lista.append((m_nome, f"Veia perfurante patológica (ESVS 2022) na {r_reg.lower()} (face {r_face.lower()})."))
+                elif r_class == "fluxo bidirecional":
+                    conclusoes_lista.append((m_nome, f"Veia perfurante com fluxo bidirecional na {r_reg.lower()} (face {r_face.lower()})."))
+                else:
+                    conclusoes_lista.append((m_nome, f"Insuficiência de veia perfurante na {r_reg.lower()} (face {r_face.lower()})."))
 
         # 2.4 MAPA DE VARICOSIDADES
         vd = dm["varic_dados"]
         if vd.get("possui", False):
-            v_tipos = []
-            if vd.get("telangiectasias"): v_tipos.append("telangiectasias (< 1 mm de diâmetro)")
-            if vd.get("micro_reticulares"): v_tipos.append("microvarizes / varizes reticulares (1 a 3 mm de diâmetro)")
-            if vd.get("veias_varicosas"): v_tipos.append("veias varicosas tronculares (> 3 mm de diâmetro)")
-            
-            if v_tipos:
-                txt_varicosidades = "Presença de lesões vasculares superficiais do tipo: " + ", ".join(v_tipos) + f", localizadas predominantemente {vd.get('localizacao', '')}."
-                add_p(txt_varicosidades, space_before=6)
+            # Telangiectasias — apenas se nutridora
+            tel = vd.get("telangiectasias", {})
+            if tel.get("nutridora"):
+                tel_loc = tel.get("nutridora_loc", "")
+                add_p(
+                    f"Identificada(s) veia(s) telangiectatica(s) funcionando como nutridora(s)"
+                    + (f", localizada(s) {tel_loc}" if tel_loc else "") + ".",
+                    space_before=6
+                )
+                conclusoes_lista.append((m_nome, f"Telangiectasias com veia nutridora identificada{(' em ' + tel_loc) if tel_loc else ''}."))
+
+            # Veias Reticulares
+            ret = vd.get("reticulares", {})
+            if ret.get("presente"):
+                ret_con = ret.get("conexao", "")
+                ret_loc = ret.get("localizacao", "")
+                if ret_con == "Conexão demonstrável":
+                    ret_con_desc = ret.get("conexao_desc", "")
+                    con_txt = f"com conexão demonstrável{(' a ' + ret_con_desc) if ret_con_desc else ''}"
+                else:
+                    con_txt = "sem conexão demonstrável ao método"
+                add_p(
+                    f"Identificadas malhas reticulares (1 a < 3 mm de diâmetro)"
+                    + (f", localizadas predominantemente {ret_loc}" if ret_loc else "")
+                    + f", {con_txt}.",
+                    space_before=6
+                )
+                conclusoes_lista.append((m_nome, f"Malhas reticulares{(' em ' + ret_loc) if ret_loc else ''}, {con_txt}."))
+
+            # Varizes C2
+            var = vd.get("varizes", {})
+            if var.get("presente"):
+                var_loc = var.get("localizacao", "")
+                orig_list = var.get("origem", [])
+                orig_txt = (", ".join(orig_list)) if orig_list else "origem não classificada"
+                add_p(
+                    f"Identificadas veias varicosas (≥ 3 mm de diâmetro)"
+                    + (f", localizadas predominantemente {var_loc}" if var_loc else "")
+                    + f". Origem: {orig_txt}.",
+                    space_before=6
+                )
+                conclusoes_lista.append((m_nome, f"Varizes C2{(' em ' + var_loc) if var_loc else ''}. Origem: {orig_txt}."))
 
         # 2.5 VARIZES EXTRASSAFÊNICAS
-        _PELVICO_TXTS = {
-            "Ponto inguinal": (
-                "Observa-se fluxo retrógrado originado em topografia de anel inguinal superficial "
-                "(Ponto de Escape Inguinal - Ponto I). O referido refluxo estende-se caudalmente "
-                "para a raiz da coxa, atuando como fonte nutridora para varizes em região inguinal "
-                "anterior e para a face anterior da coxa."
-            ),
-            "Ponto perineal": (
-                "Identificado ponto de escape de origem pélvica em região perineal/vulvar (Ponto P), "
-                "secundário ao refluxo de ramos da veia pudenda interna. O fluxo retrógrado calibroso "
-                "estende-se para a face medial superior da coxa, alimentando tributárias varicosas superficiais."
-            ),
-            "Ponto obturatório": (
-                "Evidenciado refluxo venoso emergindo pelo forame obturatório (Ponto de Escape "
-                "Obturatório - Ponto O), direcionando fluxo retrógrado para a face medial e profunda "
-                "do terço superior da coxa. Nota-se conexão deste ponto com feixe de varizes isoladas "
-                "e não-safênicas neste compartimento, sem sinais de comunicação direta com o tronco "
-                "da veia safena magna."
-            ),
-            "Ponto glúteo": (
-                "Demonstrado ponto de fuga venoso trans-pélvico emergindo através do forame isquiático "
-                "(Ponto de Escape Glúteo - Ponto G). O refluxo manifesta-se em região infra-glútea e "
-                "direciona-se para a face posterior da coxa, atuando como fonte hemodinâmica para varizes "
-                "locais e propagando-se em direção à extensão posterior de coxa."
-            ),
-        }
+        _CONCLUSAO_PELVICA = "Varizes do membro inferior com alimentação de origem pélvica. Junções safeno-femoral e safeno-poplítea continentes."
         ved = dm.get("varizes_extrassaf_dados", {})
         for _veitem in ved.get("lista", []):
-            _ve_loc    = _veitem.get("localizacao", "")
-            _ve_origem = _veitem.get("origem", "Tributária incompetente")
-            if _ve_origem == "Tributária incompetente":
+            _ve_loc  = _veitem.get("localizacao", "")
+            _ve_tipo = _veitem.get("tipo", _veitem.get("origem", "Tributária incompetente"))
+
+            if _ve_tipo == "Tributária incompetente":
                 _trib_ref = _veitem.get("trib_ref", "")
                 _trib_pos = _veitem.get("trib_pos", "")
                 _trib_cm  = _veitem.get("trib_cm", "")
                 if _trib_cm and _trib_ref:
-                    if _trib_ref == "Interlinha do Joelho" and _trib_pos:
-                        _altura_txt = f", localizada a {_trib_cm} cm {_trib_pos} da interlinha do joelho"
-                    elif _trib_ref == "Junção Safenofemoral":
-                        _altura_txt = f", localizada a {_trib_cm} cm da junção safenofemoral"
-                    elif _trib_ref == "Face Plantar":
+                    if "joelho" in _trib_ref.lower() or "Joelho" in _trib_ref:
+                        _pos_txt = f" {_trib_pos}" if _trib_pos else ""
+                        _altura_txt = f", localizada a {_trib_cm} cm{_pos_txt} da interlinha do joelho"
+                    elif "inguinal" in _trib_ref.lower() or "Prega" in _trib_ref:
+                        _altura_txt = f", localizada a {_trib_cm} cm da prega inguinal"
+                    elif "plantar" in _trib_ref.lower() or "Face" in _trib_ref:
                         _altura_txt = f", localizada a {_trib_cm} cm da face plantar"
                     else:
-                        _altura_txt = f", localizada a {_trib_cm} cm da interlinha do joelho"
+                        _altura_txt = f", localizada a {_trib_cm} cm da {_trib_ref.lower()}"
                 else:
                     _altura_txt = ""
                 _loc_txt = f" em {_ve_loc}" if _ve_loc else ""
                 add_p(f"Identificam-se varizes extrassafênicas{_loc_txt}, com ponto de escape hemodinâmico em tributária incompetente{_altura_txt}.", space_before=6)
                 conclusoes_lista.append((m_nome, f"Varizes extrassafênicas{_loc_txt} por tributária incompetente."))
-            elif _ve_origem == "Refluxo de origem ciática":
-                _subtipo = _veitem.get("ciatica_subtipo", "Varizes acompanhando o trajeto do nervo ciático")
+
+            elif _ve_tipo == "Escape pélvico":
+                _ponto = _veitem.get("pelvico_ponto", "")
+                _pd    = _veitem.get("pelvico_dados", {})
+
+                if "Ponto P" in _ponto:
+                    add_p(
+                        "Na junção vulvoperineal posterior, identifica-se veia de trajeto ascendente, "
+                        "apresentando refluxo sustentado em continuidade com o território pudendo interno "
+                        "e drenando para a face posteromedial da raiz da coxa, onde alimenta veia safena "
+                        "acessória posterior da coxa / tributárias da veia safena magna, caracterizando "
+                        "ponto de escape perineal (ponto P).",
+                        space_before=6
+                    )
+                    conclusoes_lista.append((m_nome, _CONCLUSAO_PELVICA))
+
+                elif "Ponto I" in _ponto:
+                    _dren_i = _pd.get("drenagem_i", "veia safena magna")
+                    add_p(
+                        "Na topografia do anel inguinal superficial, observa-se veia de trajeto oblíquo "
+                        f"acompanhando o canal inguinal, com refluxo à manobra de Valsalva, drenando para "
+                        f"{_dren_i}, compatível com ponto de escape inguinal (ponto I). A junção "
+                        "safeno-femoral apresenta-se continente, sem refluxo às manobras provocativas, "
+                        "afastando origem juncional para as varizes descritas.",
+                        space_before=6
+                    )
+                    conclusoes_lista.append((m_nome, _CONCLUSAO_PELVICA))
+
+                elif "Ponto O" in _ponto:
+                    add_p(
+                        "Na borda superolateral do forame obturado, imediatamente caudal ao ramo superior "
+                        "do púbis, identifica-se veia obturatória dilatada, com refluxo à manobra de Valsalva, "
+                        "alimentando as varizes da face medial da coxa, configurando ponto de escape "
+                        "obturador (ponto O).",
+                        space_before=6
+                    )
+                    conclusoes_lista.append((m_nome, _CONCLUSAO_PELVICA))
+
+                elif "Ponto G superior" in _ponto:
+                    add_p(
+                        "Na topografia do forame supra-piriforme, observa-se veia glútea superior dilatada, "
+                        "com refluxo à manobra de Valsalva, drenando para veias subcutâneas da região glútea "
+                        "e da face posterior da coxa, caracterizando ponto de escape glúteo superior (ponto G superior).",
+                        space_before=6
+                    )
+                    conclusoes_lista.append((m_nome, _CONCLUSAO_PELVICA))
+
+                elif "Ponto G inferior" in _ponto:
+                    _dren_gi = _pd.get("drenagem_g_inf", "veia safena parva")
+                    add_p(
+                        "Na topografia do forame infra-piriforme, identifica-se veia glútea inferior dilatada, "
+                        "com refluxo à manobra de Valsalva, drenando para as veias satélites do nervo isquiático "
+                        "e para perfurantes da face posterior da coxa, com alimentação de varizes do território "
+                        f"da {_dren_gi}, compatível com ponto de escape glúteo inferior (ponto G inferior). "
+                        "A junção safeno-poplítea encontra-se continente.",
+                        space_before=6
+                    )
+                    conclusoes_lista.append((m_nome, _CONCLUSAO_PELVICA))
+
+                elif "masculino" in _ponto.lower() and "inguinal" in _ponto.lower():
+                    add_p(
+                        "No canal inguinal, identifica-se plexo pampiniforme com veias dilatadas e com "
+                        "refluxo à manobra de Valsalva, em continuidade com tributárias subcutâneas da "
+                        "raiz da coxa, caracterizando ponto de escape inguinal de origem pampiniforme.",
+                        space_before=6
+                    )
+                    conclusoes_lista.append((m_nome, _CONCLUSAO_PELVICA))
+
+                elif "masculino" in _ponto.lower() and "perineal" in _ponto.lower():
+                    add_p(
+                        "Na região perineal, veia escrotal posterior dilatada com refluxo à manobra de "
+                        "Valsalva, drenando para a face posteromedial da raiz da coxa — ponto de escape perineal.",
+                        space_before=6
+                    )
+                    conclusoes_lista.append((m_nome, _CONCLUSAO_PELVICA))
+
+                elif "Negativa" in _ponto:
+                    add_p(
+                        "Não foram identificados pontos de escape pélvicos nas topografias perineal, "
+                        "inguinal, obturadora e glútea.",
+                        space_before=6
+                    )
+
+            # backward compat — old "Refluxo de origem ciática" / "Refluxo pélvico" entries
+            elif _ve_tipo == "Refluxo de origem ciática":
+                _subtipo = _veitem.get("ciatica_subtipo", "")
                 if _subtipo == "Veia ciática persistente":
                     add_p("Veia ciática persistente, com trajeto acompanhando o nervo ciático na face posterior da coxa e com deságue para veias varicosas na face posterior da perna.", space_before=6)
                 else:
                     add_p("Redes varicosas acompanhando o trajeto do nervo ciático na face posterior da coxa, notando-se contiguidade com varizes na face posterolateral de perna.", space_before=6)
                 conclusoes_lista.append((m_nome, "Varizes de face posterior com refluxo originado em veias profundas no compartimento ciático da coxa."))
-            else:
-                _pontos = _veitem.get("pelvico_pontos", [])
-                if _pontos:
-                    for _pt in _pontos:
-                        _pt_txt = _PELVICO_TXTS.get(_pt)
-                        if _pt_txt:
-                            add_p(_pt_txt, space_before=6)
-                    conclusoes_lista.append((m_nome, f"Varizes extrassafênicas em {_ve_loc} por refluxo pélvico ({', '.join(_pontos)})."))
-                else:
-                    add_p(f"Identificam-se varizes extrassafênicas em {_ve_loc}, com origem em refluxo de origem pélvica.", space_before=6)
-                    conclusoes_lista.append((m_nome, f"Varizes extrassafênicas em {_ve_loc} por refluxo pélvico."))
-                add_p(
-                    "O padrão de distribuição do refluxo nos membros inferiores sugere fortemente origem "
-                    "pélvica, sustentado pela patência e competência das junções safeno-femorais e "
-                    "identificação dos pontos de escape descritos. Sugere-se correlação com propedêutica "
-                    "de imagem pélvica (Ultrassom transvaginal com Doppler ou Angiotomografia/Angioressonância "
-                    "de pelve).",
-                    space_before=4, italic=True
-                )
+            elif _ve_tipo == "Refluxo pélvico":
+                _pontos_old = _veitem.get("pelvico_pontos", [])
+                for _pt_old in _pontos_old:
+                    add_p(f"Refluxo pélvico identificado em {_pt_old}.", space_before=6)
+                if _pontos_old:
+                    conclusoes_lista.append((m_nome, f"Varizes extrassafênicas por refluxo pélvico ({', '.join(_pontos_old)})."))
 
         # 2.6 TROMBOFLEBITE SUPERFICIAL (Mapeamento)
         _tf = dm.get("tromboflebite_dados")
@@ -1645,21 +1882,7 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                     )
                     conclusoes_lista.append((m_nome, f"Sinais de tromboflebite superficial em veia varicosa{_tf_varicosa_txt}."))
 
-        # 3. MÓDULOS ADICIONAIS EXTRA (Giacomini Isolado, Pélvicas)
-        if dm["giacomini_opt"] != "Não se aplica / Normal" or dm["varizes_pelvicas_opt"] != "Ausentes":
-            add_p("OUTROS ACHADOS FLUXOMÉTRICOS / PONTOS DE ESCAPE", space_before=8)
-            if "3.1" in dm["giacomini_opt"]:
-                add_p("• Veia de Giacomini com refluxo ostial de sentido ascendente.", bullet=True)
-            elif "3.2" in dm["giacomini_opt"]:
-                add_p("• Veia de Giacomini isolada transferindo refluxo diretamente para o tronco da VSM.", bullet=True)
-            if "5.1" in dm["varizes_pelvicas_opt"]:
-                add_p("• Sinais de escape hemodinâmico de origem pélvica via plexo venoso ciático (região infraglútea).", bullet=True)
-            elif "5.2" in dm["varizes_pelvicas_opt"]:
-                add_p("• Sinais de escape hemodinâmico de origem pélvica via região inguinal/perineal.", bullet=True)
-            if "6.3" in dm["pos_op_opt"]:
-                add_p("• Sinais de neovascularização adjacentes à região operada (recidiva pós-operatória).", bullet=True)
-
-        # 5. ACHADOS ADICIONAIS (Cisto Baker / Edema)
+        # 3. ACHADOS ADICIONAIS (Cisto Baker / Edema)
         if dm["achados_adi_multi"]:
             add_p("ACHADOS ADICIONAIS / ESTRUTURAS ADJACENTES", space_before=10, space_after=4)
             for achado in dm["achados_adi_multi"]:
@@ -1691,6 +1914,15 @@ def construir_laudo_word(membros_lista, dados_m_dict):
         for m_origem, conclusao_txt in conclusoes_unicas:
             prefixo = f"[{m_origem}] " if formato_exame == "Bilateral (Laudo Único)" else ""
             add_p(f"{prefixo}{conclusao_txt}", bullet=True)
+
+    if incluir_obs_pelvica:
+        _tem_escape_pelvico = any(
+            _vi.get("tipo") == "Escape pélvico" and "Negativa" not in _vi.get("pelvico_ponto", "")
+            for dm_obs in dados_m_dict.values()
+            for _vi in dm_obs.get("varizes_extrassaf_dados", {}).get("lista", [])
+        )
+        if _tem_escape_pelvico:
+            add_p(_OBS_PELVICA, space_before=8, italic=True)
 
     if incluir_assinatura and (nome_medico or crm_medico):
         doc.add_paragraph().paragraph_format.space_before = Pt(25)
