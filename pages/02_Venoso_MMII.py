@@ -863,38 +863,30 @@ for idx, m_nome in enumerate(membros_para_processar):
 
             st.markdown("---")
 
-            # 3. ACHADOS EXTRAS & VARIÁVEIS EXTRAS
+            # 3. ACHADOS EXTRAS
             st.markdown("#### 3. Achados Extras")
-            c_add1, c_add2 = st.columns(2)
-            with c_add1:
-                giacomini_opt = st.selectbox("Veia de Giacomini Isolada:", ["Não se aplica / Normal", "3.1 Refluxo ostial drenado de forma ascendente", "3.2 Refluxo ostial transferindo para VSM"], key=f"giacomini_{m_nome}")
-                varizes_pelvicas_opt = st.selectbox("Varizes Pélvicas (Pontos de Escape):", ["Ausentes", "5.1 Plexo venoso ciático (região infraglútea)", "5.2 Escape inguinal/perineal"], key=f"pelvicas_{m_nome}")
-                pos_op_opt = st.selectbox("Pós-Operatório / Recidiva:", ["Não se aplica", "6.3 Sinais de neovascularização adjacentes"], key=f"pos_op_{m_nome}")
-        
-            with c_add2:
-                st.markdown("**Achados Extras / Patologias de Tecidos Adjacentes:**")
-                achados_multiplos = st.multiselect(
-                    "Selecione os achados adicionais observados:",
-                    ["Cisto de Baker na fossa poplítea", "Edema intersticial subcutâneo"],
-                    default=[],
-                    key=f"achados_adi_multi_{m_nome}"
-                )
-            
-                cisto_medidas = {}
-                if "Cisto de Baker na fossa poplítea" in achados_multiplos:
-                    st.markdown("<sub style='color: #444;'>Dimensões do Cisto de Baker:</sub>", unsafe_allow_html=True)
-                    cc1, cc2, cc3 = st.columns(3)
-                    with cc1: cisto_medidas["comp"] = st.text_input("Eixo Long (mm):", "35", key=f"cb_c_{m_nome}")
-                    with cc2: cisto_medidas["larg"] = st.text_input("Eixo Transv (mm):", "18", key=f"cb_l_{m_nome}")
-                    with cc3: cisto_medidas["esp"] = st.text_input("Espessura (mm):", "12", key=f"cb_e_{m_nome}")
+            st.markdown("**Patologias de Tecidos Adjacentes:**")
+            achados_multiplos = st.multiselect(
+                "Selecione os achados adicionais observados:",
+                ["Cisto de Baker na fossa poplítea", "Edema intersticial subcutâneo"],
+                default=[],
+                key=f"achados_adi_multi_{m_nome}"
+            )
+
+            cisto_medidas = {}
+            if "Cisto de Baker na fossa poplítea" in achados_multiplos:
+                st.markdown("<sub style='color: #444;'>Dimensões do Cisto de Baker:</sub>", unsafe_allow_html=True)
+                cc1, cc2, cc3 = st.columns(3)
+                with cc1: cisto_medidas["comp"] = st.text_input("Eixo Long (mm):", "35", key=f"cb_c_{m_nome}")
+                with cc2: cisto_medidas["larg"] = st.text_input("Eixo Transv (mm):", "18", key=f"cb_l_{m_nome}")
+                with cc3: cisto_medidas["esp"] = st.text_input("Espessura (mm):", "12", key=f"cb_e_{m_nome}")
 
             dados_membros[m_nome] = {
                 "svp": svp_res, "vsm_mapeamento": vsm_dados_mapeamento,
                 "jsf_mm": jsf_mm, "vsm_prox_coxa": vsm_prox_coxa, "vsm_med_coxa": vsm_med_coxa, "vsm_dist_coxa": vsm_dist_coxa,
                 "vsm_prox_perna": vsm_prox_perna, "vsm_med_perna": vsm_med_perna, "vsm_dist_perna": vsm_dist_perna,
                 "vsp_dados_input": vsp_dados_input, "jsp_mm": jsp_mm, "vsp_crossa": vsp_crossa, "vsp_med_perna_diam": vsp_med_perna_diam,
-                "giacomini_opt": giacomini_opt, "varizes_pelvicas_opt": varizes_pelvicas_opt, 
-                "pos_op_opt": pos_op_opt, "achados_adi_multi": achados_multiplos, "cisto_medidas": cisto_medidas,
+                "achados_adi_multi": achados_multiplos, "cisto_medidas": cisto_medidas,
                 "perfurantes_lista": perfurantes_coletadas if possui_perfurantes else [],
                 "varic_dados": varic_dados,
                 "varizes_extrassaf_dados": varizes_extrassaf_dados,
@@ -1174,13 +1166,13 @@ def gerar_cartografia_venosa(m_nome, dados_m, paciente):
                     bbox=dict(boxstyle='round,pad=0.4', facecolor='#FADBD8',
                               edgecolor='#E74C3C', alpha=0.9, lw=1.5), zorder=15)
 
-    # ---- outros achados ----
-    if "3.1" in dados_m.get("giacomini_opt","") or "3.2" in dados_m.get("giacomini_opt",""):
-        ax_med.text(0, JSF_H - 8, "↑ Giacomini", fontsize=7, ha='center',
-                    color='#8E44AD',
-                    bbox=dict(boxstyle='round,pad=0.3', facecolor='#F5EEF8',
-                              edgecolor='#8E44AD', alpha=0.8, lw=1))
-    if any(x in dados_m.get("varizes_pelvicas_opt","") for x in ["5.1","5.2"]):
+    # ---- escape pélvico (novo formato) ----
+    _ved_cart = dados_m.get("varizes_extrassaf_dados", {})
+    _tem_pelvico_cart = any(
+        _vi.get("tipo") == "Escape pélvico" and "Negativa" not in _vi.get("pelvico_ponto", "")
+        for _vi in _ved_cart.get("lista", [])
+    )
+    if _tem_pelvico_cart:
         ax_med.text(0, JSF_H + 0.5, "Escape Pélvico", fontsize=7, ha='center',
                     color='#566573',
                     bbox=dict(boxstyle='round,pad=0.3', facecolor='#EBF5FB',
@@ -1885,21 +1877,7 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                     )
                     conclusoes_lista.append((m_nome, f"Sinais de tromboflebite superficial em veia varicosa{_tf_varicosa_txt}."))
 
-        # 3. ACHADOS EXTRAS (Giacomini Isolado, Pélvicas)
-        if dm["giacomini_opt"] != "Não se aplica / Normal" or dm["varizes_pelvicas_opt"] != "Ausentes":
-            add_p("OUTROS ACHADOS FLUXOMÉTRICOS / PONTOS DE ESCAPE", space_before=8)
-            if "3.1" in dm["giacomini_opt"]:
-                add_p("• Veia de Giacomini com refluxo ostial de sentido ascendente.", bullet=True)
-            elif "3.2" in dm["giacomini_opt"]:
-                add_p("• Veia de Giacomini isolada transferindo refluxo diretamente para o tronco da VSM.", bullet=True)
-            if "5.1" in dm["varizes_pelvicas_opt"]:
-                add_p("• Sinais de escape hemodinâmico de origem pélvica via plexo venoso ciático (região infraglútea).", bullet=True)
-            elif "5.2" in dm["varizes_pelvicas_opt"]:
-                add_p("• Sinais de escape hemodinâmico de origem pélvica via região inguinal/perineal.", bullet=True)
-            if "6.3" in dm["pos_op_opt"]:
-                add_p("• Sinais de neovascularização adjacentes à região operada (recidiva pós-operatória).", bullet=True)
-
-        # 5. ACHADOS ADICIONAIS (Cisto Baker / Edema)
+        # 3. ACHADOS ADICIONAIS (Cisto Baker / Edema)
         if dm["achados_adi_multi"]:
             add_p("ACHADOS ADICIONAIS / ESTRUTURAS ADJACENTES", space_before=10, space_after=4)
             for achado in dm["achados_adi_multi"]:
