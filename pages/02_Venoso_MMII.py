@@ -16,6 +16,17 @@ LIMIARES = {
     "refluxo_profundo_distal_s": 0.5,  # demais veias profundas
 }
 
+def _campos_face_regiao_lado(m_nome, key_prefix, face_options=None):
+    face_options = face_options or ["medial", "lateral", "anterior", "posterior"]
+    fc1, fc2, fc3 = st.columns(3)
+    with fc1:
+        face = st.selectbox("Face:", face_options, key=f"{key_prefix}_face_{m_nome}")
+    with fc2:
+        regiao = st.selectbox("Região:", ["coxa", "perna"], key=f"{key_prefix}_reg_{m_nome}")
+    with fc3:
+        lado = st.selectbox("Lado:", ["direita", "esquerda"], key=f"{key_prefix}_lado_{m_nome}")
+    return face, regiao, lado
+
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.title("🌀 Assistente de Laudos: Duplex Scan Venoso de MMII")
 
@@ -102,6 +113,8 @@ if "segmentos_vsp_reg" not in st.session_state:
     st.session_state["segmentos_vsp_reg"] = {}
 if "lista_varext_reg" not in st.session_state:
     st.session_state["lista_varext_reg"] = {}
+if "lista_reticulares_reg" not in st.session_state:
+    st.session_state["lista_reticulares_reg"] = {}
 
 dados_membros = {}
 
@@ -121,6 +134,8 @@ for idx, m_nome in enumerate(membros_para_processar):
         st.session_state["segmentos_vsp_reg"][m_nome] = []
     if m_nome not in st.session_state["lista_varext_reg"]:
         st.session_state["lista_varext_reg"][m_nome] = []
+    if m_nome not in st.session_state["lista_reticulares_reg"]:
+        st.session_state["lista_reticulares_reg"][m_nome] = []
 
     with abas[idx]:
         st.markdown(f"### 📋 Parâmetros Clínicos - Membro {m_nome}")
@@ -669,166 +684,291 @@ for idx, m_nome in enumerate(membros_para_processar):
 
                 perfurantes_coletadas = list(st.session_state["lista_perfurantes"][m_nome])
                         
-            # --- 2.4 MAPA DE VARICOSIDADES ---
+            # --- 2.4 MAPEAMENTO DE VARIZES SUPERFICIAIS ---
             st.markdown("---")
-            st.markdown("#### 2.4 Mapeamento de Varicosidades / Malhas Reticulares")
-            possui_varicosidades = st.toggle("Descrever lesões vasculares superficiais?", key=f"has_varic_{m_nome}")
+            st.markdown("#### 2.4 Mapeamento de Varizes Superficiais")
+            possui_varicosidades = st.toggle("Descrever varizes superficiais?", key=f"has_varic_{m_nome}")
             varic_dados = {"possui": possui_varicosidades}
+            varizes_extrassaf_dados = {"lista": []}
+            reticulares_coletadas = []
+            _varext_saved = st.session_state["lista_varext_reg"][m_nome]
 
             if possui_varicosidades:
-                # --- Telangiectasias (< 1 mm · C1) ---
-                st.markdown("**Telangiectasias** (< 1 mm · C1) — *não descrevemos salvo nutridora*")
-                tel_presente = st.checkbox("Identificadas telangiectasias?", key=f"var_tel_{m_nome}")
-                varic_dados["telangiectasias"] = {"presente": tel_presente}
-                if tel_presente:
-                    tel_nutridora = st.checkbox("Incluir no laudo como veia nutridora?", key=f"var_tel_nut_{m_nome}")
-                    varic_dados["telangiectasias"]["nutridora"] = tel_nutridora
-                    if tel_nutridora:
-                        varic_dados["telangiectasias"]["nutridora_loc"] = st.text_input(
-                            "Localização da veia nutridora:", key=f"var_tel_nut_loc_{m_nome}"
+                opt1_reticulares = st.checkbox(
+                    "1 — Mapeamento de malhas reticulares / telangiectasias",
+                    key=f"var_opt1_{m_nome}"
+                )
+                opt2_extrassaf = st.checkbox(
+                    "2 — Varizes tronculares extrassafênicas",
+                    key=f"var_opt2_{m_nome}"
+                )
+
+                # ===========================================================
+                # ITEM 1 — MAPEAMENTO DE MALHAS RETICULARES / TELANGIECTASIAS
+                # ===========================================================
+                if opt1_reticulares:
+                    st.markdown("---")
+                    st.markdown("**1 — Malhas Reticulares / Telangiectasias**")
+
+                    _RET_MODELOS = [
+                        "Malha reticular isolada",
+                        "Veias reticulares com telangiectasias associadas",
+                        "Malha reticular associada a veia nutridora",
+                        "Sistema venoso lateral subdérmico (Albanese)",
+                        "Malha reticular com conexão a perfurante",
+                        "Malha reticular com conexão a eixo safeno / tributária safena",
+                    ]
+                    ret_modelo = st.selectbox("Modelo do achado:", _RET_MODELOS, key=f"ret_modelo_{m_nome}")
+                    ret_texto = ""
+                    ret_conclusao = ""
+
+                    if ret_modelo == "Malha reticular isolada":
+                        face, regiao, lado = _campos_face_regiao_lado(m_nome, "ret_t1", ["medial", "lateral", "posterior"])
+                        rc1, rc2 = st.columns(2)
+                        with rc1: cal_min = st.text_input("Calibre mínimo (mm):", "1.5", key=f"ret_t1_cmin_{m_nome}")
+                        with rc2: cal_max = st.text_input("Calibre máximo (mm):", "2.8", key=f"ret_t1_cmax_{m_nome}")
+                        refluxo = st.radio("Refluxo à manobra de compressão distal:", ["ausente", "presente"], horizontal=True, key=f"ret_t1_ref_{m_nome}")
+                        ret_texto = (
+                            f"Identifica-se rede venosa reticular subdérmica na face {face} da {regiao} {lado}, "
+                            f"constituída por veias de trajeto tortuoso e calibre entre {cal_min} e {cal_max} mm, "
+                            f"dispostas em plano subdérmico, com fluxo espontâneo lentificado e refluxo {refluxo} "
+                            f"à manobra de compressão distal. A rede reticular subdérmica não apresenta conexão "
+                            f"demonstrável com os eixos safenos nem com veias perfurantes insuficientes, sendo os "
+                            f"eixos safeno magno e safeno parvo continentes em toda a extensão avaliada, com "
+                            f"junções safeno-femoral e safeno-poplítea competentes."
+                        )
+                        ret_conclusao = (
+                            f"Ectasias venosas subdérmicas (veias reticulares) na face {face} da {regiao} {lado}, "
+                            f"sem insuficiência dos eixos safenos ou de veias perfurantes associada."
                         )
 
-                st.markdown("---")
-
-                # --- Veias Reticulares (1 a < 3 mm · C1) ---
-                st.markdown("**Veias Reticulares** (1 a < 3 mm · C1) — *buscar conexão*")
-                ret_presente = st.checkbox("Identificadas veias reticulares?", key=f"var_ret_{m_nome}")
-                varic_dados["reticulares"] = {"presente": ret_presente}
-                if ret_presente:
-                    ret_conexao = st.radio(
-                        "Conexão identificada:",
-                        ["Conexão demonstrável", "Não demonstrável ao método"],
-                        horizontal=True, key=f"var_ret_con_{m_nome}"
-                    )
-                    varic_dados["reticulares"]["conexao"] = ret_conexao
-                    if ret_conexao == "Conexão demonstrável":
-                        varic_dados["reticulares"]["conexao_desc"] = st.text_input(
-                            "Descrever a conexão:", key=f"var_ret_con_desc_{m_nome}"
+                    elif ret_modelo == "Veias reticulares com telangiectasias associadas":
+                        face, regiao, lado = _campos_face_regiao_lado(m_nome, "ret_t2")
+                        rc1, rc2 = st.columns(2)
+                        with rc1: cal_min = st.text_input("Calibre mínimo (mm):", "1.0", key=f"ret_t2_cmin_{m_nome}")
+                        with rc2: cal_max = st.text_input("Calibre máximo (mm):", "2.5", key=f"ret_t2_cmax_{m_nome}")
+                        ret_texto = (
+                            f"Na face {face} da {regiao} {lado}, observa-se rede reticular subdérmica com veias "
+                            f"de calibre de {cal_min} a {cal_max} mm em continuidade com aglomerados de "
+                            f"telangiectasias, configurando padrão de veias reticulares nutridoras das ectasias "
+                            f"cutâneas adjacentes."
                         )
-                    varic_dados["reticulares"]["localizacao"] = st.text_input(
-                        "Localização predominante:", key=f"var_ret_loc_{m_nome}"
-                    )
+                        ret_conclusao = f"Veias reticulares com veia nutridora identificada na face {face} da {regiao} {lado}."
 
-                st.markdown("---")
+                    elif ret_modelo == "Malha reticular associada a veia nutridora":
+                        face, regiao, lado = _campos_face_regiao_lado(m_nome, "ret_t3")
+                        calibre = st.text_input("Calibre da veia nutridora (mm):", "2.0", key=f"ret_t3_cal_{m_nome}")
+                        ret_texto = (
+                            f"Identifica-se veia nutridora de calibre {calibre} mm na face {face} da {regiao} {lado}, "
+                            f"com refluxo à manobra de compressão distal, em continuidade com rede reticular "
+                            f"subdérmica e alimentando o aglomerado telangiectásico local, sem conexão demonstrável "
+                            f"com os eixos safenos."
+                        )
+                        ret_conclusao = f"Veias reticulares com veia nutridora identificada na face {face} da {regiao} {lado}."
 
-                # --- Varizes (≥ 3 mm · C2) ---
-                st.markdown("**Varizes** (≥ 3 mm · C2) — *classificar origem*")
-                var_presente = st.checkbox("Identificadas varizes?", key=f"var_v_{m_nome}")
-                varic_dados["varizes"] = {"presente": var_presente}
-                if var_presente:
-                    varic_dados["varizes"]["origem"] = st.multiselect(
-                        "Origem do refluxo:",
-                        ["Fuga de JSF", "Fuga de JSP", "Ponto de escape extrassafênico",
-                         "Reentrada", "C2r (recorrência pós-tratamento)"],
-                        key=f"var_v_orig_{m_nome}"
-                    )
-                    varic_dados["varizes"]["localizacao"] = st.text_input(
-                        "Localização predominante:", key=f"var_v_loc_{m_nome}"
-                    )
+                    elif ret_modelo == "Sistema venoso lateral subdérmico (Albanese)":
+                        alc1, alc2 = st.columns(2)
+                        with alc1: regiao = st.selectbox("Região:", ["coxa", "perna"], key=f"ret_t4_reg_{m_nome}")
+                        with alc2: lado = st.selectbox("Lado:", ["direita", "esquerda"], key=f"ret_t4_lado_{m_nome}")
+                        cal_max = st.text_input("Calibre máximo da rede (mm):", "3.0", key=f"ret_t4_cmax_{m_nome}")
+                        alc3, alc4 = st.columns(2)
+                        with alc3: perf_id = st.text_input("Identificação da perfurante:", "perfurante lateral de coxa", key=f"ret_t4_perfid_{m_nome}")
+                        with alc4: perf_cal = st.text_input("Calibre da perfurante (mm):", "3.0", key=f"ret_t4_perfcal_{m_nome}")
+                        alc5, alc6 = st.columns(2)
+                        with alc5: dist_cm = st.text_input("Distância (cm):", "10", key=f"ret_t4_dist_{m_nome}")
+                        with alc6: referencia = st.text_input("Ponto de referência:", "trocânter maior", key=f"ret_t4_refp_{m_nome}")
+                        continuidade = st.checkbox("Rede em continuidade com varizes tronculares?", key=f"ret_t4_cont_{m_nome}")
+                        face_cont = ""
+                        if continuidade:
+                            face_cont = st.selectbox("Face da continuidade (perna):", ["lateral", "posterior", "posterolateral"], key=f"ret_t4_facecont_{m_nome}")
+                        ret_texto = (
+                            f"Na face lateral da {regiao} {lado}, observa-se rede reticular subdérmica proeminente, "
+                            f"de calibre até {cal_max} mm, com refluxo às manobras provocativas, compatível com "
+                            f"sistema venoso lateral subdérmico, em continuidade com perfurante {perf_id} de calibre "
+                            f"{perf_cal} mm localizada a {dist_cm} cm do {referencia}."
+                        )
+                        if continuidade:
+                            ret_texto += (
+                                f" A rede acima descrita exibe continuidade com varizes tronculares na face "
+                                f"{face_cont} de perna."
+                            )
+                        ret_conclusao = (
+                            f"Varicosidades subdérmicas laterais (sistema venoso lateral subdérmico de Albanese) "
+                            f"na {regiao} {lado}."
+                        )
 
-            st.markdown("---")
+                    elif ret_modelo == "Malha reticular com conexão a perfurante":
+                        face, regiao, lado = _campos_face_regiao_lado(m_nome, "ret_t5")
+                        p1, p2 = st.columns(2)
+                        with p1: perf_cal = st.text_input("Calibre da perfurante (mm):", "3.0", key=f"ret_t5_perfcal_{m_nome}")
+                        with p2: dist_cm = st.text_input("Distância (cm):", "10", key=f"ret_t5_dist_{m_nome}")
+                        p3, p4 = st.columns(2)
+                        with p3:
+                            referencia = st.selectbox("Referência de distância:", ["planta do pé", "interlinha articular do joelho"], key=f"ret_t5_refp_{m_nome}")
+                        with p4:
+                            direcao = st.radio("Direção do fluxo:", ["centrípeta", "centrífuga"], horizontal=True, key=f"ret_t5_dir_{m_nome}")
+                        refluxo_s = st.text_input("Duração do refluxo (s):", "0.5", key=f"ret_t5_refs_{m_nome}")
+                        ret_texto = (
+                            f"Rede reticular subdérmica apresentando comunicação com veia perfurante de calibre "
+                            f"{perf_cal} mm, localizada na face {face} da {regiao} {lado}, a {dist_cm} cm da "
+                            f"{referencia}, com fluxo de direção {direcao} e refluxo de {refluxo_s} segundos à "
+                            f"manobra de compressão."
+                        )
+                        ret_conclusao = f"Veias reticulares associadas a veia perfurante identificada na face {face} da {regiao} {lado}."
 
-            # --- 2.5 VARIZES EXTRASSAFÊNICAS ---
-            st.markdown("#### 2.5 Varizes Extrassafênicas")
+                    elif ret_modelo == "Malha reticular com conexão a eixo safeno / tributária safena":
+                        face, regiao, lado = _campos_face_regiao_lado(m_nome, "ret_t6")
+                        tributaria = st.selectbox(
+                            "Tributária de origem:",
+                            ["safena magna", "safena parva", "acessória anterior da coxa"],
+                            key=f"ret_t6_trib_{m_nome}"
+                        )
+                        s1, s2 = st.columns(2)
+                        with s1: calibre = st.text_input("Calibre da tributária (mm):", "3.0", key=f"ret_t6_cal_{m_nome}")
+                        with s2: refluxo_s = st.text_input("Duração do refluxo (s):", "0.5", key=f"ret_t6_refs_{m_nome}")
+                        _trib_desc = "safena acessória anterior da coxa" if tributaria == "acessória anterior da coxa" else f"safena {tributaria.split(' ')[-1]}"
+                        ret_texto = (
+                            f"A rede reticular subdérmica encontra-se em continuidade com tributária da veia "
+                            f"{_trib_desc}, esta apresentando calibre de {calibre} mm e refluxo de {refluxo_s} "
+                            f"segundos, caracterizando origem axial para as ectasias subdérmicas descritas."
+                        )
+                        _territorio = "da veia safena parva" if tributaria == "safena parva" else "da veia safena magna"
+                        ret_conclusao = (
+                            f"Veias reticulares na face {face} da {regiao} {lado} secundárias a refluxo do "
+                            f"território {_territorio}, cuja correção deve preceder o tratamento das ectasias "
+                            f"subdérmicas."
+                        )
 
-            _varext_saved = st.session_state["lista_varext_reg"][m_nome]
-            if _varext_saved:
-                st.markdown(f"**{len(_varext_saved)} registro(s) de varizes extrassafênicas:**")
-                for _vei, _veitem in enumerate(_varext_saved):
-                    _vec1, _vec2 = st.columns([6, 1])
-                    with _vec1:
-                        _ve_tipo_lbl = _veitem.get("tipo", _veitem.get("origem", "?"))
-                        _ve_lbl = _ve_tipo_lbl
-                        if _veitem.get("localizacao"):
-                            _ve_lbl += f" — {_veitem['localizacao']}"
-                        if _veitem.get("trib_cm"):
-                            _pos = f" {_veitem['trib_pos']}" if _veitem.get("trib_pos") else ""
-                            _ve_lbl += f" ({_veitem['trib_cm']} cm{_pos} da {_veitem.get('trib_ref','')})"
-                        if _veitem.get("pelvico_ponto"):
-                            _ve_lbl += f" [{_veitem['pelvico_ponto']}]"
-                        st.markdown(f"• {_ve_lbl}")
-                    with _vec2:
-                        if st.button("❌", key=f"rem_varext_{m_nome}_{_vei}"):
-                            st.session_state["lista_varext_reg"][m_nome].pop(_vei)
+                    if st.button("💾 Registrar Achado", key=f"reg_ret_{m_nome}"):
+                        st.session_state["lista_reticulares_reg"][m_nome].append({
+                            "modelo": ret_modelo, "texto": ret_texto, "conclusao": ret_conclusao
+                        })
+                        st.rerun()
+
+                    if st.session_state["lista_reticulares_reg"][m_nome]:
+                        st.markdown("**Achados registrados:**")
+                        for _ri, _rreg in enumerate(st.session_state["lista_reticulares_reg"][m_nome]):
+                            _rc1, _rc2 = st.columns([6, 1])
+                            with _rc1:
+                                st.markdown(f"`{_ri+1:02d}` **{_rreg['modelo']}**")
+                            with _rc2:
+                                if st.button("❌", key=f"rem_ret_{m_nome}_{_ri}"):
+                                    st.session_state["lista_reticulares_reg"][m_nome].pop(_ri)
+                                    st.rerun()
+                        if st.button("❌ Limpar Todos os Achados", key=f"clear_ret_{m_nome}"):
+                            st.session_state["lista_reticulares_reg"][m_nome] = []
                             st.rerun()
 
-            st.markdown("<sub style='color: #444;'>Adicionar nova entrada:</sub>", unsafe_allow_html=True)
-            _varext_tipo = st.radio(
-                "Tipo:",
-                ["Tributária incompetente", "Escape pélvico"],
-                horizontal=True, key=f"varext_tipo_{m_nome}"
-            )
-            _varext_loc = ""
-            _varext_trib_ref = ""
-            _varext_trib_pos = ""
-            _varext_trib_cm = ""
-            _varext_pelvico_ponto = ""
-            _varext_pelvico_dados = {}
+                    reticulares_coletadas = list(st.session_state["lista_reticulares_reg"][m_nome])
 
-            if _varext_tipo == "Tributária incompetente":
-                _varext_loc = st.text_input("Localização das varizes:", "", key=f"varext_loc_{m_nome}")
-                _vt1, _vt2, _vt3 = st.columns(3)
-                with _vt1:
-                    _varext_trib_ref = st.selectbox(
-                        "Referência de altura:",
-                        ["Prega inguinal", "Interlinha do joelho", "Face plantar"],
-                        key=f"varext_trib_ref_{m_nome}"
+                # ===========================================================
+                # ITEM 2 — VARIZES TRONCULARES EXTRASSAFÊNICAS
+                # ===========================================================
+                if opt2_extrassaf:
+                    st.markdown("---")
+                    st.markdown("**2 — Varizes Tronculares Extrassafênicas**")
+
+                    if _varext_saved:
+                        st.markdown(f"**{len(_varext_saved)} registro(s) de varizes extrassafênicas:**")
+                        for _vei, _veitem in enumerate(_varext_saved):
+                            _vec1, _vec2 = st.columns([6, 1])
+                            with _vec1:
+                                _ve_tipo_lbl = _veitem.get("tipo", _veitem.get("origem", "?"))
+                                _ve_lbl = _ve_tipo_lbl
+                                if _veitem.get("localizacao"):
+                                    _ve_lbl += f" — {_veitem['localizacao']}"
+                                if _veitem.get("trib_cm"):
+                                    _pos = f" {_veitem['trib_pos']}" if _veitem.get("trib_pos") else ""
+                                    _ve_lbl += f" ({_veitem['trib_cm']} cm{_pos} da {_veitem.get('trib_ref','')})"
+                                if _veitem.get("pelvico_ponto"):
+                                    _ve_lbl += f" [{_veitem['pelvico_ponto']}]"
+                                st.markdown(f"• {_ve_lbl}")
+                            with _vec2:
+                                if st.button("❌", key=f"rem_varext_{m_nome}_{_vei}"):
+                                    st.session_state["lista_varext_reg"][m_nome].pop(_vei)
+                                    st.rerun()
+
+                    st.markdown("<sub style='color: #444;'>Adicionar nova entrada:</sub>", unsafe_allow_html=True)
+                    _varext_tipo = st.radio(
+                        "Tipo:",
+                        ["Tributária incompetente", "Escape pélvico"],
+                        horizontal=True, key=f"varext_tipo_{m_nome}"
                     )
-                with _vt2:
-                    if _varext_trib_ref == "Interlinha do joelho":
-                        _varext_trib_pos = st.radio("Posição:", ["acima", "abaixo"], horizontal=True, key=f"varext_trib_pos_{m_nome}")
-                    else:
-                        _varext_trib_pos = ""
-                        st.empty()
-                with _vt3:
-                    _varext_trib_cm = st.text_input("Distância (cm):", "", key=f"varext_trib_cm_{m_nome}")
+                    _varext_loc = ""
+                    _varext_trib_ref = ""
+                    _varext_trib_pos = ""
+                    _varext_trib_cm = ""
+                    _varext_pelvico_ponto = ""
+                    _varext_pelvico_dados = {}
 
-            elif _varext_tipo == "Escape pélvico":
-                _varext_pelvico_ponto = st.selectbox(
-                    "Ponto de escape:",
-                    [
-                        "Ponto P — perineal",
-                        "Ponto I — inguinal",
-                        "Ponto O — obturador",
-                        "Ponto G superior — glúteo supra-piriforme",
-                        "Ponto G inferior — glúteo infra-piriforme",
-                        "Inguinal — masculino (pampiniforme)",
-                        "Perineal — masculino (escrotal posterior)",
-                        "Negativa (sem pontos de escape pélvicos identificados)",
-                    ],
-                    key=f"varext_pelvico_ponto_{m_nome}"
-                )
-                if "Ponto I" in _varext_pelvico_ponto:
-                    _varext_pelvico_dados["drenagem_i"] = st.radio(
-                        "Drena para:",
-                        ["veia safena magna", "veia pudenda externa superficial"],
-                        horizontal=True, key=f"varext_pi_dren_{m_nome}"
-                    )
-                elif "Ponto G inferior" in _varext_pelvico_ponto:
-                    _varext_pelvico_dados["drenagem_g_inf"] = st.radio(
-                        "Alimenta varizes do território da:",
-                        ["veia safena parva", "poplíteo"],
-                        horizontal=True, key=f"varext_gi_dren_{m_nome}"
-                    )
+                    if _varext_tipo == "Tributária incompetente":
+                        _varext_loc = st.text_input("Localização das varizes:", "", key=f"varext_loc_{m_nome}")
+                        _vt1, _vt2, _vt3 = st.columns(3)
+                        with _vt1:
+                            _varext_trib_ref = st.selectbox(
+                                "Referência de altura:",
+                                ["Prega inguinal", "Interlinha do joelho", "Face plantar"],
+                                key=f"varext_trib_ref_{m_nome}"
+                            )
+                        with _vt2:
+                            if _varext_trib_ref == "Interlinha do joelho":
+                                _varext_trib_pos = st.radio("Posição:", ["acima", "abaixo"], horizontal=True, key=f"varext_trib_pos_{m_nome}")
+                            else:
+                                _varext_trib_pos = ""
+                                st.empty()
+                        with _vt3:
+                            _varext_trib_cm = st.text_input("Distância (cm):", "", key=f"varext_trib_cm_{m_nome}")
 
-            if st.button("💾 Salvar Varizes Extrassafênicas", key=f"save_varext_{m_nome}"):
-                st.session_state["lista_varext_reg"][m_nome].append({
-                    "tipo": _varext_tipo,
-                    "localizacao": _varext_loc,
-                    "trib_ref": _varext_trib_ref,
-                    "trib_pos": _varext_trib_pos,
-                    "trib_cm": _varext_trib_cm,
-                    "pelvico_ponto": _varext_pelvico_ponto,
-                    "pelvico_dados": _varext_pelvico_dados,
-                })
-                st.rerun()
+                    elif _varext_tipo == "Escape pélvico":
+                        _varext_pelvico_ponto = st.selectbox(
+                            "Ponto de escape:",
+                            [
+                                "Ponto P — perineal",
+                                "Ponto I — inguinal",
+                                "Ponto O — obturador",
+                                "Ponto G superior — glúteo supra-piriforme",
+                                "Ponto G inferior — glúteo infra-piriforme",
+                                "Inguinal — masculino (pampiniforme)",
+                                "Perineal — masculino (escrotal posterior)",
+                                "Negativa (sem pontos de escape pélvicos identificados)",
+                            ],
+                            key=f"varext_pelvico_ponto_{m_nome}"
+                        )
+                        if "Ponto I" in _varext_pelvico_ponto:
+                            _varext_pelvico_dados["drenagem_i"] = st.radio(
+                                "Drena para:",
+                                ["veia safena magna", "veia pudenda externa superficial"],
+                                horizontal=True, key=f"varext_pi_dren_{m_nome}"
+                            )
+                        elif "Ponto G inferior" in _varext_pelvico_ponto:
+                            _varext_pelvico_dados["drenagem_g_inf"] = st.radio(
+                                "Alimenta varizes do território da:",
+                                ["veia safena parva", "poplíteo"],
+                                horizontal=True, key=f"varext_gi_dren_{m_nome}"
+                            )
 
-            varizes_extrassaf_dados = {"lista": _varext_saved}
+                    if st.button("💾 Salvar Varizes Extrassafênicas", key=f"save_varext_{m_nome}"):
+                        st.session_state["lista_varext_reg"][m_nome].append({
+                            "tipo": _varext_tipo,
+                            "localizacao": _varext_loc,
+                            "trib_ref": _varext_trib_ref,
+                            "trib_pos": _varext_trib_pos,
+                            "trib_cm": _varext_trib_cm,
+                            "pelvico_ponto": _varext_pelvico_ponto,
+                            "pelvico_dados": _varext_pelvico_dados,
+                        })
+                        st.rerun()
+
+                    varizes_extrassaf_dados = {"lista": _varext_saved}
+
+                varic_dados["opt1_reticulares"] = opt1_reticulares
+                varic_dados["opt2_extrassaf"] = opt2_extrassaf
+                varic_dados["reticulares_lista"] = reticulares_coletadas
 
             st.markdown("---")
 
-            # 2.6 TROMBOFLEBITE SUPERFICIAL
-            st.markdown("#### 2.6 Tromboflebite Superficial")
+            # 2.5 TROMBOFLEBITE SUPERFICIAL
+            st.markdown("#### 2.5 Tromboflebite Superficial")
             incluir_tromboflebite = st.toggle("Identificada tromboflebite superficial?", key=f"tromboflebite_tog_{m_nome}")
             tromboflebite_dados = None
             if incluir_tromboflebite:
@@ -1183,9 +1323,8 @@ def gerar_cartografia_venosa(m_nome, dados_m, paciente):
     vd = dados_m.get("varic_dados", {})
     if vd.get("possui"):
         tipos_var = []
-        if vd.get("telangiectasias", {}).get("nutridora"):  tipos_var.append("Telang. nutridora")
-        if vd.get("reticulares", {}).get("presente"):       tipos_var.append("Reticulares")
-        if vd.get("varizes", {}).get("presente"):           tipos_var.append("Varizes C2")
+        if vd.get("reticulares_lista"):     tipos_var.append(f"Malhas reticulares ({len(vd['reticulares_lista'])})")
+        if vd.get("opt2_extrassaf"):        tipos_var.append("Varizes extrassafênicas")
         if tipos_var:
             ax_med.text(-5.5, 6, "Varicosidades:\n" + ", ".join(tipos_var),
                         fontsize=6, ha='left', va='bottom', color='#784212',
@@ -1662,53 +1801,16 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                 else:
                     conclusoes_lista.append((m_nome, f"Insuficiência de veia perfurante na {r_reg.lower()} (face {r_face.lower()})."))
 
-        # 2.4 MAPA DE VARICOSIDADES
+        # 2.4 MAPEAMENTO DE VARIZES SUPERFICIAIS
         vd = dm["varic_dados"]
         if vd.get("possui", False):
-            # Telangiectasias — apenas se nutridora
-            tel = vd.get("telangiectasias", {})
-            if tel.get("nutridora"):
-                tel_loc = tel.get("nutridora_loc", "")
-                add_p(
-                    f"Identificada(s) veia(s) telangiectatica(s) funcionando como nutridora(s)"
-                    + (f", localizada(s) {tel_loc}" if tel_loc else "") + ".",
-                    space_before=6
-                )
-                conclusoes_lista.append((m_nome, f"Telangiectasias com veia nutridora identificada{(' em ' + tel_loc) if tel_loc else ''}."))
+            # Item 1 — Malhas reticulares / telangiectasias
+            for _ret_ach in vd.get("reticulares_lista", []):
+                add_p(_ret_ach.get("texto", ""), space_before=6)
+                if _ret_ach.get("conclusao"):
+                    conclusoes_lista.append((m_nome, _ret_ach["conclusao"]))
 
-            # Veias Reticulares
-            ret = vd.get("reticulares", {})
-            if ret.get("presente"):
-                ret_con = ret.get("conexao", "")
-                ret_loc = ret.get("localizacao", "")
-                if ret_con == "Conexão demonstrável":
-                    ret_con_desc = ret.get("conexao_desc", "")
-                    con_txt = f"com conexão demonstrável{(' a ' + ret_con_desc) if ret_con_desc else ''}"
-                else:
-                    con_txt = "sem conexão demonstrável ao método"
-                add_p(
-                    f"Identificadas malhas reticulares (1 a < 3 mm de diâmetro)"
-                    + (f", localizadas predominantemente {ret_loc}" if ret_loc else "")
-                    + f", {con_txt}.",
-                    space_before=6
-                )
-                conclusoes_lista.append((m_nome, f"Malhas reticulares{(' em ' + ret_loc) if ret_loc else ''}, {con_txt}."))
-
-            # Varizes C2
-            var = vd.get("varizes", {})
-            if var.get("presente"):
-                var_loc = var.get("localizacao", "")
-                orig_list = var.get("origem", [])
-                orig_txt = (", ".join(orig_list)) if orig_list else "origem não classificada"
-                add_p(
-                    f"Identificadas veias varicosas (≥ 3 mm de diâmetro)"
-                    + (f", localizadas predominantemente {var_loc}" if var_loc else "")
-                    + f". Origem: {orig_txt}.",
-                    space_before=6
-                )
-                conclusoes_lista.append((m_nome, f"Varizes C2{(' em ' + var_loc) if var_loc else ''}. Origem: {orig_txt}."))
-
-        # 2.5 VARIZES EXTRASSAFÊNICAS
+        # 2.5 VARIZES EXTRASSAFÊNICAS (item 2 do mapeamento de varizes superficiais)
         _CONCLUSAO_PELVICA = "Varizes do membro inferior com alimentação de origem pélvica. Junções safeno-femoral e safeno-poplítea continentes."
         ved = dm.get("varizes_extrassaf_dados", {})
         for _veitem in ved.get("lista", []):
@@ -1832,7 +1934,7 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                 if _pontos_old:
                     conclusoes_lista.append((m_nome, f"Varizes extrassafênicas por refluxo pélvico ({', '.join(_pontos_old)})."))
 
-        # 2.6 TROMBOFLEBITE SUPERFICIAL (Mapeamento)
+        # 2.5 TROMBOFLEBITE SUPERFICIAL (Mapeamento)
         _tf = dm.get("tromboflebite_dados")
         if _tf is not None:
             add_p("TROMBOFLEBITE SUPERFICIAL", space_before=10, space_after=4)
