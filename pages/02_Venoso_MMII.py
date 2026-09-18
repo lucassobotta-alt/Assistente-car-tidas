@@ -57,6 +57,7 @@ with st.sidebar:
         crm_uf = st.selectbox("UF", ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"], index=25)
     rqe_medico = st.text_input("RQE:", "")
     incluir_assinatura = st.toggle("Incluir assinatura / carimbo no laudo", value=False)
+    incluir_obs_pelvica = st.toggle("Incluir observação de complementação de imagem pélvica", value=False)
 
     st.markdown("---")
     if st.button("🔄 Resetar Todos os Parâmetros", use_container_width=True, type="secondary"):
@@ -862,8 +863,8 @@ for idx, m_nome in enumerate(membros_para_processar):
 
             st.markdown("---")
 
-            # 3. MÓDULOS ADICIONAIS & VARIÁVEIS EXTRAS
-            st.markdown("#### 3. Módulos Adicionais")
+            # 3. ACHADOS EXTRAS & VARIÁVEIS EXTRAS
+            st.markdown("#### 3. Achados Extras")
             c_add1, c_add2 = st.columns(2)
             with c_add1:
                 giacomini_opt = st.selectbox("Veia de Giacomini Isolada:", ["Não se aplica / Normal", "3.1 Refluxo ostial drenado de forma ascendente", "3.2 Refluxo ostial transferindo para VSM"], key=f"giacomini_{m_nome}")
@@ -1444,7 +1445,14 @@ def construir_laudo_word(membros_lista, dados_m_dict):
     add_p("Exame realizado com o paciente em ortostase, utilizando transdutor linear de alta frequência, com avaliação compressiva segmentar, mapeamento de fluxo em cores e análise espectral Doppler pulsado, sem limitações técnicas.", space_after=12)
     
     conclusoes_lista = []
-    
+    _OBS_PELVICA = (
+        "Sugere-se complementação com ultrassonografia transvaginal ou transabdominal "
+        "dirigida ao território utero-ovariano / angiotomografia ou angiorressonância de "
+        "pelve e abdome para caracterização do nível de refluxo e exclusão de causa obstrutiva "
+        "(síndrome de May-Thurner, compressão da veia renal esquerda), cuja definição tem "
+        "implicação terapêutica direta."
+    )
+
     for m_nome in membros_lista:
         dm = dados_m_dict[m_nome]
         add_p("⸻", space_after=12)
@@ -1704,13 +1712,6 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                 conclusoes_lista.append((m_nome, f"Varizes C2{(' em ' + var_loc) if var_loc else ''}. Origem: {orig_txt}."))
 
         # 2.5 VARIZES EXTRASSAFÊNICAS
-        _OBS_PELVICA = (
-            "Sugere-se complementação com ultrassonografia transvaginal ou transabdominal "
-            "dirigida ao território utero-ovariano / angiotomografia ou angiorressonância de "
-            "pelve e abdome para caracterização do nível de refluxo e exclusão de causa obstrutiva "
-            "(síndrome de May-Thurner, compressão da veia renal esquerda), cuja definição tem "
-            "implicação terapêutica direta."
-        )
         _CONCLUSAO_PELVICA = "Varizes do membro inferior com alimentação de origem pélvica. Junções safeno-femoral e safeno-poplítea continentes."
         ved = dm.get("varizes_extrassaf_dados", {})
         for _veitem in ved.get("lista", []):
@@ -1751,7 +1752,6 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                         space_before=6
                     )
                     conclusoes_lista.append((m_nome, _CONCLUSAO_PELVICA))
-                    add_p(_OBS_PELVICA, space_before=4, italic=True)
 
                 elif "Ponto I" in _ponto:
                     _dren_i = _pd.get("drenagem_i", "veia safena magna")
@@ -1764,7 +1764,6 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                         space_before=6
                     )
                     conclusoes_lista.append((m_nome, _CONCLUSAO_PELVICA))
-                    add_p(_OBS_PELVICA, space_before=4, italic=True)
 
                 elif "Ponto O" in _ponto:
                     add_p(
@@ -1775,7 +1774,6 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                         space_before=6
                     )
                     conclusoes_lista.append((m_nome, _CONCLUSAO_PELVICA))
-                    add_p(_OBS_PELVICA, space_before=4, italic=True)
 
                 elif "Ponto G superior" in _ponto:
                     add_p(
@@ -1785,7 +1783,6 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                         space_before=6
                     )
                     conclusoes_lista.append((m_nome, _CONCLUSAO_PELVICA))
-                    add_p(_OBS_PELVICA, space_before=4, italic=True)
 
                 elif "Ponto G inferior" in _ponto:
                     _dren_gi = _pd.get("drenagem_g_inf", "veia safena parva")
@@ -1798,7 +1795,6 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                         space_before=6
                     )
                     conclusoes_lista.append((m_nome, _CONCLUSAO_PELVICA))
-                    add_p(_OBS_PELVICA, space_before=4, italic=True)
 
                 elif "masculino" in _ponto.lower() and "inguinal" in _ponto.lower():
                     add_p(
@@ -1808,7 +1804,6 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                         space_before=6
                     )
                     conclusoes_lista.append((m_nome, _CONCLUSAO_PELVICA))
-                    add_p(_OBS_PELVICA, space_before=4, italic=True)
 
                 elif "masculino" in _ponto.lower() and "perineal" in _ponto.lower():
                     add_p(
@@ -1817,7 +1812,6 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                         space_before=6
                     )
                     conclusoes_lista.append((m_nome, _CONCLUSAO_PELVICA))
-                    add_p(_OBS_PELVICA, space_before=4, italic=True)
 
                 elif "Negativa" in _ponto:
                     add_p(
@@ -1840,7 +1834,6 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                     add_p(f"Refluxo pélvico identificado em {_pt_old}.", space_before=6)
                 if _pontos_old:
                     conclusoes_lista.append((m_nome, f"Varizes extrassafênicas por refluxo pélvico ({', '.join(_pontos_old)})."))
-                add_p(_OBS_PELVICA, space_before=4, italic=True)
 
         # 2.6 TROMBOFLEBITE SUPERFICIAL (Mapeamento)
         _tf = dm.get("tromboflebite_dados")
@@ -1892,7 +1885,7 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                     )
                     conclusoes_lista.append((m_nome, f"Sinais de tromboflebite superficial em veia varicosa{_tf_varicosa_txt}."))
 
-        # 3. MÓDULOS ADICIONAIS EXTRA (Giacomini Isolado, Pélvicas)
+        # 3. ACHADOS EXTRAS (Giacomini Isolado, Pélvicas)
         if dm["giacomini_opt"] != "Não se aplica / Normal" or dm["varizes_pelvicas_opt"] != "Ausentes":
             add_p("OUTROS ACHADOS FLUXOMÉTRICOS / PONTOS DE ESCAPE", space_before=8)
             if "3.1" in dm["giacomini_opt"]:
@@ -1938,6 +1931,15 @@ def construir_laudo_word(membros_lista, dados_m_dict):
         for m_origem, conclusao_txt in conclusoes_unicas:
             prefixo = f"[{m_origem}] " if formato_exame == "Bilateral (Laudo Único)" else ""
             add_p(f"{prefixo}{conclusao_txt}", bullet=True)
+
+    if incluir_obs_pelvica:
+        _tem_escape_pelvico = any(
+            _vi.get("tipo") == "Escape pélvico" and "Negativa" not in _vi.get("pelvico_ponto", "")
+            for dm_obs in dados_m_dict.values()
+            for _vi in dm_obs.get("varizes_extrassaf_dados", {}).get("lista", [])
+        )
+        if _tem_escape_pelvico:
+            add_p(_OBS_PELVICA, space_before=8, italic=True)
 
     if incluir_assinatura and (nome_medico or crm_medico):
         doc.add_paragraph().paragraph_format.space_before = Pt(25)
