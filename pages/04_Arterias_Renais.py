@@ -43,6 +43,7 @@ with st.sidebar:
         crm_uf = st.selectbox("UF", ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"], index=25, key="ar_uf")
     rqe_medico = st.text_input("RQE:", "", key="ar_rqe")
     incluir_assinatura = st.toggle("Incluir assinatura / carimbo no laudo", value=False, key="ar_assin")
+    incluir_cabecalho = st.toggle("Incluir cabeçalho institucional no laudo", value=False, key="ar_cabecalho")
 
     st.markdown("---")
     st.markdown("### 🔬 Avaliação Complementar")
@@ -60,7 +61,7 @@ with st.sidebar:
     _AR_SIDEBAR_KEYS = {
         "ar_fonte", "ar_tam", "ar_esp", "ar_qpd", "ar_saida",
         "ar_clinica", "ar_medico", "ar_crm", "ar_uf", "ar_rqe",
-        "ar_assin", "ar_rodape_tog", "ar_rodape_url",
+        "ar_assin", "ar_cabecalho", "ar_rodape_tog", "ar_rodape_url",
         "ar_sug_comp", "ar_sug_metodos",
     }
     if st.button("🔄 Resetar Todos os Parâmetros", use_container_width=True, type="secondary"):
@@ -75,6 +76,27 @@ with st.sidebar:
     rodape_url = ""
     if incluir_rodape_link:
         rodape_url = st.text_input("URL do sistema:", placeholder="Ex: https://seu-app.streamlit.app", key="ar_rodape_url")
+
+# --- CABEÇALHO INSTITUCIONAL (opcional) ---
+cab_nome = ""
+cab_solicitante = ""
+cab_convenio = ""
+cab_idade = ""
+cab_dn = ""
+cab_data_exame = ""
+
+if incluir_cabecalho:
+    st.markdown("### 🏥 Cabeçalho do Laudo")
+    _cb1, _cb2 = st.columns(2)
+    with _cb1:
+        cab_nome = st.text_input("NOME:", key="ar_cab_nome")
+        cab_solicitante = st.text_input("Solicitante: Dr.", key="ar_cab_sol")
+        cab_convenio = st.text_input("Convênio:", key="ar_cab_conv")
+    with _cb2:
+        cab_idade = st.text_input("Idade (anos):", key="ar_cab_idade")
+        cab_dn = st.text_input("DN:", key="ar_cab_dn")
+        cab_data_exame = st.text_input("Data do exame:", key="ar_cab_data")
+    st.markdown("---")
 
 # --- PACIENTE ---
 nome_paciente = st.text_input("Nome do Paciente:", "", key="ar_paciente")
@@ -275,6 +297,23 @@ if modo_template == "Avaliação de Rim Transplantado":
             if italic:
                 r.italic = True
 
+        if incluir_cabecalho:
+            _cab_esq = [f"NOME: {cab_nome}", f"Solicitante: Dr. {cab_solicitante}", f"Convênio: {cab_convenio}"]
+            _cab_dir = [f"Idade: {cab_idade} anos", f"DN: {cab_dn}", f"Data do exame: {cab_data_exame}"]
+            tbl = doc.add_table(rows=3, cols=2)
+            try:
+                tbl.style = 'Table Grid'
+            except KeyError:
+                pass
+            for i, (esq, dir_) in enumerate(zip(_cab_esq, _cab_dir)):
+                tbl.cell(i, 0).text = esq
+                tbl.cell(i, 1).text = dir_
+                for col in (0, 1):
+                    for run in tbl.cell(i, col).paragraphs[0].runs:
+                        run.font.name = fonte_doc
+                        run.font.size = Pt(tamanho_fonte)
+            doc.add_paragraph().paragraph_format.space_after = Pt(8)
+
         if nome_clinica.strip():
             p_cl = doc.add_paragraph()
             p_cl.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -449,7 +488,22 @@ if modo_template == "Avaliação de Rim Transplantado":
         buf.seek(0)
         st.success("Laudo gerado com sucesso!")
         if modo_saida in ["Somente Visualização", "Visualização + DOCX"]:
-            texto_viz = "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+            from docx.oxml.ns import qn as _qn
+            linhas_viz = []
+            for bloco in doc.element.body:
+                tag = bloco.tag.split('}')[-1]
+                if tag == 'p':
+                    txt = "".join(n.text or "" for n in bloco.iter() if n.tag.endswith('}t'))
+                    if txt.strip():
+                        linhas_viz.append(txt)
+                elif tag == 'tbl':
+                    for tr in bloco.findall('.//' + _qn('w:tr')):
+                        celulas = ["".join(n.text or "" for n in tc.iter() if n.tag.endswith('}t')).strip()
+                                   for tc in tr.findall(_qn('w:tc'))]
+                        celulas = [c for c in celulas if c]
+                        if celulas:
+                            linhas_viz.append("   |   ".join(celulas))
+            texto_viz = "\n".join(linhas_viz)
             st.markdown("## 👁️ Visualização do Laudo")
             st.text_area("Laudo Gerado", value=texto_viz, height=600)
         if modo_saida in ["Somente DOCX", "Visualização + DOCX"]:
@@ -795,6 +849,23 @@ def construir_laudo_renais():
         if italic:
             r.italic = True
 
+    if incluir_cabecalho:
+        _cab_esq = [f"NOME: {cab_nome}", f"Solicitante: Dr. {cab_solicitante}", f"Convênio: {cab_convenio}"]
+        _cab_dir = [f"Idade: {cab_idade} anos", f"DN: {cab_dn}", f"Data do exame: {cab_data_exame}"]
+        tbl = doc.add_table(rows=3, cols=2)
+        try:
+            tbl.style = 'Table Grid'
+        except KeyError:
+            pass
+        for i, (esq, dir_) in enumerate(zip(_cab_esq, _cab_dir)):
+            tbl.cell(i, 0).text = esq
+            tbl.cell(i, 1).text = dir_
+            for col in (0, 1):
+                for run in tbl.cell(i, col).paragraphs[0].runs:
+                    run.font.name = fonte_doc
+                    run.font.size = Pt(tamanho_fonte)
+        doc.add_paragraph().paragraph_format.space_after = Pt(8)
+
     if nome_clinica.strip():
         p_cl = doc.add_paragraph()
         p_cl.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -998,7 +1069,22 @@ if st.button("🚀 Gerar Laudo de Artérias Renais", use_container_width=True):
 
     st.success("Laudo gerado com sucesso!")
     if modo_saida in ["Somente Visualização", "Visualização + DOCX"]:
-        texto_viz = "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+        from docx.oxml.ns import qn as _qn
+        linhas_viz = []
+        for bloco in doc.element.body:
+            tag = bloco.tag.split('}')[-1]
+            if tag == 'p':
+                txt = "".join(n.text or "" for n in bloco.iter() if n.tag.endswith('}t'))
+                if txt.strip():
+                    linhas_viz.append(txt)
+            elif tag == 'tbl':
+                for tr in bloco.findall('.//' + _qn('w:tr')):
+                    celulas = ["".join(n.text or "" for n in tc.iter() if n.tag.endswith('}t')).strip()
+                               for tc in tr.findall(_qn('w:tc'))]
+                    celulas = [c for c in celulas if c]
+                    if celulas:
+                        linhas_viz.append("   |   ".join(celulas))
+        texto_viz = "\n".join(linhas_viz)
         st.markdown("## 👁️ Visualização do Laudo")
         st.text_area("Laudo Gerado", value=texto_viz, height=600)
     if modo_saida in ["Somente DOCX", "Visualização + DOCX"]:

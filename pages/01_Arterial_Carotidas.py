@@ -189,6 +189,7 @@ with st.sidebar:
     incluir_assinatura = st.toggle("Incluir assinatura / carimbo no laudo", value=False)
     incluir_observacoes = st.toggle("Incluir observações complementares", value=True)
     incluir_velocidades = st.toggle("Incluir velocidades (VPS / relação ACI-ACC) no laudo", value=True)
+    incluir_cabecalho = st.toggle("Incluir cabeçalho institucional no laudo", value=False)
 
     st.markdown("---")
     
@@ -216,6 +217,27 @@ with st.sidebar:
         st.session_state.w_vps_vert_esq = 0.0
         st.toast("🔄 Todos os dados clínicos foram limpos!")
         st.rerun()
+
+# --- CABEÇALHO INSTITUCIONAL (opcional) ---
+cab_nome = ""
+cab_solicitante = ""
+cab_convenio = ""
+cab_idade = ""
+cab_dn = ""
+cab_data_exame = ""
+
+if incluir_cabecalho:
+    st.markdown("### 🏥 Cabeçalho do Laudo")
+    _cb1, _cb2 = st.columns(2)
+    with _cb1:
+        cab_nome = st.text_input("NOME:", key="car_cab_nome")
+        cab_solicitante = st.text_input("Solicitante: Dr.", key="car_cab_sol")
+        cab_convenio = st.text_input("Convênio:", key="car_cab_conv")
+    with _cb2:
+        cab_idade = st.text_input("Idade (anos):", key="car_cab_idade")
+        cab_dn = st.text_input("DN:", key="car_cab_dn")
+        cab_data_exame = st.text_input("Data do exame:", key="car_cab_data")
+    st.markdown("---")
 
 # Opções técnicas fixas
 opcoes_tecnicas = {
@@ -858,6 +880,23 @@ if gerar_laudo:
     }
 
     # --- GERAÇÃO DO DOCUMENTO ---
+    if incluir_cabecalho:
+        _cab_esq = [f"NOME: {cab_nome}", f"Solicitante: Dr. {cab_solicitante}", f"Convênio: {cab_convenio}"]
+        _cab_dir = [f"Idade: {cab_idade} anos", f"DN: {cab_dn}", f"Data do exame: {cab_data_exame}"]
+        tbl = doc.add_table(rows=3, cols=2)
+        try:
+            tbl.style = 'Table Grid'
+        except KeyError:
+            pass
+        for i, (esq, dir_) in enumerate(zip(_cab_esq, _cab_dir)):
+            tbl.cell(i, 0).text = esq
+            tbl.cell(i, 1).text = dir_
+            for col in (0, 1):
+                for run in tbl.cell(i, col).paragraphs[0].runs:
+                    run.font.name = fonte_doc
+                    run.font.size = Pt(tamanho_fonte)
+        doc.add_paragraph().paragraph_format.space_after = Pt(8)
+
     if template_usuario.strip():
         # MODO TEMPLATE: substituição de marcadores
         if nome_clinica:
@@ -935,7 +974,22 @@ if gerar_laudo:
 
     # Visualização do laudo na própria página
     if modo_saida in ["Somente Visualização", "Visualização + DOCX"]:
-        texto_visualizacao = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
+        from docx.oxml.ns import qn as _qn
+        linhas_viz = []
+        for bloco in doc.element.body:
+            tag = bloco.tag.split('}')[-1]
+            if tag == 'p':
+                txt = "".join(n.text or "" for n in bloco.iter() if n.tag.endswith('}t'))
+                if txt.strip():
+                    linhas_viz.append(txt)
+            elif tag == 'tbl':
+                for tr in bloco.findall('.//' + _qn('w:tr')):
+                    celulas = ["".join(n.text or "" for n in tc.iter() if n.tag.endswith('}t')).strip()
+                               for tc in tr.findall(_qn('w:tc'))]
+                    celulas = [c for c in celulas if c]
+                    if celulas:
+                        linhas_viz.append("   |   ".join(celulas))
+        texto_visualizacao = "\n".join(linhas_viz)
         st.markdown("## 👁️ Visualização do Laudo")
         st.text_area(
             "Laudo Gerado",
