@@ -1402,8 +1402,6 @@ def construir_laudo_tvp(membros_lista, dados_m_dict):
             r.italic = True
 
     if incluir_cabecalho:
-        tbl = doc.add_table(rows=3, cols=2)
-        tbl.style = 'Table Grid'
         _cab_esq = [
             f"NOME: {cab_nome}",
             f"Solicitante: Dr. {cab_solicitante}",
@@ -1414,6 +1412,11 @@ def construir_laudo_tvp(membros_lista, dados_m_dict):
             f"DN: {cab_dn}",
             f"Data do exame: {cab_data_exame}",
         ]
+        tbl = doc.add_table(rows=3, cols=2)
+        try:
+            tbl.style = 'Table Grid'
+        except KeyError:
+            pass
         for i, (esq, dir_) in enumerate(zip(_cab_esq, _cab_dir)):
             tbl.cell(i, 0).text = esq
             tbl.cell(i, 1).text = dir_
@@ -1606,10 +1609,6 @@ def construir_laudo_word(membros_lista, dados_m_dict):
             r.italic = True
 
     if incluir_cabecalho:
-        from docx.oxml.ns import qn
-        from docx.oxml import OxmlElement
-        tbl = doc.add_table(rows=3, cols=2)
-        tbl.style = 'Table Grid'
         _cab_esq = [
             f"NOME: {cab_nome}",
             f"Solicitante: Dr. {cab_solicitante}",
@@ -1620,6 +1619,11 @@ def construir_laudo_word(membros_lista, dados_m_dict):
             f"DN: {cab_dn}",
             f"Data do exame: {cab_data_exame}",
         ]
+        tbl = doc.add_table(rows=3, cols=2)
+        try:
+            tbl.style = 'Table Grid'
+        except KeyError:
+            pass
         for i, (esq, dir_) in enumerate(zip(_cab_esq, _cab_dir)):
             tbl.cell(i, 0).text = esq
             tbl.cell(i, 1).text = dir_
@@ -1627,7 +1631,6 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                 for run in tbl.cell(i, col).paragraphs[0].runs:
                     run.font.name = fonte_doc
                     run.font.size = Pt(tamanho_fonte)
-        # remove border para visual limpo (apenas linhas internas)
         doc.add_paragraph().paragraph_format.space_after = Pt(8)
 
     if nome_clinica.strip():
@@ -2122,7 +2125,24 @@ def construir_laudo_word(membros_lista, dados_m_dict):
 def _exibir_doc(doc, buf, nome_arquivo, label_download):
     st.success("Laudo gerado com sucesso!")
     if modo_saida in ["Somente Visualização", "Visualização + DOCX"]:
-        texto_viz = "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+        from docx.oxml.ns import qn as _qn
+        linhas_viz = []
+        for bloco in doc.element.body:
+            tag = bloco.tag.split('}')[-1]
+            if tag == 'p':
+                txt = "".join(n.text or "" for n in bloco.iter() if n.tag.endswith('}t'))
+                if txt.strip():
+                    linhas_viz.append(txt)
+            elif tag == 'tbl':
+                for tr in bloco.findall('.//' + _qn('w:tr')):
+                    celulas = []
+                    for tc in tr.findall(_qn('w:tc')):
+                        txt_c = "".join(n.text or "" for n in tc.iter() if n.tag.endswith('}t'))
+                        if txt_c.strip():
+                            celulas.append(txt_c.strip())
+                    if celulas:
+                        linhas_viz.append("   |   ".join(celulas))
+        texto_viz = "\n".join(linhas_viz)
         st.markdown("## 👁️ Visualização do Laudo")
         st.text_area("Laudo Gerado", value=texto_viz, height=600)
     if modo_saida in ["Somente DOCX", "Visualização + DOCX"]:
