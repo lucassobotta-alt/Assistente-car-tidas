@@ -492,7 +492,7 @@ for idx, m_nome in enumerate(membros_para_processar):
 
             if vsp_status_geral == "Pérvia / Presente":
                 st.markdown("**Avaliação da Junção Safenopoplítea (JSP):**")
-                jsp_status = st.radio("Status da JSP:", ["Competente", "Incompetente", "Ausente (extensão cranial — Veia de Giacomini)"], horizontal=True, key=f"jsp_status_{m_nome}")
+                jsp_status = st.radio("Status da JSP:", ["Competente", "Incompetente", "Ausente"], horizontal=True, key=f"jsp_status_{m_nome}")
                 vsp_dados_form["jsp_status"] = jsp_status
 
                 if jsp_status == "Incompetente":
@@ -581,7 +581,7 @@ for idx, m_nome in enumerate(membros_para_processar):
             if "Ausente" not in vsp_status_geral:
                 st.markdown("**Mensurações da Veia Safena Parva (Diâmetros em mm):**")
                 cp1, cp2, cp3 = st.columns(3)
-                label_jsp_dinamico = "Extensão cranial (mm):" if "Giacomini" in vsp_dados_form.get("jsp_status", "") else "Junção safenopoplítea (mm):"
+                label_jsp_dinamico = "Extensão cranial (mm):" if vsp_dados_form.get("jsp_status") == "Ausente" else "Junção safenopoplítea (mm):"
                 with cp1: vsp_dados_form["jsp_mm"] = st.text_input(label_jsp_dinamico, "4.2", key=f"jsp_mm_{m_nome}")
                 with cp2: vsp_dados_form["vsp_crossa"] = st.text_input("Crossa da safena parva (mm):", "3.8", key=f"crossa_{m_nome}")
                 with cp3: vsp_dados_form["vsp_med_perna_diam"] = st.text_input("Terço médio da perna (mm):", "3.0", key=f"med_per_{m_nome}")
@@ -1572,9 +1572,11 @@ def construir_laudo_word(membros_lista, dados_m_dict):
         else:
             # Pérvia / Presente
             jsp_st = vsp_d.get("jsp_status", "Competente")
-            if "Giacomini" in jsp_st:
-                add_p("Junção safenopoplítea anatomicamente ausente. Observa-se extensão cranial da veia safena parva (Veia de Giacomini) cursando no plano fascial posterior da coxa.")
-                conclusoes_lista.append((m_nome, "Extensão cranial anatômica da veia safena parva (Veia de Giacomini)."))
+            if "Giacomini" in jsp_st or jsp_st == "Ausente":
+                add_p("Junção safenopoplítea anatomicamente ausente. Observa-se extensão cranial da veia safena parva cursando no plano fascial posterior da coxa.")
+                if not vsp_d.get("tronco_refluxo", False):
+                    add_p("A veia safena parva segue pérvia e competente por toda sua extensão.")
+                conclusoes_lista.append((m_nome, "Extensão cranial anatômica da veia safena parva, com junção safenopoplítea anatomicamente ausente."))
             elif jsp_st == "Competente":
                 add_p("A junção safenopoplítea apresenta-se competente, sem evidências de refluxo valvar patológico.")
                 if not vsp_d.get("tronco_refluxo", False):
