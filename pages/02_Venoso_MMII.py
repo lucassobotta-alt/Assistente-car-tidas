@@ -1792,7 +1792,6 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                 add_p("Junção safenopoplítea anatomicamente ausente. Observa-se extensão cranial da veia safena parva cursando no plano fascial posterior da coxa.")
                 if not vsp_d.get("tronco_refluxo", False):
                     add_p("A veia safena parva segue pérvia e competente por toda sua extensão.")
-                conclusoes_lista.append((m_nome, "Extensão cranial anatômica da veia safena parva, com junção safenopoplítea anatomicamente ausente."))
             elif jsp_st == "Competente":
                 add_p("A junção safenopoplítea apresenta-se competente, sem evidências de refluxo valvar patológico.")
                 if not vsp_d.get("tronco_refluxo", False):
