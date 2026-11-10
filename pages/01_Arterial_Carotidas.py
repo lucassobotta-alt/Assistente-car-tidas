@@ -60,7 +60,7 @@ def obter_texto_hemo_continuo(estado, vps_aci, vcc, tem_placa=False, diretriz="D
                 det = f", caracterizada por velocidade de pico sistólico na artéria carótida interna{vel_aci}" if incluir_vel else ""
                 return "Estenose < 50%", f"determinando estenose leve (<50% pelos critérios da Diretriz SBC 2023){det}."
             else:
-                return "Normal", "com fluxo bifásico anterógrado de baixa resistência, caracterizado por diástole sustentada e velocidades dentro da normalidade, compatível com irrigação de leito encefálico de baixa impedância. Não há sinais de estenose ou turbulência."
+                return "Normal", "com fluxo bifásico anterógrado de baixa resistência, caracterizado por diástole sustentada e velocidades dentro da normalidade, compatível com irrigação de leito encefálico de baixa impedância. Não há sinais de estenose hemodinamicamente significativa."
 
         if vps_aci > 400 or relacao > 5.0:
             det = f", caracterizada por acentuada elevação das velocidades de fluxo com VPS na artéria carótida interna{vel_aci}{vel_rel}" if incluir_vel else ""
