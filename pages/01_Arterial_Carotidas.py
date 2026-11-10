@@ -381,8 +381,8 @@ with st.expander("4. Mapeamento de Placas Ateroscleróticas (Consolidadas ≥ 2.
     c_vaso, c_loc = st.columns(2)
     with c_vaso:
         vaso_selecionado = st.selectbox("Selecione a Artéria:", [
-            "Artéria carótida comum direita", "Bulbo carotídeo direito", "Artéria carótida interna direita",
-            "Artéria carótida comum esquerda", "Bulbo carotídeo esquerdo", "Artéria carótida interna esquerda"
+            "Artéria carótida comum direita", "Bulbo carotídeo direito", "Bifurcação carotídea direita", "Artéria carótida interna direita",
+            "Artéria carótida comum esquerda", "Bulbo carotídeo esquerdo", "Bifurcação carotídea esquerda", "Artéria carótida interna esquerda"
         ], key="vaso_placa")
     with c_loc:
         localizacao_selecionada = st.selectbox("Localização / Segmento:", ["terço proximal", "terço médio", "terço distal", "segmento total/bifurcação"], key="local_placa")
@@ -444,7 +444,7 @@ with st.expander("5. Calcificações Parietais Isoladas (Sem Formação de Placa
         with col_c1:
             lado_calc = st.selectbox("Lado da Calcificação:", ["Direito", "Esquerdo", "Bilateral"])
         with col_c2:
-            topografia_calc = st.selectbox("Localização Anatômica:", ["bulbo carotídeo", "artéria carótida comum", "artéria carótida interna"])
+            topografia_calc = st.selectbox("Localização Anatômica:", ["bulbo carotídeo", "bifurcação carotídea", "artéria carótida comum", "artéria carótida interna"])
         
         if st.button("💾 Adicionar Calcificação Isolada"):
             lados_calc_add = ["Direito", "Esquerdo"] if lado_calc == "Bilateral" else [lado_calc]
@@ -609,9 +609,18 @@ if gerar_laudo:
         comp = p['composicao_texto'].lower().removeprefix("placa ")
         txt_bulbo_dir += f" Apresenta placa de ateroma {comp} medindo {p['espessura']} mm de espessura com superfície {p['superficie_texto'].lower()}{suffix_pr}, sem repercussão hemodinâmica, denotando redução luminal inferior a 50%."
         tem_achado_bulbo_dir = True
+    for p in [x for x in st.session_state.lista_placas if "bifurcação carotídea direita" in x['vaso'].lower()]:
+        suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
+        comp = p['composicao_texto'].lower().removeprefix("placa ")
+        txt_bulbo_dir += f" Na bifurcação carotídea direita: placa de ateroma {comp} medindo {p['espessura']} mm de espessura com superfície {p['superficie_texto'].lower()}{suffix_pr}, sem repercussão hemodinâmica, denotando redução luminal inferior a 50%."
+        tem_achado_bulbo_dir = True
     for c in st.session_state.calcificacoes_isoladas:
         if c['lado'] == "Direito" and "bulbo" in c['topografia']:
             txt_bulbo_dir += " Identificam-se calcificações parietais isoladas sem repercussão hemodinâmica."
+            tem_achado_bulbo_dir = True
+    for c in st.session_state.calcificacoes_isoladas:
+        if c['lado'] == "Direito" and "bifurcação" in c['topografia']:
+            txt_bulbo_dir += " Identificam-se calcificações parietais isoladas na bifurcação carotídea direita, sem repercussão hemodinâmica."
             tem_achado_bulbo_dir = True
     if not tem_achado_bulbo_dir:
         txt_bulbo_dir += " Sem evidências de placas ou alterações estruturais."
@@ -686,9 +695,18 @@ if gerar_laudo:
         comp = p['composicao_texto'].lower().removeprefix("placa ")
         txt_bulbo_esq += f" Apresenta placa de ateroma {comp} medindo {p['espessura']} mm de espessura com superfície {p['superficie_texto'].lower()}{suffix_pr}, sem repercussão hemodinâmica, denotando redução luminal inferior a 50%."
         tem_achado_bulbo_esq = True
+    for p in [x for x in st.session_state.lista_placas if "bifurcação carotídea esquerda" in x['vaso'].lower()]:
+        suffix_pr = f" ({p['plaque_rads']})" if p['plaque_rads'] else ""
+        comp = p['composicao_texto'].lower().removeprefix("placa ")
+        txt_bulbo_esq += f" Na bifurcação carotídea esquerda: placa de ateroma {comp} medindo {p['espessura']} mm de espessura com superfície {p['superficie_texto'].lower()}{suffix_pr}, sem repercussão hemodinâmica, denotando redução luminal inferior a 50%."
+        tem_achado_bulbo_esq = True
     for c in st.session_state.calcificacoes_isoladas:
         if c['lado'] == "Esquerdo" and "bulbo" in c['topografia']:
             txt_bulbo_esq += " Identificam-se calcificações parietais isoladas sem repercussão hemodinâmica."
+            tem_achado_bulbo_esq = True
+    for c in st.session_state.calcificacoes_isoladas:
+        if c['lado'] == "Esquerdo" and "bifurcação" in c['topografia']:
+            txt_bulbo_esq += " Identificam-se calcificações parietais isoladas na bifurcação carotídea esquerda, sem repercussão hemodinâmica."
             tem_achado_bulbo_esq = True
     if not tem_achado_bulbo_esq:
         txt_bulbo_esq += " Sem evidências de placas ou alterações estruturais."
