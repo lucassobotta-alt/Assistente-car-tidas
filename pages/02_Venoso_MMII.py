@@ -438,12 +438,12 @@ for idx, m_nome in enumerate(membros_para_processar):
                     seg_desague = st.selectbox(
                         "Ponto distal (deságue do refluxo):",
                         ["Tributária epifascial varicosa", "Tributária varicosa troncular",
-                         "Veia perfurante de drenagem", "Região maleolar"],
+                         "Veia perfurante de drenagem", "Região maleolar", "Ponto J"],
                         key=f"seg_desague_{m_nome}"
                     )
 
-                    # Linha 4: Fim — Referência e Distância (oculto se região maleolar)
-                    if seg_desague != "Região maleolar":
+                    # Linha 4: Fim — Referência e Distância (oculto se região maleolar ou Ponto J)
+                    if seg_desague not in ("Região maleolar", "Ponto J"):
                         c_dist1, c_dist2, c_dist3 = st.columns(3)
                         with c_dist1:
                             seg_dist_ref = st.selectbox("Fim — Referência:", _refs, key=f"seg_dist_ref_{m_nome}")
