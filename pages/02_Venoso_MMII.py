@@ -619,7 +619,7 @@ for idx, m_nome in enumerate(membros_para_processar):
             if "Ausente" not in vsp_status_geral:
                 st.markdown("**Mensurações da Veia Safena Parva (Diâmetros em mm):**")
                 cp1, cp2, cp3 = st.columns(3)
-                label_jsp_dinamico = "Extensão cranial (mm):" if vsp_dados_form.get("jsp_status") == "Ausente" else "Junção safenopoplítea (mm):"
+                label_jsp_dinamico = "Extensão de coxa (mm):" if vsp_dados_form.get("jsp_status") == "Ausente" else "Junção safenopoplítea (mm):"
                 with cp1: vsp_dados_form["jsp_mm"] = st.text_input(label_jsp_dinamico, "4.2", key=f"jsp_mm_{m_nome}")
                 with cp2: vsp_dados_form["vsp_crossa"] = st.text_input("Crossa da safena parva (mm):", "3.8", key=f"crossa_{m_nome}")
                 with cp3: vsp_dados_form["vsp_med_perna_diam"] = st.text_input("Terço médio da perna (mm):", "3.0", key=f"med_per_{m_nome}")
@@ -1828,8 +1828,9 @@ def construir_laudo_word(membros_lista, dados_m_dict):
 
         # Impressão das Medidas da VSP
         if "Ausente" not in vsp_status_rel:
+            _lbl_jsp = "Extensão de coxa:" if vsp_d.get("jsp_status") == "Ausente" else "Junção safenopoplítea:"
             medidas_vsp = [
-                ("Junção/Extensão Safenopoplítea:", dm['jsp_mm']),
+                (_lbl_jsp, dm['jsp_mm']),
                 ("Crossa da safena parva:", dm['vsp_crossa']),
                 ("Terço médio da perna:", dm['vsp_med_perna_diam'])
             ]
