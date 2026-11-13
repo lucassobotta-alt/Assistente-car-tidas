@@ -625,16 +625,18 @@ for idx, m_nome in enumerate(membros_para_processar):
 
             if "Ausente" not in vsp_status_geral:
                 st.markdown("**Mensurações da Veia Safena Parva (Diâmetros em mm):**")
-                cp1, cp2, cp3 = st.columns(3)
+                cp1, cp2, cp3, cp4 = st.columns(4)
                 label_jsp_dinamico = "Extensão de coxa (mm):" if vsp_dados_form.get("jsp_status") == "Ausente" else "Junção safenopoplítea (mm):"
                 with cp1: vsp_dados_form["jsp_mm"] = st.text_input(label_jsp_dinamico, "", key=f"jsp_mm_{m_nome}")
                 with cp2: vsp_dados_form["vsp_crossa"] = st.text_input("Crossa da safena parva (mm):", "", key=f"crossa_{m_nome}")
                 with cp3: vsp_dados_form["vsp_med_perna_diam"] = st.text_input("Terço médio da perna (mm):", "", key=f"med_per_{m_nome}")
+                with cp4: vsp_dados_form["vsp_inf_perna_diam"] = st.text_input("Terço inferior da perna (mm):", "", key=f"inf_per_{m_nome}")
 
             vsp_dados_input = vsp_dados_form
             jsp_mm = vsp_dados_form.get("jsp_mm", "")
             vsp_crossa = vsp_dados_form.get("vsp_crossa", "")
             vsp_med_perna_diam = vsp_dados_form.get("vsp_med_perna_diam", "")
+            vsp_inf_perna_diam = vsp_dados_form.get("vsp_inf_perna_diam", "")
 
             st.markdown("---")
 
@@ -1059,7 +1061,7 @@ for idx, m_nome in enumerate(membros_para_processar):
                 "svp": svp_res, "vsm_mapeamento": vsm_dados_mapeamento,
                 "jsf_mm": jsf_mm, "vsm_prox_coxa": vsm_prox_coxa, "vsm_med_coxa": vsm_med_coxa, "vsm_dist_coxa": vsm_dist_coxa,
                 "vsm_prox_perna": vsm_prox_perna, "vsm_med_perna": vsm_med_perna, "vsm_dist_perna": vsm_dist_perna,
-                "vsp_dados_input": vsp_dados_input, "jsp_mm": jsp_mm, "vsp_crossa": vsp_crossa, "vsp_med_perna_diam": vsp_med_perna_diam,
+                "vsp_dados_input": vsp_dados_input, "jsp_mm": jsp_mm, "vsp_crossa": vsp_crossa, "vsp_med_perna_diam": vsp_med_perna_diam, "vsp_inf_perna_diam": vsp_inf_perna_diam,
                 "achados_adi_multi": achados_multiplos, "cisto_medidas": cisto_medidas,
                 "perfurantes_lista": perfurantes_coletadas if possui_perfurantes else [],
                 "varic_dados": varic_dados,
@@ -1848,7 +1850,8 @@ def construir_laudo_word(membros_lista, dados_m_dict):
             medidas_vsp = [
                 (_lbl_jsp, dm['jsp_mm']),
                 ("Crossa da safena parva:", dm['vsp_crossa']),
-                ("Terço médio da perna:", dm['vsp_med_perna_diam'])
+                ("Terço médio da perna:", dm['vsp_med_perna_diam']),
+                ("Terço inferior da perna:", dm.get('vsp_inf_perna_diam', ''))
             ]
             medidas_vsp_ativas = [(lbl, val) for lbl, val in medidas_vsp if str(val).strip()]
             if medidas_vsp_ativas:
