@@ -491,14 +491,14 @@ for idx, m_nome in enumerate(membros_para_processar):
             if "Pérvia" in vsm_status_geral:
                 st.markdown("**Mensurações da Veia Safena Magna (Diâmetros em mm):**")
                 cm1, cm2, cm3, cm4 = st.columns(4)
-                with cm1: jsf_mm = st.text_input("Junção safenofemoral (mm):", "4.5", key=f"jsf_mm_{m_nome}")
-                with cm2: vsm_prox_coxa = st.text_input("Terço proximal da coxa (mm):", "3.8", key=f"prox_c_{m_nome}")
-                with cm3: vsm_med_coxa = st.text_input("Terço médio da coxa (mm):", "3.5", key=f"med_c_{m_nome}")
-                with cm4: vsm_dist_coxa = st.text_input("Terço distal da coxa (mm):", "3.2", key=f"dist_c_{m_nome}")
+                with cm1: jsf_mm = st.text_input("Junção safenofemoral (mm):", "", key=f"jsf_mm_{m_nome}")
+                with cm2: vsm_prox_coxa = st.text_input("Terço proximal da coxa (mm):", "", key=f"prox_c_{m_nome}")
+                with cm3: vsm_med_coxa = st.text_input("Terço médio da coxa (mm):", "", key=f"med_c_{m_nome}")
+                with cm4: vsm_dist_coxa = st.text_input("Terço distal da coxa (mm):", "", key=f"dist_c_{m_nome}")
                 cm5, cm6, cm7 = st.columns(3)
-                with cm5: vsm_prox_perna = st.text_input("Terço proximal da perna (mm):", "3.0", key=f"prox_p_{m_nome}")
-                with cm6: vsm_med_perna = st.text_input("Terço médio da perna (mm):", "2.8", key=f"med_p_{m_nome}")
-                with cm7: vsm_dist_perna = st.text_input("Terço distal da perna (mm):", "2.5", key=f"dist_p_{m_nome}")
+                with cm5: vsm_prox_perna = st.text_input("Terço proximal da perna (mm):", "", key=f"prox_p_{m_nome}")
+                with cm6: vsm_med_perna = st.text_input("Terço médio da perna (mm):", "", key=f"med_p_{m_nome}")
+                with cm7: vsm_dist_perna = st.text_input("Terço distal da perna (mm):", "", key=f"dist_p_{m_nome}")
                 # Alertas de diâmetro da VSM (ESVS 2022)
                 _alertas_vsm = []
                 try:
@@ -550,25 +550,23 @@ for idx, m_nome in enumerate(membros_para_processar):
 
                 incluir_seg_vsp = st.toggle("Incluir Segmento Incompetente da VSP", key=f"incluir_seg_vsp_{m_nome}")
 
-                _refs_vsp = ["Junção Safenopoplítea (JSP)", "Interlinha do Joelho", "Face Plantar"]
+                _refs_vsp = ["Prega poplítea", "Face plantar"]
 
                 if incluir_seg_vsp:
                     seg_vsp_origem = st.selectbox(
                         "Origem do refluxo (escape proximal):",
-                        ["Insuficiência valvar isolada", "Tributárias pélvicas", "Veia de Giacomini incompetente", "Veia perfurante incompetente"],
+                        ["Insuficiência valvar isolada",
+                         "Tributárias posteromediais alimentadas pela veia safena magna",
+                         "Tributárias de face posterior alimentadas por varizes ciáticas",
+                         "Veia de Giacomini incompetente", "Veia perfurante incompetente"],
                         key=f"seg_vsp_origem_{m_nome}"
                     )
-                    c_vp1, c_vp2, c_vp3 = st.columns(3)
+                    c_vp1, c_vp3 = st.columns(2)
                     with c_vp1:
                         seg_vsp_prox_ref = st.selectbox("Início — Referência:", _refs_vsp, key=f"seg_vsp_prox_ref_{m_nome}")
-                    with c_vp2:
-                        if seg_vsp_prox_ref == "Interlinha do Joelho":
-                            seg_vsp_prox_pos = st.radio("Posição:", ["acima", "abaixo"], horizontal=True, key=f"seg_vsp_prox_pos_{m_nome}")
-                        else:
-                            seg_vsp_prox_pos = ""
-                            st.empty()
+                    seg_vsp_prox_pos = ""
                     with c_vp3:
-                        seg_vsp_prox_cm = st.text_input("Distância (cm):", "0", key=f"seg_vsp_prox_cm_{m_nome}")
+                        seg_vsp_prox_cm = st.text_input("Distância (cm):", "", key=f"seg_vsp_prox_cm_{m_nome}")
 
                     seg_vsp_desague = st.selectbox(
                         "Ponto distal (deságue do refluxo):",
@@ -577,17 +575,12 @@ for idx, m_nome in enumerate(membros_para_processar):
                     )
 
                     if "maleolar" not in seg_vsp_desague.lower():
-                        c_vd1, c_vd2, c_vd3 = st.columns(3)
+                        c_vd1, c_vd3 = st.columns(2)
                         with c_vd1:
                             seg_vsp_dist_ref = st.selectbox("Fim — Referência:", _refs_vsp, key=f"seg_vsp_dist_ref_{m_nome}")
-                        with c_vd2:
-                            if seg_vsp_dist_ref == "Interlinha do Joelho":
-                                seg_vsp_dist_pos = st.radio("Posição:", ["acima", "abaixo"], horizontal=True, key=f"seg_vsp_dist_pos_{m_nome}")
-                            else:
-                                seg_vsp_dist_pos = ""
-                                st.empty()
+                        seg_vsp_dist_pos = ""
                         with c_vd3:
-                            seg_vsp_dist_cm = st.text_input("Distância (cm):", "15", key=f"seg_vsp_dist_cm_{m_nome}")
+                            seg_vsp_dist_cm = st.text_input("Distância (cm):", "", key=f"seg_vsp_dist_cm_{m_nome}")
                     else:
                         seg_vsp_dist_ref = seg_vsp_dist_pos = seg_vsp_dist_cm = ""
 
@@ -620,9 +613,9 @@ for idx, m_nome in enumerate(membros_para_processar):
                 st.markdown("**Mensurações da Veia Safena Parva (Diâmetros em mm):**")
                 cp1, cp2, cp3 = st.columns(3)
                 label_jsp_dinamico = "Extensão de coxa (mm):" if vsp_dados_form.get("jsp_status") == "Ausente" else "Junção safenopoplítea (mm):"
-                with cp1: vsp_dados_form["jsp_mm"] = st.text_input(label_jsp_dinamico, "4.2", key=f"jsp_mm_{m_nome}")
-                with cp2: vsp_dados_form["vsp_crossa"] = st.text_input("Crossa da safena parva (mm):", "3.8", key=f"crossa_{m_nome}")
-                with cp3: vsp_dados_form["vsp_med_perna_diam"] = st.text_input("Terço médio da perna (mm):", "3.0", key=f"med_per_{m_nome}")
+                with cp1: vsp_dados_form["jsp_mm"] = st.text_input(label_jsp_dinamico, "", key=f"jsp_mm_{m_nome}")
+                with cp2: vsp_dados_form["vsp_crossa"] = st.text_input("Crossa da safena parva (mm):", "", key=f"crossa_{m_nome}")
+                with cp3: vsp_dados_form["vsp_med_perna_diam"] = st.text_input("Terço médio da perna (mm):", "", key=f"med_per_{m_nome}")
 
             vsp_dados_input = vsp_dados_form
             jsp_mm = vsp_dados_form.get("jsp_mm", "")
