@@ -669,10 +669,14 @@ for idx, m_nome in enumerate(membros_para_processar):
                     "Localizada sob úlcera ativa ou cicatrizada (contexto C5/C6)?",
                     key=f"perf_c5c6_{m_nome}_new"
                 )
+                perf_nova["tronculares"] = st.checkbox(
+                    "Associada a veias tronculares varicosas?",
+                    key=f"perf_tronc_{m_nome}_new"
+                )
                 # Classificação automática
                 try:
-                    _dur_val  = float(perf_nova["fluxo_dur_s"])
-                    _diam_val = float(perf_nova["diametro_mm"])
+                    _dur_val  = float(perf_nova["fluxo_dur_s"].replace(",", "."))
+                    _diam_val = float(perf_nova["diametro_mm"].replace(",", "."))
                 except ValueError:
                     _dur_val = 0.0; _diam_val = 0.0
                 _outward = perf_nova["fluxo_dir"] == "Para fora (outward)"
@@ -1874,10 +1878,11 @@ def construir_laudo_word(membros_lista, dados_m_dict):
                     txt_fluxo = ", exibindo fluxo bidirecional transfascial"
                 else:
                     txt_fluxo = f", com fluxo de saída de duração de {r_dur} s" if r_dur else ""
+                txt_tronc = ", associada a veias tronculares varicosas" if p_dados.get("tronculares") else ""
 
                 add_p(
                     f"Identificada veia perfurante {r_class} na {r_reg.lower()}, face {r_face.lower()}"
-                    f"{txt_diam}, situada a {r_alt} cm {txt_ref_perf}{txt_fluxo}.",
+                    f"{txt_diam}, situada a {r_alt} cm {txt_ref_perf}{txt_fluxo}{txt_tronc}.",
                     bullet=True
                 )
                 if r_class == "patológica":
