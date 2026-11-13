@@ -561,10 +561,15 @@ for idx, m_nome in enumerate(membros_para_processar):
                          "Veia de Giacomini incompetente", "Veia perfurante incompetente"],
                         key=f"seg_vsp_origem_{m_nome}"
                     )
-                    c_vp1, c_vp3 = st.columns(2)
+                    c_vp1, c_vp2, c_vp3 = st.columns(3)
                     with c_vp1:
                         seg_vsp_prox_ref = st.selectbox("Início — Referência:", _refs_vsp, key=f"seg_vsp_prox_ref_{m_nome}")
-                    seg_vsp_prox_pos = ""
+                    with c_vp2:
+                        if seg_vsp_prox_ref == "Prega poplítea":
+                            seg_vsp_prox_pos = st.radio("Posição:", ["acima", "abaixo"], horizontal=True, key=f"seg_vsp_prox_pos_{m_nome}")
+                        else:
+                            seg_vsp_prox_pos = ""
+                            st.empty()
                     with c_vp3:
                         seg_vsp_prox_cm = st.text_input("Distância (cm):", "", key=f"seg_vsp_prox_cm_{m_nome}")
 
@@ -575,10 +580,15 @@ for idx, m_nome in enumerate(membros_para_processar):
                     )
 
                     if "maleolar" not in seg_vsp_desague.lower():
-                        c_vd1, c_vd3 = st.columns(2)
+                        c_vd1, c_vd2, c_vd3 = st.columns(3)
                         with c_vd1:
                             seg_vsp_dist_ref = st.selectbox("Fim — Referência:", _refs_vsp, key=f"seg_vsp_dist_ref_{m_nome}")
-                        seg_vsp_dist_pos = ""
+                        with c_vd2:
+                            if seg_vsp_dist_ref == "Prega poplítea":
+                                seg_vsp_dist_pos = st.radio("Posição:", ["acima", "abaixo"], horizontal=True, key=f"seg_vsp_dist_pos_{m_nome}")
+                            else:
+                                seg_vsp_dist_pos = ""
+                                st.empty()
                         with c_vd3:
                             seg_vsp_dist_cm = st.text_input("Distância (cm):", "", key=f"seg_vsp_dist_cm_{m_nome}")
                     else:
@@ -596,9 +606,13 @@ for idx, m_nome in enumerate(membros_para_processar):
                     st.markdown("**Segmentos VSP registrados:**")
                     for i, _r in enumerate(st.session_state["segmentos_vsp_reg"][m_nome]):
                         def _fmr_vsp(ref, pos, cm):
-                            if ref == "Interlinha do Joelho":
-                                return f"{cm} cm {pos} da interlinha do joelho"
-                            return f"{cm} cm da {ref}"
+                            cm_v = str(cm).strip()
+                            if ref == "Prega poplítea":
+                                if not cm_v or cm_v == "0":
+                                    return "nível da prega poplítea"
+                                pos_txt = f" {pos}" if pos else ""
+                                return f"{cm_v} cm{pos_txt} da prega poplítea"
+                            return f"{cm_v} cm da {ref.lower()}" if cm_v else ref.lower()
                         _ini = _fmr_vsp(_r["prox_ref"], _r["prox_pos"], _r["prox_cm"])
                         _fim_str = f" até {_fmr_vsp(_r['dist_ref'], _r['dist_pos'], _r['dist_cm'])}" if _r.get("dist_ref") else ""
                         st.markdown(f"`{i+1:02d}` {_r.get('origem','')} → {_r.get('desague','')} — de {_ini}{_fim_str}")
@@ -1797,19 +1811,24 @@ def construir_laudo_word(membros_lista, dados_m_dict):
 
             if vsp_d.get("tronco_refluxo") and vsp_d.get("segmentos_lista"):
                 def _fmt_ref_vsp_doc(ref, pos, cm):
-                    if ref == "Interlinha do Joelho":
-                        return f"{cm} cm {pos} da interlinha do joelho"
-                    return f"{cm} cm da {ref}"
+                    cm_v = str(cm).strip()
+                    if ref == "Prega poplítea":
+                        if not cm_v or cm_v == "0":
+                            return ("nivel", "nível da prega poplítea")
+                        pos_txt = f" {pos}" if pos else ""
+                        return ("dist", f"{cm_v} cm{pos_txt} da prega poplítea")
+                    return ("dist", f"{cm_v} cm da {ref.lower()}" if cm_v else ref.lower())
                 for reg_vsp in vsp_d["segmentos_lista"]:
                     _orig_vsp = reg_vsp.get("origem", "")
                     _des_vsp = reg_vsp.get("desague", "")
                     _orig_txt = f" com escape originado de {_orig_vsp.lower()}" if _orig_vsp and _orig_vsp != "Insuficiência valvar isolada" else ""
-                    _ini_vsp = _fmt_ref_vsp_doc(reg_vsp["prox_ref"], reg_vsp["prox_pos"], reg_vsp["prox_cm"])
+                    _ini_tipo, _ini_vsp = _fmt_ref_vsp_doc(reg_vsp["prox_ref"], reg_vsp["prox_pos"], reg_vsp["prox_cm"])
+                    _desde = "desde o" if _ini_tipo == "nivel" else "de"
                     if _des_vsp and "maleolar" in _des_vsp.lower():
                         _ext_vsp = f"a partir de {_ini_vsp}, estendendo-se até a {_des_vsp.lower()}"
                     elif reg_vsp.get("dist_ref"):
-                        _fim_vsp = _fmt_ref_vsp_doc(reg_vsp["dist_ref"], reg_vsp["dist_pos"], reg_vsp["dist_cm"])
-                        _ext_vsp = f"de {_ini_vsp} até {_fim_vsp}"
+                        _, _fim_vsp = _fmt_ref_vsp_doc(reg_vsp["dist_ref"], reg_vsp["dist_pos"], reg_vsp["dist_cm"])
+                        _ext_vsp = f"{_desde} {_ini_vsp} até {_fim_vsp}"
                     else:
                         _ext_vsp = f"a partir de {_ini_vsp}"
                     add_p(f"Identificado segmento incompetente no tronco da veia safena parva{_orig_txt}, com extensão {_ext_vsp}, com deságue para {_des_vsp.lower() if _des_vsp else 'tributárias epifasciais'}.")
